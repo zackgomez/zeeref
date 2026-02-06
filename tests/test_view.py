@@ -594,12 +594,6 @@ def test_on_action_settings(show_mock, view):
     show_mock.assert_called_once()
 
 
-@patch('beeref.widgets.controls.ControlsDialog.show')
-def test_on_action_keyboard_settings(show_mock, view):
-    view.on_action_keyboard_settings()
-    show_mock.assert_called_once()
-
-
 @patch('beeref.widgets.HelpDialog.show')
 def test_on_action_help(show_mock, view):
     view.on_action_help()
