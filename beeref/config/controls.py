@@ -45,6 +45,7 @@ class MouseConfigBase:
         ('Not Configured', Qt.MouseButton.NoButton),
         ('Left', Qt.MouseButton.LeftButton),
         ('Middle',  Qt.MouseButton.MiddleButton),
+        ('Right',  Qt.MouseButton.RightButton),
     ))
 
     def __eq__(self, other):
@@ -274,10 +275,13 @@ class KeyboardSettings(QtCore.QSettings):
         ),
         MouseConfig(
             id='movewindow2',
-            group='movewindow (alternative)',
-            text='Move Window',
-            button='Not Configured',
-            modifiers=(),
+            group='movewindow',
+            text='Move Window (alternative)',
+            # Right-click drag can move the window, while a plain right-click
+            # still opens the context menu (drag threshold is handled in
+            # MainControlsMixin).
+            button='Right',
+            modifiers=('No Modifier',),
             invertible=False,
         ),
     ])

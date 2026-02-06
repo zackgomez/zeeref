@@ -951,21 +951,21 @@ def test_on_action_show_titlebar_unchecked(
     create_mock.assert_called_once()
 
 
-@patch('beeref.widgets.welcome_overlay.WelcomeOverlay.cursor')
+@patch('beeref.view.BeeGraphicsView.cursor')
 def test_on_action_move_window_when_welcome_overlay(cursor_mock, view):
     cursor_mock.return_value = MagicMock(
         pos=MagicMock(return_value=QtCore.QPointF(10.0, 20.0)))
     view.on_action_move_window()
-    assert view.welcome_overlay.movewin_active is True
-    assert view.welcome_overlay.event_start == QtCore.QPointF(10.0, 20.0)
+    assert view.movewin_active is True
+    assert view.event_start == QtCore.QPointF(10.0, 20.0)
 
 
 def test_on_action_move_window_when_already_active(view):
-    view.welcome_overlay.event_start = QtCore.QPointF(10.0, 20.0)
-    view.welcome_overlay.movewin_active = True
+    view.event_start = QtCore.QPointF(10.0, 20.0)
+    view.movewin_active = True
     view.on_action_move_window()
-    assert view.welcome_overlay.movewin_active is False
-    assert view.welcome_overlay.event_start == QtCore.QPointF(10.0, 20.0)
+    assert view.movewin_active is False
+    assert view.event_start == QtCore.QPointF(10.0, 20.0)
 
 
 @patch('beeref.view.BeeGraphicsView.cursor')
@@ -1430,6 +1430,62 @@ def test_mouse_press_when_move_window_active(mouse_event_mock, view):
     mouse_event_mock.assert_not_called()
 
 
+def test_right_click_drag_moves_window_and_suppresses_context_menu(view):
+    # Right-click drag should enter move-window mode (default binding),
+    # and should not open the context menu.
+    view.mapToGlobal = MagicMock(side_effect=lambda p: p)
+    view.parent.x = MagicMock(return_value=0)
+    view.parent.y = MagicMock(return_value=0)
+    view.parent.move = MagicMock()
+    view.on_context_menu = MagicMock()
+
+    with patch('beeref.view.BeeGraphicsView.cursor') as cursor_mock:
+        cursor_mock.return_value = MagicMock(
+            pos=MagicMock(return_value=QtCore.QPointF(0.0, 0.0)))
+
+        press = MagicMock()
+        press.button.return_value = Qt.MouseButton.RightButton
+        press.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+        press.position.return_value = QtCore.QPointF(0.0, 0.0)
+        view.mousePressEvent(press)
+
+        move_start = MagicMock()
+        move_start.position.return_value = QtCore.QPointF(100.0, 0.0)
+        view.mouseMoveEvent(move_start)
+        assert view.movewin_active is True
+
+        move = MagicMock()
+        move.position.return_value = QtCore.QPointF(120.0, 0.0)
+        view.mouseMoveEvent(move)
+        view.parent.move.assert_called()
+
+        release = MagicMock()
+        release.button.return_value = Qt.MouseButton.RightButton
+        release.position.return_value = QtCore.QPointF(120.0, 0.0)
+        view.mouseReleaseEvent(release)
+        assert view.movewin_active is False
+
+        view.on_context_menu.assert_not_called()
+
+
+def test_right_click_opens_context_menu_on_release(view):
+    view.mapToGlobal = MagicMock(side_effect=lambda p: p)
+    view.context_menu.exec = MagicMock()
+
+    press = MagicMock()
+    press.button.return_value = Qt.MouseButton.RightButton
+    press.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    press.position.return_value = QtCore.QPointF(10.0, 20.0)
+    view.mousePressEvent(press)
+
+    release = MagicMock()
+    release.button.return_value = Qt.MouseButton.RightButton
+    release.position.return_value = QtCore.QPointF(10.0, 20.0)
+    view.mouseReleaseEvent(release)
+
+    view.context_menu.exec.assert_called_once()
+
+
 @patch('PyQt6.QtWidgets.QGraphicsView.keyPressEvent')
 def test_key_press_when_sample_color_mode(key_event_mock, view):
     view.active_mode = view.SAMPLE_COLOR_MODE
@@ -1527,6 +1583,7 @@ def test_mouse_move_movewin(move_mock, mouse_event_mock, view):
     view.event_start = QtCore.QPointF(10.0, 20.0)
     event = MagicMock()
     event.position.return_value = QtCore.QPointF(15.0, 18.0)
+    view.mapToGlobal = MagicMock(side_effect=lambda p: p)
     view.mouseMoveEvent(event)
     move_mock.assert_called_once_with(5, -2)
     mouse_event_mock.assert_not_called()

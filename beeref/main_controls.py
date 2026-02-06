@@ -14,6 +14,7 @@
 # along with BeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
+from dataclasses import dataclass
 
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtCore import Qt
@@ -26,6 +27,12 @@ from beeref import fileio
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class _RightClickState:
+    start_pos: QtCore.QPointF
+    can_movewin: bool
+
+
 class MainControlsMixin:
     """Basic controls shared by the main view and the welcome overlay:
 
@@ -36,11 +43,12 @@ class MainControlsMixin:
 
     def init_main_controls(self, main_window):
         self.main_window = main_window
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.customContextMenuRequested.connect(
-            self.control_target.on_context_menu)
+        # We manage right-click behavior ourselves so we can distinguish
+        # a plain click (open context menu) from a drag (move window).
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.setAcceptDrops(True)
         self.movewin_active = False
+        self.right_click_state = None
 
     def on_action_movewin_mode(self):
         if self.movewin_active:
@@ -117,8 +125,17 @@ class MainControlsMixin:
             event.accept()
             return True
 
-        action, inverted =\
+        action, inverted = \
             self.control_target.keyboard_settings.mouse_action_for_event(event)
+
+        if event.button() == Qt.MouseButton.RightButton:
+            self.right_click_state = _RightClickState(
+                start_pos=event.position(),
+                can_movewin=(action == 'movewindow'),
+            )
+            event.accept()
+            return True
+
         if action == 'movewindow':
             self.enter_movewin_mode()
             event.accept()
@@ -134,9 +151,38 @@ class MainControlsMixin:
             event.accept()
             return True
 
+        if self.right_click_state and self.right_click_state.can_movewin:
+            delta = event.position() - self.right_click_state.start_pos
+            if delta.manhattanLength() >= 2:
+                self.right_click_state = None
+                self.enter_movewin_mode()
+                event.accept()
+                return True
+
     def mouseReleaseEventMainControls(self, event):
         if self.movewin_active:
             self.exit_movewin_mode()
+            event.accept()
+            return True
+
+        if event.button() == Qt.MouseButton.RightButton:
+            if self.right_click_state:
+                delta = event.position() - self.right_click_state.start_pos
+                if (self.right_click_state.can_movewin
+                        and delta.manhattanLength() >= 2):
+                    self.right_click_state = None
+                    event.accept()
+                    return True
+
+                # No drag — open context menu.
+                pos = event.position()
+                point = QtCore.QPoint(int(pos.x()), int(pos.y()))
+                self.control_target.on_context_menu(point)
+                self.right_click_state = None
+                event.accept()
+                return True
+
+            self.right_click_state = None
             event.accept()
             return True
 

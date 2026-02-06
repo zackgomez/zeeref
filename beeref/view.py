@@ -270,10 +270,7 @@ class BeeGraphicsView(MainControlsMixin,
         self.parent.show()
 
     def on_action_move_window(self):
-        if self.welcome_overlay.isHidden():
-            self.on_action_movewin_mode()
-        else:
-            self.welcome_overlay.on_action_movewin_mode()
+        self.on_action_movewin_mode()
 
     def on_action_undo(self):
         logger.debug('Undo: %s' % self.undo_stack.undoText())

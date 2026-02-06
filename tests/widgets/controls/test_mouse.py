@@ -26,7 +26,7 @@ def test_mouse_editor_inits_buttons_and_modifiers_when_not_configured(view):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0)))
 
-    assert editor.button_input.count() == 3
+    assert editor.button_input.count() == 4
     assert editor.button_input.currentIndex() == 0
 
     assert len(editor.checkboxes) == 6
@@ -47,7 +47,7 @@ def test_mouse_editor_inits_buttons_and_modifiers_when_configured(view):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0)))
 
-    assert editor.button_input.count() == 3
+    assert editor.button_input.count() == 4
     assert editor.button_input.currentIndex() == 1
 
     assert len(editor.checkboxes) == 6
