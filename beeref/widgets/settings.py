@@ -200,9 +200,14 @@ class SettingsDialog(QtWidgets.QDialog):
         misc = QtWidgets.QWidget()
         misc_layout = QtWidgets.QVBoxLayout()
         misc.setLayout(misc_layout)
+        misc_buttons = QtWidgets.QHBoxLayout()
         open_dir_btn = QtWidgets.QPushButton('Open Settings Folder')
         open_dir_btn.clicked.connect(self.on_open_settings_dir)
-        misc_layout.addWidget(open_dir_btn)
+        misc_buttons.addWidget(open_dir_btn)
+        debuglog_btn = QtWidgets.QPushButton('Show Debug Log')
+        debuglog_btn.clicked.connect(self.on_show_debuglog)
+        misc_buttons.addWidget(debuglog_btn)
+        misc_layout.addLayout(misc_buttons)
         misc_grid = QtWidgets.QGridLayout()
         misc_grid.addWidget(ConfirmCloseUnsavedWidget(), 0, 0)
         misc_layout.addLayout(misc_grid)
@@ -275,6 +280,10 @@ class SettingsDialog(QtWidgets.QDialog):
         dirname = os.path.dirname(BeeSettings().fileName())
         QtGui.QDesktopServices.openUrl(
             QtCore.QUrl.fromLocalFile(dirname))
+
+    def on_show_debuglog(self):
+        from beeref.widgets import DebugLogDialog
+        DebugLogDialog(self)
 
     def on_restore_defaults(self, *args, **kwargs):
         reply = QtWidgets.QMessageBox.question(

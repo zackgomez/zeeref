@@ -93,14 +93,8 @@ menu_structure = [
             'sample_color',
         ],
     },
-    {
-        'menu': '&Misc',
-        'items': [
-            'help',
-            'about',
-            'debuglog',
-        ],
-    },
+    'help',
+    'about',
     'settings',
     MENU_SEPARATOR,
     'quit',
