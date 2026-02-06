@@ -1575,8 +1575,7 @@ def test_mouse_move_movewin(move_mock, mouse_event_mock, view):
     view.movewin_active = True
     view.event_start = QtCore.QPointF(10.0, 20.0)
     event = MagicMock()
-    event.position.return_value = QtCore.QPointF(15.0, 18.0)
-    view.mapToGlobal = MagicMock(side_effect=lambda p: p)
+    event.globalPosition.return_value = QtCore.QPointF(15.0, 18.0)
     view.mouseMoveEvent(event)
     move_mock.assert_called_once_with(5, -2)
     mouse_event_mock.assert_not_called()

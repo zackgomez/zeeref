@@ -143,11 +143,17 @@ class MainControlsMixin:
 
     def mouseMoveEventMainControls(self, event):
         if self.movewin_active:
-            pos = self.mapToGlobal(event.position())
+            # Use globalPosition() directly from the event rather than
+            # mapToGlobal(event.position()).  After main_window.move() the
+            # widget's cached global origin may lag behind the real window
+            # position (async window-manager roundtrip on X11/Wayland),
+            # which makes mapToGlobal() return a stale value and causes the
+            # window to jitter or flash.
+            pos = event.globalPosition()
             delta = pos - self.event_start
             self.event_start = pos
-            self.main_window.move(self.main_window.x() + int(delta.x()),
-                                  self.main_window.y() + int(delta.y()))
+            self.main_window.move(self.main_window.x() + round(delta.x()),
+                                  self.main_window.y() + round(delta.y()))
             event.accept()
             return True
 
