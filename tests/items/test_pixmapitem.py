@@ -59,19 +59,6 @@ def test_set_crop(qapp, item):
     item.prepareGeometryChange.assert_called_once_with()
 
 
-def test_set_grayscale_true(qapp, item):
-    item.grayscale = True
-    assert item.grayscale is True
-    assert item._grayscale_pixmap is not None
-
-
-def test_set_grayscale_false(qapp, item):
-    item._grayscale_pixmap = QtGui.QPixmap()
-    item.grayscale = False
-    assert item.grayscale is False
-    assert item._grayscale_pixmap is None
-
-
 def test_bounding_rect_unselected(qapp, imgfilename3x3):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(1, 1, 2, 2)
@@ -89,12 +76,10 @@ def test_get_extra_save_data(item):
     item.filename = 'foobar.png'
     item.crop = QtCore.QRectF(10, 20, 30, 40)
     item.setOpacity(0.75)
-    item.grayscale = True
     assert item.get_extra_save_data() == {
         'filename': 'foobar.png',
         'crop': [10, 20, 30, 40],
         'opacity': 0.75,
-        'grayscale': True
     }
 
 
@@ -202,7 +187,6 @@ def test_get_imgformat_png_when_setting_png(
 def test_pixmap_to_bytes_png(qapp, imgfilename3x3):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(0, 0, 2, 2)
-    item.grayscale = True
     data, imgformat = item.pixmap_to_bytes()
     assert imgformat == 'png'
     assert data.startswith(b'\x89PNG')
@@ -217,7 +201,6 @@ def test_pixmap_to_bytes_jpg(qapp, imgfilename3x3, settings):
     settings.setValue('Items/image_storage_format', 'jpg')
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(0, 0, 2, 2)
-    item.grayscale = True
     data, imgformat = item.pixmap_to_bytes()
     assert imgformat == 'jpg'
     assert data.startswith(b'\xff\xd8\xff\xe0\x00\x10JFIF')
@@ -228,24 +211,9 @@ def test_pixmap_to_bytes_jpg(qapp, imgfilename3x3, settings):
     assert img.size() == QtCore.QSize(3, 3)
 
 
-def test_pixmap_to_bytes_apply_grayscale(qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
-    item.crop = QtCore.QRectF(0, 0, 2, 2)
-    item.grayscale = True
-    data, imgformat = item.pixmap_to_bytes(apply_grayscale=True)
-    assert imgformat == 'png'
-    assert data.startswith(b'\x89PNG')
-    pixmap = QtGui.QPixmap()
-    pixmap.loadFromData(data)
-    img = pixmap.toImage()
-    assert img.allGray() is True
-    assert img.size() == QtCore.QSize(3, 3)
-
-
 def test_pixmap_to_bytes_apply_crop(qapp, imgfilename3x3):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(0, 0, 2, 2)
-    item.grayscale = True
     data, imgformat = item.pixmap_to_bytes(apply_crop=True)
     assert imgformat == 'png'
     assert data.startswith(b'\x89PNG')
@@ -254,20 +222,6 @@ def test_pixmap_to_bytes_apply_crop(qapp, imgfilename3x3):
     img = pixmap.toImage()
     assert img.allGray() is False
     assert img.size() == QtCore.QSize(2, 2)
-
-
-def test_pixmap_to_bytes_apply_grayscale_crop_when_not_set(
-        qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
-    data, imgformat = item.pixmap_to_bytes(apply_grayscale=True,
-                                           apply_crop=False)
-    assert imgformat == 'png'
-    assert data.startswith(b'\x89PNG')
-    pixmap = QtGui.QPixmap()
-    pixmap.loadFromData(data)
-    img = pixmap.toImage()
-    assert img.allGray() is False
-    assert img.size() == QtCore.QSize(3, 3)
 
 
 def test_pixmap_from_bytes(qapp, item, imgfilename3x3):
@@ -363,7 +317,6 @@ def test_create_from_minimal_data(qapp, item, imgfilename3x3):
     assert item.filename == 'foobar.png'
     assert item.crop == QtCore.QRectF(0, 0, 3, 3)
     assert item.opacity() == 1
-    assert item.grayscale is False
 
 
 def test_create_from_data_with_crop(item):
@@ -382,14 +335,6 @@ def test_create_from_data_with_opacity(item):
     assert item.opacity() == 0.7
 
 
-def test_create_from_data_with_grayscale(item):
-    new_item = BeePixmapItem.create_from_data(
-        item=item, data={'filename': 'foobar.png', 'grayscale': True})
-    assert new_item is item
-    assert item.filename == 'foobar.png'
-    assert item.grayscale is True
-
-
 def test_create_copy(qapp, imgfilename3x3):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3), 'foo.png')
     item.setPos(20, 30)
@@ -399,7 +344,6 @@ def test_create_copy(qapp, imgfilename3x3):
     item.setScale(2.2)
     item.crop = QtCore.QRectF(10, 20, 30, 40)
     item.setOpacity(0.7)
-    item.grayscale = True
 
     copy = item.create_copy()
     assert copy.pixmap_to_bytes() == item.pixmap_to_bytes()
@@ -411,7 +355,6 @@ def test_create_copy(qapp, imgfilename3x3):
     assert copy.scale() == 2.2
     assert copy.crop == QtCore.QRectF(10, 20, 30, 40)
     assert copy.opacity() == 0.7
-    assert copy.grayscale is True
 
 
 def test_color_gamut_finds_colors(qapp):
@@ -901,18 +844,6 @@ def test_sample_color_at_returns_none_when_fully_transparent(qapp, view):
     item = BeePixmapItem(img, 'foo.png')
     view.scene.addItem(item)
     assert item.sample_color_at(QtCore.QPointF(2, 2)) is None
-
-
-def test_sample_color_in_greyscale_mode(qapp, view):
-    color = QtGui.QColor(255, 0, 0)
-    img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
-    img.fill(color)
-    item = BeePixmapItem(img, 'foo.png')
-    item.grayscale = True
-    view.scene.addItem(item)
-    gray = item.sample_color_at(QtCore.QPointF(2, 2))
-    print(gray.red(), gray.green(), gray.blue(), gray.alpha())
-    assert gray == QtGui.QColor(130, 130, 130)
 
 
 def test_sample_color_at_returns_none_when_transparent(qapp, view):

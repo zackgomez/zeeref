@@ -87,7 +87,6 @@ menu_structure = [
         'menu': '&Images',
         'items': [
             'change_opacity',
-            'grayscale',
             MENU_SEPARATOR,
             'show_color_gamut',
             'sample_color',

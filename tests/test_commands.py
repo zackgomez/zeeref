@@ -516,16 +516,3 @@ def test_change_opacity_ignore_first_redo(view):
     assert item2.opacity() == 0.7
 
 
-def test_toggle_grayscale(view):
-    item1 = BeePixmapItem(QtGui.QImage())
-    item1.grayscale = True
-    view.scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
-    item2.grayscale = False
-    command = commands.ToggleGrayscale([item1, item2], True)
-    command.redo()
-    assert item1.grayscale is True
-    assert item2.grayscale is True
-    command.undo()
-    assert item1.grayscale is True
-    assert item2.grayscale is False

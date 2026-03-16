@@ -277,14 +277,6 @@ actions = ActionList([
         group='active_when_selection',
     ),
     Action(
-        id='grayscale',
-        text='&Grayscale',
-        shortcuts=['G'],
-        checkable=True,
-        callback='on_action_grayscale',
-        group='active_when_selection',
-    ),
-    Action(
         id='show_color_gamut',
         text='Show &Color Gamut',
         callback='on_action_show_color_gamut',

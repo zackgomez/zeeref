@@ -321,14 +321,6 @@ class BeeGraphicsView(MainControlsMixin,
             self.scene.selectedItems(user_only=True)))
         widgets.ChangeOpacityDialog(self, images, self.undo_stack)
 
-    def on_action_grayscale(self, checked):
-        images = list(filter(
-            lambda item: item.is_image,
-            self.scene.selectedItems(user_only=True)))
-        if images:
-            self.undo_stack.push(
-                commands.ToggleGrayscale(images, checked))
-
     def on_action_crop(self):
         self.scene.crop_items()
 
@@ -706,10 +698,6 @@ class BeeGraphicsView(MainControlsMixin,
         self.actiongroup_set_enabled('active_when_single_image',
                                      self.scene.has_single_image_selection())
 
-        if self.scene.has_selection():
-            item = self.scene.selectedItems(user_only=True)[0]
-            grayscale = getattr(item, 'grayscale', False)
-            actions.actions['grayscale'].qaction.setChecked(grayscale)
         self.viewport().repaint()
 
     def on_cursor_changed(self, cursor):

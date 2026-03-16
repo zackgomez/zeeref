@@ -347,21 +347,3 @@ class ChangeOpacity(QtGui.QUndoCommand):
     def undo(self):
         for item, opacity in zip(self.items, self.old_opacities):
             item.setOpacity(opacity)
-
-
-class ToggleGrayscale(QtGui.QUndoCommand):
-    """Toggle grayscale mode on images."""
-
-    def __init__(self, items, grayscale):
-        super().__init__('Toggle Grayscale')
-        self.items = list(filter(lambda item: item.is_image, items))
-        self.grayscale = grayscale
-        self.old_grayscales = [item.grayscale for item in items]
-
-    def redo(self):
-        for item in self.items:
-            item.grayscale = self.grayscale
-
-    def undo(self):
-        for item, grayscale in zip(self.items, self.old_grayscales):
-            item.grayscale = grayscale

@@ -797,23 +797,6 @@ def test_on_action_cut(copy_mock, view, item):
     assert view.undo_stack.isClean() is False
 
 
-def test_on_selection_changed_updates_grayscale_action(view):
-    item = BeePixmapItem(QtGui.QImage())
-    view.scene.addItem(item)
-    item.grayscale = True
-    actions.actions['grayscale'].qaction.setChecked(False)
-    item.setSelected(True)
-    assert actions.actions['grayscale'].qaction.isChecked() is True
-
-
-def test_on_selection_changed_grayscale_action_ignores_textitem(view):
-    item = BeeTextItem('foo')
-    view.scene.addItem(item)
-    actions.actions['grayscale'].qaction.setChecked(True)
-    item.setSelected(True)
-    assert actions.actions['grayscale'].qaction.isChecked() is False
-
-
 def test_on_action_reset_scale(view, item):
     view.scene.addItem(item)
     item.setScale(2)
@@ -1030,25 +1013,6 @@ def test_on_action_change_opacity(dialog_mock, view):
 
     view.on_action_change_opacity()
     dialog_mock.assert_called_once_with(view, [pixmapitem1], view.undo_stack)
-
-
-def test_on_action_grayscale(view):
-    pixmapitem1 = BeePixmapItem(QtGui.QImage())
-    view.scene.addItem(pixmapitem1)
-    pixmapitem1.setSelected(True)
-
-    pixmapitem2 = BeePixmapItem(QtGui.QImage())
-    view.scene.addItem(pixmapitem2)
-    pixmapitem2.setSelected(False)
-
-    textitem = BeeTextItem('foo')
-    view.scene.addItem(textitem)
-    textitem.setSelected(True)
-
-    view.on_action_grayscale(True)
-    assert len(view.undo_stack) == 1
-    assert pixmapitem1.grayscale is True
-    assert pixmapitem2.grayscale is False
 
 
 def test_cancel_active_modes_when_sample_color_mode(view):

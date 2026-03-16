@@ -127,7 +127,6 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.crop_mode = False
         self.init_selectable()
         self.settings = BeeSettings()
-        self.grayscale = False
 
     @classmethod
     def create_from_data(self, **kwargs):
@@ -137,7 +136,6 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         if 'crop' in data:
             item.crop = QtCore.QRectF(*data['crop'])
         item.setOpacity(data.get('opacity', 1))
-        item.grayscale = data.get('grayscale', False)
         return item
 
     def __str__(self):
@@ -155,60 +153,9 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self._crop = value
         self.update()
 
-    @property
-    def grayscale(self):
-        return self._grayscale
-
-    @grayscale.setter
-    def grayscale(self, value):
-        logger.debug('Setting grayscale for {self} to {value}')
-        self._grayscale = value
-        if value is True:
-            # Using the grayscale image format to convert to grayscale
-            # loses an image's tranparency. So the straightworward
-            # following method gives us an ugly black replacement:
-            # img = img.convertToFormat(QtGui.QImage.Format.Format_Grayscale8)
-
-            # Instead, we will fill the background with the current
-            # canvas colour, so the issue is only visible if the image
-            # overlaps other images. The way we do it here only works
-            # as long as the canvas colour is itself grayscale,
-            # though.
-            img = QtGui.QImage(
-                self.pixmap().size(), QtGui.QImage.Format.Format_Grayscale8)
-            img.fill(QtGui.QColor(*COLORS['Scene:Canvas']))
-            painter = QtGui.QPainter(img)
-            painter.drawPixmap(0, 0, self.pixmap())
-            painter.end()
-            self._grayscale_pixmap = QtGui.QPixmap.fromImage(img)
-
-            # Alternative methods that have their own issues:
-            #
-            # 1. Use setAlphaChannel of the resulting grayscale
-            # image. How do we get the original alpha channel? Using
-            # the whole original image also takes color values into
-            # account, not just their alpha values.
-            #
-            # 2. QtWidgets.QGraphicsColorizeEffect() with black colour
-            # on the GraphicsItem. This applys to everything the paint
-            # method does, so the selection outline/handles will also
-            # be gray. setGraphicsEffect is only available on some
-            # widgets, so we can't apply it selectively.
-            #
-            # 3. Going through every pixel and doing it manually — bad
-            # performance.
-        else:
-            self._grayscale_pixmap = None
-
-        self.update()
-
     def sample_color_at(self, pos):
         ipos = self.mapFromScene(pos)
-        if self.grayscale:
-            pm = self._grayscale_pixmap
-        else:
-            pm = self.pixmap()
-        img = pm.toImage()
+        img = self.pixmap().toImage()
 
         color = img.pixelColor(int(ipos.x()), int(ipos.y()))
         if color.alpha():
@@ -223,7 +170,6 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
     def get_extra_save_data(self):
         return {'filename': self.filename,
                 'opacity': self.opacity(),
-                'grayscale': self.grayscale,
                 'crop': [self.crop.topLeft().x(),
                          self.crop.topLeft().y(),
                          self.crop.width(),
@@ -255,15 +201,12 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         logger.debug(f'Found format {formt} for {self}')
         return formt
 
-    def pixmap_to_bytes(self, apply_grayscale=False, apply_crop=False):
+    def pixmap_to_bytes(self, apply_crop=False):
         """Convert the pixmap data to PNG bytestring."""
         barray = QtCore.QByteArray()
         buffer = QtCore.QBuffer(barray)
         buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
-        if apply_grayscale and self.grayscale:
-            pm = self._grayscale_pixmap
-        else:
-            pm = self.pixmap()
+        pm = self.pixmap()
 
         if apply_crop:
             pm = pm.copy(self.crop.toRect())
@@ -339,7 +282,6 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         item.setScale(self.scale())
         item.setRotation(self.rotation())
         item.setOpacity(self.opacity())
-        item.grayscale = self.grayscale
         if self.flip() == -1:
             item.do_flip()
         item.crop = self.crop
@@ -537,11 +479,10 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
                 self.draw_crop_rect(painter, handle())
             self.draw_crop_rect(painter, self.crop_temp)
         else:
-            pm = self._grayscale_pixmap if self.grayscale else self.pixmap()
+            pm = self.pixmap()
             source_crop = self.crop
 
-            if (not self.grayscale
-                    and effective_scale < 0.8
+            if (effective_scale < 0.8
                     and self._mip_chain):
                 mip_pm, mip_scale = self._get_mip(effective_scale)
                 if mip_pm is not None:
