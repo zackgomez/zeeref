@@ -18,26 +18,25 @@ import logging
 import os.path
 import tempfile
 from urllib.error import URLError
-from urllib import parse, request
+from urllib import request
 
 from PyQt6 import QtGui
 
 from PIL import Image, ImageCms, ImageOps
-from lxml import etree
 
 
 logger = logging.getLogger(__name__)
 
-SRGB_PROFILE = ImageCms.createProfile('sRGB')
+SRGB_PROFILE = ImageCms.createProfile("sRGB")
 
 
 def _pil_to_qimage(pil_img):
     """Convert a PIL Image to a QImage."""
-    if pil_img.mode == 'RGBA':
+    if pil_img.mode == "RGBA":
         fmt = QtGui.QImage.Format.Format_RGBA8888
         channels = 4
     else:
-        pil_img = pil_img.convert('RGB')
+        pil_img = pil_img.convert("RGB")
         fmt = QtGui.QImage.Format.Format_RGB888
         channels = 3
 
@@ -49,27 +48,24 @@ def _pil_to_qimage(pil_img):
 
 def _ensure_srgb(pil_img):
     """Convert CMYK or ICC-profiled images to sRGB."""
-    icc = pil_img.info.get('icc_profile')
+    icc = pil_img.info.get("icc_profile")
 
-    if pil_img.mode == 'CMYK':
+    if pil_img.mode == "CMYK":
         if icc:
             src = ImageCms.ImageCmsProfile(io.BytesIO(icc))
             dst = ImageCms.ImageCmsProfile(SRGB_PROFILE)
-            return ImageCms.profileToProfile(pil_img, src, dst,
-                                             outputMode='RGB')
+            return ImageCms.profileToProfile(pil_img, src, dst, outputMode="RGB")
         else:
-            logger.warning('CMYK image with no ICC profile, '
-                           'using naive conversion')
-            return pil_img.convert('RGB')
+            logger.warning("CMYK image with no ICC profile, using naive conversion")
+            return pil_img.convert("RGB")
 
-    if icc and pil_img.mode in ('RGB', 'RGBA'):
+    if icc and pil_img.mode in ("RGB", "RGBA"):
         try:
             src = ImageCms.ImageCmsProfile(io.BytesIO(icc))
             dst = ImageCms.ImageCmsProfile(SRGB_PROFILE)
-            return ImageCms.profileToProfile(pil_img, src, dst,
-                                             outputMode=pil_img.mode)
+            return ImageCms.profileToProfile(pil_img, src, dst, outputMode=pil_img.mode)
         except ImageCms.PyCMSError:
-            logger.debug('ICC profile conversion failed, using image as-is')
+            logger.debug("ICC profile conversion failed, using image as-is")
 
     return pil_img
 
@@ -83,7 +79,7 @@ def load_pil_image(path):
         pil_img = _ensure_srgb(pil_img)
         return _pil_to_qimage(pil_img)
     except Exception:
-        logger.debug(f'Failed to load image: {path}')
+        logger.debug(f"Failed to load image: {path}")
         return QtGui.QImage()
 
 
@@ -96,24 +92,16 @@ def load_image(path):
         return (load_pil_image(path), path)
 
     url = bytes(path.toEncoded()).decode()
-    domain = '.'.join(parse.urlparse(url).netloc.split(".")[-2:])
     img = QtGui.QImage()
-    if domain == 'pinterest.com':
-        try:
-            page_data = request.urlopen(url).read()
-            root = etree.HTML(page_data)
-            url = root.xpath("//img")[0].get('src')
-        except Exception as e:
-            logger.debug(f'Pinterest image download failed: {e}')
     try:
         imgdata = request.urlopen(url).read()
     except URLError as e:
-        logger.debug(f'Downloading image failed: {e.reason}')
+        logger.debug(f"Downloading image failed: {e.reason}")
     else:
         with tempfile.TemporaryDirectory() as tmp:
-            fname = os.path.join(tmp, 'img')
-            with open(fname, 'wb') as f:
+            fname = os.path.join(tmp, "img")
+            with open(fname, "wb") as f:
                 f.write(imgdata)
-                logger.debug(f'Temporarily saved in: {fname}')
+                logger.debug(f"Temporarily saved in: {fname}")
             img = load_pil_image(fname)
     return (img, url)

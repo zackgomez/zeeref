@@ -15,16 +15,16 @@ from beeref.widgets import (
 
 
 def test_debug_log_dialog(qtbot, settings, view):
-    with open(logfile_name(), 'w') as f:
-        f.write('my log output')
+    with open(logfile_name(), "w") as f:
+        f.write("my log output")
 
     dialog = DebugLogDialog(view)
     dialog.show()
     qtbot.addWidget(dialog)
-    assert dialog.log.toPlainText() == 'my log output'
+    assert dialog.log.toPlainText() == "my log output"
     qtbot.mouseClick(dialog.copy_button, Qt.MouseButton.LeftButton)
     clipboard = QtWidgets.QApplication.clipboard()
-    assert clipboard.text() == 'my log output'
+    assert clipboard.text() == "my log output"
 
 
 def test_scene_to_pixmap_exporter_dialog_sets_defaults(view):
@@ -60,7 +60,7 @@ def test_change_opacity_dialog_init(view, item):
     stack = QtGui.QUndoStack()
     dlg = ChangeOpacityDialog(view, [item], stack)
     assert dlg.input.value() == 60
-    assert dlg.label.text() == 'Opacity: 60%'
+    assert dlg.label.text() == "Opacity: 60%"
 
 
 def test_change_opacity_dialog_live_update(view, item):
@@ -68,7 +68,7 @@ def test_change_opacity_dialog_live_update(view, item):
     stack = QtGui.QUndoStack()
     dlg = ChangeOpacityDialog(view, [item], stack)
     dlg.input.setValue(30)
-    assert dlg.label.text() == 'Opacity: 30%'
+    assert dlg.label.text() == "Opacity: 30%"
     assert item.opacity() == 0.3
 
 
@@ -101,28 +101,26 @@ def test_change_opacity_dialog_reject(view, item):
     assert len(stack) == 0
 
 
-@patch('PyQt6.QtCore.QTimer.singleShot')
+@patch("PyQt6.QtCore.QTimer.singleShot")
 def test_bee_notification(single_shot_mock, view):
-    widget = BeeNotification(view, 'Hello World')
-    assert widget.label.text() == 'Hello World'
+    widget = BeeNotification(view, "Hello World")
+    assert widget.label.text() == "Hello World"
     single_shot_mock.assert_called_once_with(1000 * 3, widget.deleteLater)
 
 
 def test_sample_color_widget(view):
-    widget = SampleColorWidget(
-        view, QtCore.QPoint(2, 5), QtGui.QColor(255, 0, 0))
+    widget = SampleColorWidget(view, QtCore.QPoint(2, 5), QtGui.QColor(255, 0, 0))
     assert widget.color == QtGui.QColor(255, 0, 0)
     assert widget.geometry() == QtCore.QRect(12, 15, 50, 50)
 
-    widget.update(QtCore.QPoint(13, 15), QtGui.QColor(0, 255, 0))
+    widget.update_sample(QtCore.QPoint(13, 15), QtGui.QColor(0, 255, 0))
     assert widget.color == QtGui.QColor(0, 255, 0)
     assert widget.geometry() == QtCore.QRect(23, 25, 50, 50)
 
 
 def test_sample_color_widget_paint_event_when_color(view):
-    widget = SampleColorWidget(
-        view, QtCore.QPoint(2, 5), QtGui.QColor(255, 0, 0))
-    with patch('PyQt6.QtGui.QPainter') as painter_cls_mock:
+    widget = SampleColorWidget(view, QtCore.QPoint(2, 5), QtGui.QColor(255, 0, 0))
+    with patch("PyQt6.QtGui.QPainter") as painter_cls_mock:
         painter_mock = MagicMock()
         painter_cls_mock.return_value = painter_mock
         widget.paintEvent(MagicMock())
@@ -133,7 +131,7 @@ def test_sample_color_widget_paint_event_when_color(view):
 
 def test_sample_color_widget_paint_event_when_no_color(view):
     widget = SampleColorWidget(view, QtCore.QPoint(2, 5), None)
-    with patch('PyQt6.QtGui.QPainter') as painter_cls_mock:
+    with patch("PyQt6.QtGui.QPainter") as painter_cls_mock:
         painter_mock = MagicMock()
         painter_cls_mock.return_value = painter_mock
         widget.paintEvent(MagicMock())
@@ -143,12 +141,12 @@ def test_sample_color_widget_paint_event_when_no_color(view):
 
 
 def test_export_images_file_exists_dialog(view):
-    dlg = ExportImagesFileExistsDialog(view, '/tmp/foo.png')
+    dlg = ExportImagesFileExistsDialog(view, "/tmp/foo.png")
     assert len(dlg.radio_buttons) == 4
-    assert dlg.get_answer() == 'skip'
+    assert dlg.get_answer() == "skip"
 
 
 def test_export_images_file_exists_dialog_get_answer(view):
-    dlg = ExportImagesFileExistsDialog(view, '/tmp/foo.png')
-    dlg.radio_buttons['overwrite'].setChecked(True)
-    assert dlg.get_answer() == 'overwrite'
+    dlg = ExportImagesFileExistsDialog(view, "/tmp/foo.png")
+    dlg.radio_buttons["overwrite"].setChecked(True)
+    assert dlg.get_answer() == "overwrite"
