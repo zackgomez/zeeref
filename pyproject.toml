@@ -23,6 +23,7 @@ dependencies = [
     "Pillow>=10.0.0",
     "pyQt6-Qt6>=6.7.0,<=6.7.0",
     "pyQt6>=6.7.0,<=6.7.0",
+    "mistune>=3.0.0",
     "rectangle-packer>=2.0.1,<=2.0.2",
 ]
 

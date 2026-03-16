@@ -320,10 +320,10 @@ class ChangeText(QtGui.QUndoCommand):
         self.old_text = old_text
 
     def redo(self):
-        self.item.setPlainText(self.new_text)
+        self.item.set_markdown(self.new_text)
 
     def undo(self):
-        self.item.setPlainText(self.old_text)
+        self.item.set_markdown(self.old_text)
 
 
 class ChangeOpacity(QtGui.QUndoCommand):

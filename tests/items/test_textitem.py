@@ -17,7 +17,7 @@ def test_init(selectable_mock, qapp):
     assert item.width
     assert item.height
     assert item.scale() == 1
-    assert item.toPlainText() == 'foo bar'
+    assert item._markdown == 'foo bar'
     assert item.is_editable is True
     assert item.edit_mode is False
     assert item.is_image is False
@@ -187,7 +187,7 @@ def test_update_from_data_keeps_unset_values(qapp):
 
 def test_create_from_data(qapp):
     item = BeeTextItem.create_from_data(data={'text': 'hello world'})
-    item.toPlainText() == 'hello world'
+    assert item._markdown == 'hello world'
 
 
 def test_create_copy(qapp):
@@ -199,7 +199,7 @@ def test_create_copy(qapp):
     item.setScale(2.2)
 
     copy = item.create_copy()
-    assert copy.toPlainText() == 'foo bar'
+    assert copy._markdown == 'foo bar'
     assert copy.pos() == QtCore.QPointF(20, 30)
     assert copy.rotation() == 33
     assert copy.flip() == -1
@@ -267,7 +267,7 @@ def test_exit_edit_mode_when_commit_false(setcursor_mock, cursor_mock, view):
     cursor_mock.assert_called_once_with(item.document())
     setcursor_mock.assert_called_once_with(cursor_mock.return_value)
     assert view.scene.edit_item is None
-    assert item.toPlainText() == 'old'
+    assert item._markdown == 'old'
 
 
 @patch('PyQt6.QtWidgets.QGraphicsTextItem.keyPressEvent')
@@ -295,9 +295,8 @@ def test_key_press_event_shift_return(exit_mock, key_press_mock, view):
     event.key.return_value = Qt.Key.Key_Return
     event.modifiers.return_value = Qt.KeyboardModifier.ShiftModifier
     item.keyPressEvent(event)
-    key_press_mock.assert_called_once_with(event)
-    exit_mock.assert_not_called()
-    assert view.scene.edit_item == item
+    key_press_mock.assert_not_called()
+    exit_mock.assert_called_once_with()
 
 
 @patch('PyQt6.QtWidgets.QGraphicsTextItem.keyPressEvent')
@@ -310,9 +309,8 @@ def test_key_press_event_shift_enter(exit_mock, key_press_mock, view):
     event.key.return_value = Qt.Key.Key_Enter
     event.modifiers.return_value = Qt.KeyboardModifier.ShiftModifier
     item.keyPressEvent(event)
-    key_press_mock.assert_called_once_with(event)
-    exit_mock.assert_not_called()
-    assert view.scene.edit_item == item
+    key_press_mock.assert_not_called()
+    exit_mock.assert_called_once_with()
 
 
 @patch('PyQt6.QtWidgets.QGraphicsTextItem.keyPressEvent')
@@ -325,8 +323,8 @@ def test_key_press_event_return(exit_mock, key_press_mock, view):
     event.key.return_value = Qt.Key.Key_Return
     event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
     item.keyPressEvent(event)
-    key_press_mock.assert_not_called()
-    exit_mock.assert_called_once_with()
+    key_press_mock.assert_called_once_with(event)
+    exit_mock.assert_not_called()
 
 
 @patch('PyQt6.QtWidgets.QGraphicsTextItem.keyPressEvent')
@@ -339,8 +337,8 @@ def test_key_press_event_enter(exit_mock, key_press_mock, view):
     event.key.return_value = Qt.Key.Key_Enter
     event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
     item.keyPressEvent(event)
-    key_press_mock.assert_not_called()
-    exit_mock.assert_called_once_with()
+    key_press_mock.assert_called_once_with(event)
+    exit_mock.assert_not_called()
 
 
 @patch('PyQt6.QtWidgets.QGraphicsTextItem.keyPressEvent')

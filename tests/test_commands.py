@@ -480,9 +480,9 @@ def test_change_text():
     item = BeeTextItem('foo')
     command = commands.ChangeText(item, 'bar', 'foo')
     command.redo()
-    assert item.toPlainText() == 'bar'
+    assert item._markdown == 'bar'
     command.undo()
-    assert item.toPlainText() == 'foo'
+    assert item._markdown == 'foo'
 
 
 def test_change_opacity(view):

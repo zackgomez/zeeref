@@ -211,7 +211,7 @@ class SceneToSVGExporter(SceneExporterBase):
                     'text',
                     attrib={'style': ';'.join(styles),
                             'dominant-baseline': 'hanging'})
-                element.text = item.toPlainText()
+                element.text = item._markdown
             if item.TYPE == 'pixmap':
                 width = item.width * item.scale()
                 height = item.height * item.scale()

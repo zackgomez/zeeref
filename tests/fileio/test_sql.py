@@ -309,7 +309,7 @@ def test_sqliteio_write_updates_existing_text_item(tmpfile, view):
     item.setZValue(0.33)
     item.setRotation(100)
     item.do_flip()
-    item.setPlainText('updated')
+    item.set_markdown('updated')
     io.create_new = False
     io.write()
 
@@ -538,7 +538,7 @@ def test_sqliteio_read_reads_readonly_text_item(tmpfile, view):
     assert item.scale() == 3.4
     assert item.rotation() == 45
     assert item.flip() == -1
-    assert item.toPlainText() == 'foo bar'
+    assert item._markdown == 'foo bar'
     assert view.scene.items_to_add.empty() is True
 
 

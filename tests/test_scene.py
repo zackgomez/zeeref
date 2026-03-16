@@ -1383,7 +1383,7 @@ def test_add_queued_items_unselected(view):
     item = view.scene.items()[0]
     assert item.isSelected() is False
     assert view.scene.max_z == 0.33
-    assert item.toPlainText() == 'foo'
+    assert item._markdown == 'foo'
 
 
 def test_add_queued_items_selected(view):

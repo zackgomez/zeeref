@@ -670,7 +670,7 @@ def test_on_action_insert_text(clear_mock, view):
     clear_mock.assert_called_once_with()
     assert len(view.scene.items()) == 1
     item = view.scene.items()[0]
-    assert item.toPlainText() == 'Text'
+    assert item._markdown == 'Text'
     assert item.isSelected() is True
     view.cancel_active_modes.assert_called_once_with()
 
@@ -763,7 +763,7 @@ def test_on_action_paste_when_text(img_mock, text_mock, clear_mock, view):
     view.on_action_paste()
     assert len(view.scene.items()) == 1
     assert view.scene.items()[0].isSelected() is True
-    assert view.scene.items()[0].toPlainText() == 'foo bar'
+    assert view.scene.items()[0]._markdown == 'foo bar'
     clear_mock.assert_called_once_with()
     view.cancel_active_modes.assert_called_once_with()
 

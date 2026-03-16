@@ -656,19 +656,41 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
 
 @register_item
 class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
-    """Class for text added by the user."""
+    """Class for markdown text added by the user."""
 
     TYPE = 'text'
 
+    STYLESHEET = """
+        body { color: %s; }
+        h1, h2, h3, h4, h5, h6 { margin: 4px 0; }
+        code { background: rgba(255,255,255,0.1); padding: 1px 3px; }
+        pre { background: rgba(255,255,255,0.1); padding: 4px; }
+        a { color: #6aeae7; }
+    """
+
     def __init__(self, text=None, **kwargs):
-        super().__init__(text or "Text")
+        super().__init__()
         self.save_id = None
-        logger.debug(f'Initialized {self}')
         self.is_image = False
         self.init_selectable()
         self.is_editable = True
         self.edit_mode = False
-        self.setDefaultTextColor(QtGui.QColor(*COLORS['Scene:Text']))
+        self._markdown = text or "Text"
+        self._render_markdown()
+        logger.debug(f'Initialized {self}')
+
+    def _render_markdown(self):
+        """Render stored markdown to HTML for display."""
+        import mistune
+        text_color = 'rgb(%d,%d,%d)' % COLORS['Scene:Text']
+        css = self.STYLESHEET % text_color
+        html = mistune.html(self._markdown)
+        self.setHtml(f'<style>{css}</style>{html}')
+
+    def set_markdown(self, text):
+        """Set markdown source and re-render."""
+        self._markdown = text
+        self._render_markdown()
 
     @classmethod
     def create_from_data(cls, **kwargs):
@@ -677,11 +699,11 @@ class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
         return item
 
     def __str__(self):
-        txt = self.toPlainText()[:40]
+        txt = self._markdown[:40]
         return (f'Text "{txt}"')
 
     def get_extra_save_data(self):
-        return {'text': self.toPlainText()}
+        return {'text': self._markdown}
 
     def contains(self, point):
         return self.boundingRect().contains(point)
@@ -698,7 +720,7 @@ class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
         self.paint_selectable(painter, option, widget)
 
     def create_copy(self):
-        item = BeeTextItem(self.toPlainText())
+        item = BeeTextItem(self._markdown)
         item.setPos(self.pos())
         item.setZValue(self.zValue())
         item.setScale(self.scale())
@@ -710,7 +732,9 @@ class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
     def enter_edit_mode(self):
         logger.debug(f'Entering edit mode on {self}')
         self.edit_mode = True
-        self.old_text = self.toPlainText()
+        self.old_text = self._markdown
+        self.setPlainText(self._markdown)
+        self.setDefaultTextColor(QtGui.QColor(*COLORS['Scene:Text']))
         self.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextEditorInteraction)
         self.scene().edit_item = self
@@ -723,21 +747,25 @@ class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         self.scene().edit_item = None
         if commit:
+            new_text = self.toPlainText()
+            self._markdown = new_text
+            self._render_markdown()
             self.scene().undo_stack.push(
-                commands.ChangeText(self, self.toPlainText(), self.old_text))
-            if not self.toPlainText().strip():
+                commands.ChangeText(self, new_text, self.old_text))
+            if not new_text.strip():
                 logger.debug('Removing empty text item')
                 self.scene().undo_stack.push(
                     commands.DeleteItems(self.scene(), [self]))
         else:
-            self.setPlainText(self.old_text)
+            self._markdown = self.old_text
+            self._render_markdown()
 
     def has_selection_handles(self):
         return super().has_selection_handles() and not self.edit_mode
 
     def keyPressEvent(self, event):
         if (event.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return)
-                and event.modifiers() == Qt.KeyboardModifier.NoModifier):
+                and event.modifiers() == Qt.KeyboardModifier.ShiftModifier):
             self.exit_edit_mode()
             event.accept()
             return
@@ -749,7 +777,7 @@ class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
         super().keyPressEvent(event)
 
     def copy_to_clipboard(self, clipboard):
-        clipboard.setText(self.toPlainText())
+        clipboard.setText(self._markdown)
 
 
 @register_item
