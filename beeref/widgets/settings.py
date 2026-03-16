@@ -190,6 +190,38 @@ class ConfirmCloseUnsavedWidget(SingleCheckboxGroup):
     KEY = 'Save/confirm_close_unsaved'
 
 
+class CanvasColorWidget(GroupBase):
+    TITLE = 'Canvas Color:'
+    HELPTEXT = 'The background color of the canvas.'
+    KEY = 'View/canvas_color'
+
+    def __init__(self):
+        super().__init__()
+        self.ignore_value_changed = False
+        self.btn = QtWidgets.QPushButton()
+        self.btn.setFixedSize(60, 30)
+        self.set_value(self.settings.valueOrDefault(self.KEY))
+        self.btn.clicked.connect(self.on_pick_color)
+        self.layout.addWidget(self.btn)
+        self.layout.addStretch(100)
+
+    def on_pick_color(self):
+        color = QtWidgets.QColorDialog.getColor(
+            QtGui.QColor(self.settings.valueOrDefault(self.KEY)),
+            self.parentWidget(),
+            'Canvas Color')
+        if color.isValid():
+            self.on_value_changed(color.name())
+            self._update_swatch(color.name())
+
+    def set_value(self, value):
+        self._update_swatch(value)
+
+    def _update_swatch(self, color_str):
+        self.btn.setStyleSheet(
+            f'background-color: {color_str}; border: 1px solid #888;')
+
+
 class SettingsDialog(QtWidgets.QDialog):
     def __init__(self, parent):
         super().__init__(parent)
@@ -210,6 +242,7 @@ class SettingsDialog(QtWidgets.QDialog):
         misc_layout.addLayout(misc_buttons)
         misc_grid = QtWidgets.QGridLayout()
         misc_grid.addWidget(ConfirmCloseUnsavedWidget(), 0, 0)
+        misc_grid.addWidget(CanvasColorWidget(), 0, 1)
         misc_layout.addLayout(misc_grid)
         tabs.addTab(misc, '&Miscellaneous')
 

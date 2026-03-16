@@ -55,8 +55,14 @@ class BeeGraphicsView(MainControlsMixin,
         self.keyboard_settings = KeyboardSettings()
         self.welcome_overlay = widgets.welcome_overlay.WelcomeOverlay(self)
 
+        canvas_color = self.settings.valueOrDefault('View/canvas_color')
         self.setBackgroundBrush(
-            QtGui.QBrush(QtGui.QColor(*constants.COLORS['Scene:Canvas'])))
+            QtGui.QBrush(QtGui.QColor(canvas_color)))
+        def on_canvas_color_changed(color):
+            self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(color)))
+            self.welcome_overlay.update_background_color()
+        BeeSettings.FIELDS['View/canvas_color']['post_save_callback'] = (
+            on_canvas_color_changed)
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(

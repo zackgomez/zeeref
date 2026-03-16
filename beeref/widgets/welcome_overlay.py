@@ -15,8 +15,10 @@
 
 import logging
 
-from PyQt6 import QtWidgets
+from PyQt6 import QtGui, QtWidgets
 from PyQt6.QtCore import Qt
+
+from beeref.config import BeeSettings
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +38,13 @@ class WelcomeOverlay(QtWidgets.QWidget):
         super().__init__(parent)
         self.setAutoFillBackground(True)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.update_background_color()
+
+    def update_background_color(self):
+        canvas_color = BeeSettings().valueOrDefault('View/canvas_color')
+        palette = self.palette()
+        palette.setColor(self.backgroundRole(), QtGui.QColor(canvas_color))
+        self.setPalette(palette)
 
         # Help text
         self.label = QtWidgets.QLabel(self.txt, self)

@@ -124,7 +124,9 @@ class SceneToPixmapExporter(SceneExporterBase):
         logger.debug(f'Final export margin: {margin}')
 
         image = QtGui.QImage(self.size, QtGui.QImage.Format.Format_RGB32)
-        image.fill(QtGui.QColor(*constants.COLORS['Scene:Canvas']))
+        from beeref.config import BeeSettings
+        canvas_color = BeeSettings().valueOrDefault('View/canvas_color')
+        image.fill(QtGui.QColor(canvas_color))
         painter = QtGui.QPainter(image)
         target_rect = QtCore.QRectF(
             margin,

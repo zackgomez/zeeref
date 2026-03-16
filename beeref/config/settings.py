@@ -136,6 +136,9 @@ class BeeSettings(QtCore.QSettings):
             'cast': int,
             'validate': lambda x: x >= 0,
             'post_save_callback': QtGui.QImageReader.setAllocationLimit,
+        },
+        'View/canvas_color': {
+            'default': '#3c3c3c',
         }
     }
 
