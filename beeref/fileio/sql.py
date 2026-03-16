@@ -96,9 +96,6 @@ class SQLiteIO:
         if self.create_new and not self.readonly and os.path.exists(self.filename):
             os.remove(self.filename)
 
-        if self.create_new:
-            self.scene.clear_save_ids()
-
         uri = pathlib.Path(self.filename).resolve().as_uri()
         if self.readonly:
             uri = f"{uri}?mode=rw"
@@ -185,7 +182,7 @@ class SQLiteIO:
     def read(self):
         rows = self.fetchall(
             "SELECT items.id, type, x, y, z, scale, rotation, flip, "
-            "items.data, sqlar.data "
+            "items.data, sqlar.data, items.created_at "
             "FROM sqlar JOIN items on sqlar.item_id = items.id"
         )
         # Avoid OUTER JOIN for performance reasons; fetch text items
@@ -193,7 +190,7 @@ class SQLiteIO:
         rows.extend(
             self.fetchall(
                 "SELECT items.id, type, x, y, z, scale, rotation, flip, "
-                " items.data, null as data "
+                "items.data, null as data, items.created_at "
                 "FROM items "
                 'WHERE items.type = "text"'
             )
@@ -212,6 +209,7 @@ class SQLiteIO:
                 "rotation": row[6],
                 "flip": row[7],
                 "data": json.loads(row[8]),
+                "created_at": row[10] or 0.0,
             }
 
             if data["type"] == "pixmap":
@@ -258,23 +256,23 @@ class SQLiteIO:
                 self.write()
 
     def write_data(self):
-        to_delete = {row[0] for row in self.fetchall("SELECT id from ITEMS")}
+        existing_ids = {row[0] for row in self.fetchall("SELECT id from ITEMS")}
         # We don't want to touch existing items that are displayed as errors:
         keep = {
             item.original_save_id
             for item in self.scene.items_by_type(BeeErrorItem.TYPE)
         }
         logger.debug(f"Not saving error items: {keep}")
-        to_delete = to_delete - keep
+        to_delete = existing_ids - keep
 
         to_save = list(self.scene.items_for_save())
         if self.worker:
             self.worker.begin_processing.emit(len(to_save))
         for i, item in enumerate(to_save):
             logger.debug(f"Saving {item} with id {item.save_id}")
-            if item.save_id:
+            if item.save_id in existing_ids:
                 self.update_item(item)
-                to_delete.remove(item.save_id)
+                to_delete.discard(item.save_id)
             else:
                 self.insert_item(item)
             if self.worker:
@@ -302,10 +300,11 @@ class SQLiteIO:
                 width = pm.width()
                 height = pm.height()
         self.ex(
-            "INSERT INTO items (type, x, y, z, scale, rotation, flip, "
-            "data, width, height) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO items (id, type, x, y, z, scale, rotation, flip, "
+            "data, width, height, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
+                item.save_id,
                 item.TYPE,
                 item.pos().x(),
                 item.pos().y(),
@@ -316,9 +315,9 @@ class SQLiteIO:
                 json.dumps(item.get_extra_save_data()),
                 width,
                 height,
+                item.created_at,
             ),
         )
-        item.save_id = self.cursor.lastrowid
 
         if hasattr(item, "pixmap_to_bytes"):
             pixmap, imgformat = item.pixmap_to_bytes()

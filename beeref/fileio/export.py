@@ -288,10 +288,6 @@ class ImagesToDirectoryExporter(ExporterBase):
         self.scene = scene
         self.dirname = dirname
         self.items = list(self.scene.items_by_type(BeePixmapItem.TYPE))
-        self.max_save_id = 0
-        for item in self.items:
-            if item.save_id:
-                self.max_save_id = max(self.max_save_id, item.save_id)
         self.num_total = len(self.items)
         self.start_from = 0
         self.handle_existing = None

@@ -474,10 +474,6 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
             self.items(order=Qt.SortOrder.AscendingOrder),
         )
 
-    def clear_save_ids(self):
-        for item in self.items_for_save():
-            item.save_id = None
-
     def on_view_scale_change(self):
         for item in self.selectedItems():
             item.on_view_scale_change()

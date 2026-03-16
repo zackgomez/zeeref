@@ -496,7 +496,7 @@ def test_on_action_export_images(dir_mock, view, tmpdir, qtbot, imgfilename3x3):
     view.on_action_export_images()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
     view.on_export_finished.assert_called_once_with(tmpdir, [])
-    assert os.path.exists(os.path.join(tmpdir, "0001.png"))
+    assert os.path.exists(os.path.join(tmpdir, f"{item.save_id[:8]}.png"))
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
@@ -510,7 +510,7 @@ def test_on_action_export_images_no_dirname(
 
     view.on_action_export_images()
     view.on_export_finished.assert_not_called()
-    assert os.path.exists(os.path.join(tmpdir, "0001.png")) is False
+    assert os.path.exists(os.path.join(tmpdir, f"{item.save_id[:8]}.png")) is False
 
 
 @patch(
@@ -529,7 +529,7 @@ def test_on_action_export_images_file_exists_overwrite(
     dir_mock.return_value = tmpdir
     view.on_export_finished = MagicMock()
 
-    imgfilename = Path(tmpdir) / "0001.png"
+    imgfilename = Path(tmpdir) / f"{item.save_id[:8]}.png"
     imgfilename.write_text("foo")
 
     view.on_action_export_images()
@@ -553,7 +553,7 @@ def test_on_action_export_images_file_exists_skip(
     view.scene.addItem(item)
     dir_mock.return_value = tmpdir
     view.on_export_finished = MagicMock()
-    imgfilename = Path(tmpdir) / "0001.png"
+    imgfilename = Path(tmpdir) / f"{item.save_id[:8]}.png"
     imgfilename.write_text("foo")
 
     view.on_action_export_images()
@@ -577,7 +577,7 @@ def test_on_action_export_images_file_exists_canceled(
     view.scene.addItem(item)
     dir_mock.return_value = tmpdir
     view.on_export_finished = MagicMock()
-    imgfilename = Path(tmpdir) / "0001.png"
+    imgfilename = Path(tmpdir) / f"{item.save_id[:8]}.png"
     imgfilename.write_text("foo")
 
     view.on_action_export_images()

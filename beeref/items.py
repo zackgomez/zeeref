@@ -24,6 +24,8 @@ from collections.abc import Callable
 from functools import cached_property
 import logging
 import os.path
+import time
+import uuid
 from typing import Any, cast
 
 from PIL import Image
@@ -48,34 +50,30 @@ def register_item(cls: type[BeeItemMixin]) -> type[BeeItemMixin]:
 def sort_by_filename(items: list[BeeItemMixin]) -> list[BeeItemMixin]:
     """Order items by filename.
 
-    Items with a filename (ordered by filename) first, then items
-    without a filename but with a save_id follow (ordered by
-    save_id), then remaining items in the order that they have
-    been inserted into the scene.
+    Items with a filename (ordered by filename) first, then remaining
+    items ordered by creation time.
     """
 
     items_by_filename: list[BeeItemMixin] = []
-    items_by_save_id: list[BeeItemMixin] = []
     items_remaining: list[BeeItemMixin] = []
 
     for item in items:
         if getattr(item, "filename", None):
             items_by_filename.append(item)
-        elif getattr(item, "save_id", None):
-            items_by_save_id.append(item)
         else:
             items_remaining.append(item)
 
     items_by_filename.sort(key=lambda x: x.filename)
-    items_by_save_id.sort(key=lambda x: x.save_id)
-    return items_by_filename + items_by_save_id + items_remaining
+    items_remaining.sort(key=lambda x: x.created_at)
+    return items_by_filename + items_remaining
 
 
 class BeeItemMixin(SelectableMixin):
     """Base for all items added by the user."""
 
     TYPE: str
-    save_id: int | None
+    save_id: str
+    created_at: float
     filename: str | None
     is_image: bool
 
@@ -107,6 +105,7 @@ class BeeItemMixin(SelectableMixin):
 
     def update_from_data(self, **kwargs: Any) -> None:
         self.save_id = kwargs.get("save_id", self.save_id)
+        self.created_at = kwargs.get("created_at", self.created_at)
         self.setPos(kwargs.get("x", self.pos().x()), kwargs.get("y", self.pos().y()))
         self.setZValue(kwargs.get("z", self.zValue()))
         self.setScale(kwargs.get("scale", self.scale()))
@@ -132,7 +131,8 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self, image: QtGui.QImage, filename: str | None = None, **kwargs: Any
     ) -> None:
         super().__init__(QtGui.QPixmap.fromImage(image))
-        self.save_id: int | None = None
+        self.save_id: str = uuid.uuid4().hex
+        self.created_at: float = time.time()
         self.filename = filename
         self.reset_crop()
         self._mip_chain: list[tuple[QtGui.QPixmap, float]] = []
@@ -196,16 +196,17 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         }
 
     def get_filename_for_export(
-        self, imgformat: str, save_id_default: int | None = None
+        self, imgformat: str, save_id_default: str | None = None
     ) -> str:
         save_id = self.save_id or save_id_default
         assert save_id is not None
 
+        short_id = save_id[:8]
         if self.filename:
             basename = os.path.splitext(os.path.basename(self.filename))[0]
-            return f"{save_id:04}-{basename}.{imgformat}"
+            return f"{short_id}-{basename}.{imgformat}"
         else:
-            return f"{save_id:04}.{imgformat}"
+            return f"{short_id}.{imgformat}"
 
     def get_imgformat(self, img: QtGui.QImage) -> str:
         """Determines the format for storing this image."""
@@ -768,7 +769,8 @@ class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
 
     def __init__(self, text: str | None = None, **kwargs: Any) -> None:
         super().__init__()
-        self.save_id: int | None = None
+        self.save_id: str = uuid.uuid4().hex
+        self.created_at: float = time.time()
         self.is_image = False
         self.init_selectable()
         self.is_editable = True
@@ -904,7 +906,7 @@ class BeeErrorItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
 
     def __init__(self, text: str | None = None, **kwargs: Any) -> None:
         super().__init__(text or "Text")
-        self.original_save_id: int | None = None
+        self.original_save_id: str | None = None
         logger.debug(f"Initialized {self}")
         self.is_image = False
         self.init_selectable()

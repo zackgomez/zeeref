@@ -1,11 +1,11 @@
-USER_VERSION = 3
+USER_VERSION = 4
 APPLICATION_ID = 2060242126
 
 
 SCHEMA = [
     """
     CREATE TABLE items (
-        id INTEGER PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
         x REAL DEFAULT 0,
         y REAL DEFAULT 0,
@@ -15,13 +15,14 @@ SCHEMA = [
         flip INTEGER DEFAULT 1,
         data JSON,
         width INTEGER,
-        height INTEGER
+        height INTEGER,
+        created_at REAL
     )
     """,
     """
     CREATE TABLE sqlar (
         name TEXT PRIMARY KEY,
-        item_id INTEGER NOT NULL UNIQUE,
+        item_id TEXT NOT NULL UNIQUE,
         mode INT,
         mtime INT default current_timestamp,
         sz INT,
@@ -50,6 +51,64 @@ def _populate_image_dimensions(io):
             pass
 
 
+def _migrate_to_uuid_ids(io):
+    """Migrate integer IDs to UUID text IDs with created_at timestamps."""
+    import time
+    import uuid
+
+    io.ex(
+        """CREATE TABLE items_new (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            x REAL DEFAULT 0,
+            y REAL DEFAULT 0,
+            z REAL DEFAULT 0,
+            scale REAL DEFAULT 1,
+            rotation REAL DEFAULT 0,
+            flip INTEGER DEFAULT 1,
+            data JSON,
+            width INTEGER,
+            height INTEGER,
+            created_at REAL
+        )"""
+    )
+    io.ex(
+        """CREATE TABLE sqlar_new (
+            name TEXT PRIMARY KEY,
+            item_id TEXT NOT NULL UNIQUE,
+            mode INT,
+            mtime INT default current_timestamp,
+            sz INT,
+            data BLOB,
+            FOREIGN KEY (item_id)
+              REFERENCES items_new (id)
+                 ON DELETE CASCADE
+                 ON UPDATE NO ACTION
+        )"""
+    )
+    base_time = time.time()
+    rows = io.fetchall(
+        "SELECT id, type, x, y, z, scale, rotation, flip, data, width, height FROM items ORDER BY id"
+    )
+    for i, row in enumerate(rows):
+        old_id = row[0]
+        new_id = uuid.uuid4().hex
+        created_at = base_time + i * 0.001  # preserve insertion order
+        io.ex(
+            "INSERT INTO items_new (id, type, x, y, z, scale, rotation, flip, data, width, height, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (new_id, *row[1:], created_at),
+        )
+        io.ex(
+            "INSERT INTO sqlar_new SELECT name, ?, mode, mtime, sz, data FROM sqlar WHERE item_id = ?",
+            (new_id, old_id),
+        )
+    io.ex("DROP TABLE sqlar")
+    io.ex("DROP TABLE items")
+    io.ex("ALTER TABLE items_new RENAME TO items")
+    io.ex("ALTER TABLE sqlar_new RENAME TO sqlar")
+
+
 MIGRATIONS = {
     2: [
         lambda io: io.ex("ALTER TABLE items ADD COLUMN data JSON"),
@@ -59,5 +118,8 @@ MIGRATIONS = {
         lambda io: io.ex("ALTER TABLE items ADD COLUMN width INTEGER"),
         lambda io: io.ex("ALTER TABLE items ADD COLUMN height INTEGER"),
         _populate_image_dimensions,
+    ],
+    4: [
+        _migrate_to_uuid_ids,
     ],
 }
