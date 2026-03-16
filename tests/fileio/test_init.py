@@ -6,6 +6,7 @@ from PyQt6 import QtCore
 
 from beeref import fileio
 from beeref import commands
+from beeref.fileio.snapshot import IOResult
 from ..utils import queue2list
 
 
@@ -32,7 +33,7 @@ def test_load_images_loads(view, imgfilename3x3):
     fileio.load_images([imgfilename3x3], QtCore.QPointF(5, 6), view.scene, worker)
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_once_with(0)
-    worker.finished.emit.assert_called_once_with("", [])
+    worker.finished.emit.assert_called_once_with(IOResult(filename="", errors=[]))
     itemdata = queue2list(view.scene.items_to_add)
     assert len(itemdata) == 1
     item = itemdata[0][0]["item"]
@@ -53,7 +54,7 @@ def test_load_images_canceled(view, imgfilename3x3):
     )
     worker.begin_processing.emit.assert_called_once_with(2)
     worker.progress.emit.assert_called_once_with(0)
-    worker.finished.emit.assert_called_once_with("", [])
+    worker.finished.emit.assert_called_once_with(IOResult(filename="", errors=[]))
     itemdata = queue2list(view.scene.items_to_add)
     assert len(itemdata) == 1
     item = itemdata[0][0]["item"]
@@ -75,7 +76,9 @@ def test_load_images_error(view, imgfilename3x3):
     worker.begin_processing.emit.assert_called_once_with(2)
     worker.progress.emit.assert_any_call(0)
     worker.progress.emit.assert_any_call(1)
-    worker.finished.emit.assert_called_once_with("", ["foo.jpg"])
+    worker.finished.emit.assert_called_once_with(
+        IOResult(filename="", errors=["foo.jpg"])
+    )
     itemdata = queue2list(view.scene.items_to_add)
     assert len(itemdata) == 1
     item = itemdata[0][0]["item"]

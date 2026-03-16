@@ -56,19 +56,23 @@ class ExporterBase:
             worker.progress.emit(progress)
 
     def emit_finished(self, worker, filename, errors):
+        from beeref.fileio.snapshot import IOResult
+
         filename = str(filename)
         if worker:
-            worker.finished.emit(filename, errors)
+            worker.finished.emit(IOResult(filename=filename, errors=errors))
 
     def emit_user_input_required(self, worker, msg):
         if worker:
             worker.user_input_required.emit(msg)
 
     def handle_export_error(self, filename, error, worker):
+        from beeref.fileio.snapshot import IOResult
+
         filename = str(filename)
         logger.debug(f"Export failed: {error}")
         if worker:
-            worker.finished.emit(filename, [str(error)])
+            worker.finished.emit(IOResult(filename=filename, errors=[str(error)]))
             return
         else:
             e = error if isinstance(error, Exception) else None
@@ -259,8 +263,10 @@ class SceneToSVGExporter(SceneExporterBase):
         svg = self.render_to_svg(worker)
 
         if worker and worker.canceled:
+            from beeref.fileio.snapshot import IOResult
+
             logger.debug("Export canceled")
-            worker.finished.emit(filename, [])
+            worker.finished.emit(IOResult(filename=str(filename), errors=[]))
             return
 
         tree = ET.ElementTree(svg)
@@ -301,8 +307,10 @@ class ImagesToDirectoryExporter(ExporterBase):
 
         for i, item in enumerate(self.items[self.start_from :], start=self.start_from):
             if worker and worker.canceled:
+                from beeref.fileio.snapshot import IOResult
+
                 logger.debug("Export canceled")
-                worker.finished.emit(self.dirname, [])
+                worker.finished.emit(IOResult(filename=str(self.dirname), errors=[]))
                 return
 
             pixmap, imgformat = item.pixmap_to_bytes()

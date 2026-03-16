@@ -11,6 +11,12 @@ from beeref import commands, widgets
 from beeref.config import logfile_name
 from beeref.items import BeePixmapItem, BeeTextItem
 from beeref.view import BeeGraphicsView
+from tests.utils import (
+    assert_load_result,
+    assert_save_result,
+    assert_io_result,
+    assert_insert_images_result,
+)
 
 
 def test_inits_menu(qapp):
@@ -254,16 +260,15 @@ def test_on_action_open_recent_file_when_unsaved_changes_confirmed(confirm_mock,
 def test_open_from_file(clear_mock, view, qtbot):
     root = os.path.dirname(__file__)
     filename = os.path.join(root, "assets", "test1item.bee")
-    view.on_loading_finished = MagicMock()
     view.open_from_file(filename)
     view.worker.wait()
-    qtbot.waitUntil(lambda: view.on_loading_finished.called is True)
+    qtbot.waitUntil(lambda: len(view.scene.items()) > 0)
     assert len(view.scene.items()) == 1
     item = view.scene.items()[0]
     assert item.isSelected() is False
     assert item.pixmap()
     clear_mock.assert_called_once_with()
-    view.on_loading_finished.assert_called_once_with(filename, [])
+    assert view.filename == filename
 
 
 def test_open_from_file_when_error(view, qtbot):
@@ -272,28 +277,23 @@ def test_open_from_file_when_error(view, qtbot):
     view.worker.wait()
     qtbot.waitUntil(lambda: view.on_loading_finished.called is True)
     assert list(view.scene.items()) == []
-    args = view.on_loading_finished.call_args
-    assert args[0][0] == "uieauiae"
-    assert len(args[0][1]) == 1
+    assert_load_result(view.on_loading_finished, "uieauiae", has_errors=True)
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileName")
 def test_on_action_open(dialog_mock, view, qtbot):
-    # FIXME: #1
-    # Can't check signal handling currently
     root = os.path.dirname(__file__)
     filename = os.path.join(root, "assets", "test1item.bee")
     dialog_mock.return_value = (filename, None)
-    view.on_loading_finished = MagicMock()
     view.cancel_active_modes = MagicMock()
 
     view.on_action_open()
-    qtbot.waitUntil(lambda: view.on_loading_finished.called is True)
+    qtbot.waitUntil(lambda: len(view.scene.items()) > 0)
     assert len(view.scene.items()) == 1
     item = view.scene.items()[0]
     assert item.isSelected() is False
     assert item.pixmap()
-    view.on_loading_finished.assert_called_once_with(filename, [])
+    assert view.filename == filename
     view.cancel_active_modes.assert_called_with()
 
 
@@ -364,7 +364,7 @@ def test_on_action_save_as_filename_doesnt_end_with_bee(
     view.on_action_save_as()
     qtbot.waitUntil(lambda: view.on_saving_finished.called is True)
     assert os.path.exists(f"{filename}.bee") is True
-    view.on_saving_finished.assert_called_once_with(f"{filename}.bee", [])
+    assert_save_result(view.on_saving_finished, f"{filename}.bee")
     view.cancel_active_modes.assert_called_once_with()
 
 
@@ -382,7 +382,7 @@ def test_on_action_save_as_when_error(
     save_mock.side_effect = sqlite3.Error("foo")
     view.on_action_save_as()
     qtbot.waitUntil(lambda: view.on_saving_finished.called is True)
-    view.on_saving_finished.assert_called_once_with(filename, ["foo"])
+    assert_save_result(view.on_saving_finished, filename, has_errors=True)
     view.cancel_active_modes.assert_called_once_with()
 
 
@@ -397,7 +397,7 @@ def test_on_action_save(view, qtbot, imgfilename3x3, tmpdir):
     view.on_action_save()
     qtbot.waitUntil(lambda: view.on_saving_finished.called is True)
     assert os.path.exists(view.filename) is True
-    view.on_saving_finished.assert_called_once_with(view.filename, [])
+    assert_save_result(view.on_saving_finished, view.filename)
     view.cancel_active_modes.assert_called_once_with()
 
 
@@ -427,7 +427,7 @@ def test_on_action_export_scene(file_mock, value_mock, exec_mock, view, tmpdir, 
 
     view.on_action_export_scene()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
-    view.on_export_finished.assert_called_once_with(filename, [])
+    assert_io_result(view.on_export_finished, filename)
     img = QtGui.QImage(filename)
     assert img.size() == QtCore.QSize(100, 100)
 
@@ -449,7 +449,7 @@ def test_on_action_export_scene_no_file_extension(
 
     view.on_action_export_scene()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
-    view.on_export_finished.assert_called_once_with(f"{filename}.png", [])
+    assert_io_result(view.on_export_finished, f"{filename}.png")
     img = QtGui.QImage(f"{filename}.png")
     assert img.size() == QtCore.QSize(100, 100)
 
@@ -495,7 +495,7 @@ def test_on_action_export_images(dir_mock, view, tmpdir, qtbot, imgfilename3x3):
 
     view.on_action_export_images()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
-    view.on_export_finished.assert_called_once_with(tmpdir, [])
+    assert_io_result(view.on_export_finished, tmpdir)
     assert os.path.exists(os.path.join(tmpdir, f"{item.save_id[:8]}.png"))
 
 
@@ -534,7 +534,7 @@ def test_on_action_export_images_file_exists_overwrite(
 
     view.on_action_export_images()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
-    view.on_export_finished.assert_called_once_with(tmpdir, [])
+    assert_io_result(view.on_export_finished, tmpdir)
     answer_mock.assert_called_once_with()
     exec_mock.assert_called_once_with()
     imgfilename.read_bytes().startswith(b"\x89PNG")
@@ -558,7 +558,7 @@ def test_on_action_export_images_file_exists_skip(
 
     view.on_action_export_images()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
-    view.on_export_finished.assert_called_once_with(tmpdir, [])
+    assert_io_result(view.on_export_finished, tmpdir)
     answer_mock.assert_called_once_with()
     exec_mock.assert_called_once_with()
     imgfilename.read_text() == "foo"
@@ -644,7 +644,7 @@ def test_on_action_insert_images_new_scene(
     assert item.isSelected() is True
     assert item.pixmap()
     clear_mock.assert_called_once_with()
-    view.on_insert_images_finished.assert_called_once_with(True, "", [])
+    assert_insert_images_result(view.on_insert_images_finished, new_scene=True)
     view.cancel_active_modes.assert_called_once_with()
 
 
@@ -664,7 +664,7 @@ def test_on_action_insert_images_existing_scene(
     assert item.isSelected() is True
     assert item.pixmap()
     clear_mock.assert_called_once_with()
-    view.on_insert_images_finished.assert_called_once_with(False, "", [])
+    assert_insert_images_result(view.on_insert_images_finished, new_scene=False)
     view.cancel_active_modes.assert_called_once_with()
 
 
@@ -683,8 +683,11 @@ def test_on_action_insert_images_when_error(
     assert item.isSelected() is True
     assert item.pixmap()
     clear_mock.assert_called_once_with()
-    view.on_insert_images_finished.assert_called_once_with(
-        True, "", ["iaeiae", "trntrn"]
+    assert_insert_images_result(
+        view.on_insert_images_finished,
+        new_scene=True,
+        has_errors=True,
+        error_files=["iaeiae", "trntrn"],
     )
     view.cancel_active_modes.assert_called_once_with()
 

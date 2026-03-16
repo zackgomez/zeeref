@@ -8,6 +8,7 @@ from PyQt6 import QtGui
 from beeref.items import BeePixmapItem
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.export import ImagesToDirectoryExporter
+from beeref.fileio.snapshot import IOResult
 
 
 def _export_filename(item):
@@ -223,7 +224,9 @@ def test_images_to_directory_exporter_export_with_worker(
 
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_with(0)
-    worker.finished.emit.assert_called_once_with(tmpdir, [])
+    worker.finished.emit.assert_called_once_with(
+        IOResult(filename=str(tmpdir), errors=[])
+    )
 
 
 def test_images_to_directory_exporter_export_with_worker_when_canceled(
@@ -242,7 +245,9 @@ def test_images_to_directory_exporter_export_with_worker_when_canceled(
 
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_once_with(0)
-    worker.finished.emit.assert_called_once_with(tmpdir, [])
+    worker.finished.emit.assert_called_once_with(
+        IOResult(filename=str(tmpdir), errors=[])
+    )
 
 
 def test_images_to_directory_exporter_export_with_worker_when_file_exists(
@@ -305,9 +310,10 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
     exporter.export(worker)
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.finished.emit.assert_called_once()
-    args = worker.finished.emit.call_args.args
-    assert args[0] == tmpdir
-    assert len(args[1]) == 1
+    result = worker.finished.emit.call_args.args[0]
+    assert isinstance(result, IOResult)
+    assert result.filename == str(tmpdir)
+    assert len(result.errors) == 1
 
 
 def test_images_to_directory_exporter_export_when_img_not_writeable(
@@ -355,6 +361,7 @@ def test_images_to_directory_exporter_export_when_img_not_writeable_w_worker(
     exporter.export(worker)
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.finished.emit.assert_called_once()
-    args = worker.finished.emit.call_args.args
-    assert args[0] == imgfilename
-    assert len(args[1]) == 1
+    result = worker.finished.emit.call_args.args[0]
+    assert isinstance(result, IOResult)
+    assert result.filename == str(imgfilename)
+    assert len(result.errors) == 1

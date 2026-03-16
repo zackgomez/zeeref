@@ -35,6 +35,7 @@ from PyQt6.QtCore import Qt
 from beeref import commands
 from beeref.config import BeeSettings
 from beeref.constants import COLORS
+from beeref.fileio.snapshot import ErrorItemSnapshot, ItemSnapshot, PixmapItemSnapshot
 from beeref.selection import SelectableMixin
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,32 @@ item_registry: dict[str, type[BeeItemMixin]] = {}
 def register_item(cls: type[BeeItemMixin]) -> type[BeeItemMixin]:
     item_registry[cls.TYPE] = cls
     return cls
+
+
+def create_item_from_snapshot(snap: ItemSnapshot) -> BeeItemMixin:
+    """Create a scene item from a snapshot. Dispatches by type.
+
+    If the factory raises, returns a BeeErrorItem preserving the
+    item's position and save_id for future recovery.
+    """
+    cls = item_registry.get(snap.type)
+    if cls is None:
+        err = BeeErrorItem(f"Item of unknown type: {snap.type}")
+        err.original_save_id = snap.save_id
+        err.setPos(snap.x, snap.y)
+        err.setZValue(snap.z)
+        return err
+
+    try:
+        return cls.from_snapshot(snap)
+    except Exception as e:
+        logger.exception(f"Failed to create {snap.type} from snapshot")
+        filename = snap.data.get("filename", "unknown")
+        err = BeeErrorItem(f"Failed to load {snap.type}: {filename}\n{e}")
+        err.original_save_id = snap.save_id
+        err.setPos(snap.x, snap.y)
+        err.setZValue(snap.z)
+        return err
 
 
 def sort_by_filename(items: list[BeeItemMixin]) -> list[BeeItemMixin]:
@@ -77,6 +104,15 @@ class BeeItemMixin(SelectableMixin):
     filename: str | None
     is_image: bool
 
+    def get_extra_save_data(self) -> dict[str, Any]:
+        """Return type-specific data for JSON serialization. Override in subclasses."""
+        return {}
+
+    @classmethod
+    def from_snapshot(cls, snap: ItemSnapshot) -> BeeItemMixin:
+        """Create an item from a snapshot. Override in subclasses."""
+        raise NotImplementedError
+
     def set_pos_center(self, pos: QtCore.QPointF) -> None:
         """Sets the position using the item's center as the origin point."""
 
@@ -92,6 +128,21 @@ class BeeItemMixin(SelectableMixin):
     def selection_action_items(self) -> list[Any]:
         """The items affected by selection actions like scaling and rotating."""
         return [self]
+
+    def snapshot(self) -> ItemSnapshot:
+        """Create an immutable snapshot of this item for thread-safe saving."""
+        return ItemSnapshot(
+            save_id=self.save_id,
+            type=self.TYPE,
+            x=self.pos().x(),
+            y=self.pos().y(),
+            z=self.zValue(),
+            scale=self.scale(),
+            rotation=self.rotation(),
+            flip=self.flip(),
+            data=self.get_extra_save_data(),
+            created_at=self.created_at,
+        )
 
     def on_selected_change(self, value: Any) -> None:
         scene = self.bee_scene()
@@ -140,8 +191,36 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         logger.debug(f"Initialized {self}")
         self.is_image = True
         self.crop_mode: bool = False
+        self._blob_saved: bool = False
         self.init_selectable()
         self.settings = BeeSettings()
+
+    def snapshot(self) -> PixmapItemSnapshot:
+        """Create an immutable snapshot including image data if unsaved."""
+        pixmap_bytes = None
+        pixmap_format = None
+        if not self._blob_saved:
+            pixmap_bytes, pixmap_format = self.pixmap_to_bytes()
+        pm = self.pixmap()
+        return PixmapItemSnapshot(
+            save_id=self.save_id,
+            type=self.TYPE,
+            x=self.pos().x(),
+            y=self.pos().y(),
+            z=self.zValue(),
+            scale=self.scale(),
+            rotation=self.rotation(),
+            flip=self.flip(),
+            data=self.get_extra_save_data(),
+            created_at=self.created_at,
+            width=pm.width(),
+            height=pm.height(),
+            export_filename=self.get_filename_for_export(
+                self.get_imgformat(pm.toImage())
+            ),
+            pixmap_bytes=pixmap_bytes,
+            pixmap_format=pixmap_format,
+        )
 
     @classmethod
     def create_from_data(cls, **kwargs: Any) -> BeePixmapItem:
@@ -151,6 +230,35 @@ class BeePixmapItem(BeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         if "crop" in data:
             item.crop = QtCore.QRectF(*data["crop"])
         item.setOpacity(data.get("opacity", 1))
+        item._blob_saved = True
+        return item
+
+    @classmethod
+    def from_snapshot(cls, snap: PixmapItemSnapshot) -> BeePixmapItem:
+        """Create a BeePixmapItem from a loaded snapshot.
+
+        Raises ValueError if the pixmap bytes can't be decoded.
+        """
+        item = cls(QtGui.QImage())
+        if snap.pixmap_bytes:
+            pixmap = QtGui.QPixmap()
+            pixmap.loadFromData(snap.pixmap_bytes)
+            if pixmap.isNull():
+                raise ValueError(f"Failed to decode image: {snap.data.get('filename')}")
+            item.setPixmap(pixmap)
+        item.save_id = snap.save_id
+        item.created_at = snap.created_at
+        item.filename = snap.data.get("filename")
+        if "crop" in snap.data:
+            item.crop = QtCore.QRectF(*snap.data["crop"])
+        item.setOpacity(snap.data.get("opacity", 1))
+        item.setPos(snap.x, snap.y)
+        item.setZValue(snap.z)
+        item.setScale(snap.scale)
+        item.setRotation(snap.rotation)
+        if snap.flip != item.flip():
+            item.do_flip()
+        item._blob_saved = True
         return item
 
     def __str__(self) -> str:
@@ -799,6 +907,20 @@ class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
         item = cls(**data)
         return item
 
+    @classmethod
+    def from_snapshot(cls, snap: ItemSnapshot) -> BeeTextItem:
+        """Create a BeeTextItem from a loaded snapshot."""
+        item = cls(snap.data.get("text"))
+        item.save_id = snap.save_id
+        item.created_at = snap.created_at
+        item.setPos(snap.x, snap.y)
+        item.setZValue(snap.z)
+        item.setScale(snap.scale)
+        item.setRotation(snap.rotation)
+        if snap.flip != item.flip():
+            item.do_flip()
+        return item
+
     def __str__(self) -> str:
         txt = self._markdown[:40]
         return f'Text "{txt}"'
@@ -912,6 +1034,12 @@ class BeeErrorItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
         self.init_selectable()
         self.is_editable = False
         self.setDefaultTextColor(QtGui.QColor(*COLORS["Scene:Text"]))
+
+    def snapshot(self) -> ErrorItemSnapshot:
+        """Error items just preserve the original DB row."""
+        return ErrorItemSnapshot(
+            original_save_id=self.original_save_id or self.save_id,
+        )
 
     @classmethod
     def create_from_data(cls, **kwargs: Any) -> BeeErrorItem:

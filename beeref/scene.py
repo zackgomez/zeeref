@@ -28,7 +28,8 @@ import rpack
 
 from beeref import commands
 from beeref.config import BeeSettings
-from beeref.items import item_registry, BeeErrorItem, sort_by_filename
+from beeref.fileio.snapshot import ItemSnapshot
+from beeref.items import BeeItemMixin, item_registry, BeeErrorItem, sort_by_filename
 from beeref.selection import MultiSelectItem, RubberbandItem
 
 if TYPE_CHECKING:
@@ -455,7 +456,7 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
 
         items = super().selectedItems()
         if user_only:
-            return list(filter(lambda i: hasattr(i, "save_id"), items))
+            return [i for i in items if isinstance(i, BeeItemMixin)]
         return items
 
     def items_by_type(self, itype):
@@ -463,16 +464,17 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
 
         return filter(lambda i: getattr(i, "TYPE", None) == itype, self.items())
 
-    def items_for_save(self):
-        """Returns the items that are to be saved.
+    def user_items(self) -> list[BeeItemMixin]:
+        """Returns user-created items (excludes internal Qt items)."""
+        return [
+            i
+            for i in self.items(order=Qt.SortOrder.AscendingOrder)
+            if isinstance(i, BeeItemMixin)
+        ]
 
-        Items to be saved are items that have a save_id attribute.
-        """
-
-        return filter(
-            lambda i: hasattr(i, "save_id"),
-            self.items(order=Qt.SortOrder.AscendingOrder),
-        )
+    def snapshot_for_save(self) -> list[ItemSnapshot]:
+        """Snapshot all user items for thread-safe saving."""
+        return [item.snapshot() for item in self.user_items()]
 
     def on_view_scale_change(self):
         for item in self.selectedItems():
@@ -486,7 +488,7 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         """
 
         def filter_user_items(ilist):
-            return list(filter(lambda i: hasattr(i, "save_id"), ilist))
+            return [i for i in ilist if isinstance(i, BeeItemMixin)]
 
         if selection_only:
             base = filter_user_items(self.selectedItems())

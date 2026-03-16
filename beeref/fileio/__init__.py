@@ -13,7 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with BeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 from PyQt6 import QtCore
 
@@ -27,7 +30,10 @@ from beeref.fileio.scratch import (
     list_recovery_files,
 )
 from beeref.fileio.sql import SQLiteIO, is_bee_file
-from beeref.items import BeePixmapItem
+from beeref.fileio.snapshot import IOResult, ItemSnapshot, LoadResult, SaveResult
+
+if TYPE_CHECKING:
+    from beeref.scene import BeeGraphicsScene
 
 
 __all__ = [
@@ -46,7 +52,9 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-def load_bee(filename, scene, worker=None):
+def load_bee(
+    filename: str, scene: BeeGraphicsScene, worker: ThreadedIO | None = None
+) -> None:
     """Load BeeRef native file via scratch copy."""
     logger.info(f"Loading from file {filename}...")
     try:
@@ -54,26 +62,53 @@ def load_bee(filename, scene, worker=None):
     except Exception as e:
         logger.exception(f"Failed to create scratch file for {filename}")
         if worker:
-            worker.finished.emit(filename, [str(e)])
+            worker.finished.emit(LoadResult(filename=filename, errors=[str(e)]))
             return
         raise BeeFileIOError(msg=str(e), filename=filename) from e
     scene._scratch_file = swp
-    io = SQLiteIO(swp, scene, readonly=True, worker=worker)
+    io = SQLiteIO(swp, readonly=True, worker=worker)
     io.filename = filename
-    return io.read()
+    snapshots = io.read()
+    if worker:
+        worker.finished.emit(
+            LoadResult(
+                filename=filename,
+                snapshots=snapshots,
+                scratch_file=swp,
+            )
+        )
 
 
-def save_bee(filename, scene, create_new=False, worker=None):
+def save_bee(
+    filename: str,
+    snapshots: list[ItemSnapshot],
+    create_new: bool = False,
+    worker: ThreadedIO | None = None,
+) -> None:
     """Save BeeRef native file."""
     logger.info(f"Saving to file {filename}...")
     logger.debug(f"Create new: {create_new}")
-    io = SQLiteIO(filename, scene, create_new, worker=worker)
-    io.write()
+    try:
+        io = SQLiteIO(filename, create_new=create_new, worker=worker)
+        newly_saved = io.write(snapshots)
+    except BeeFileIOError as e:
+        logger.exception(f"Failed to save {filename}")
+        if worker:
+            worker.finished.emit(SaveResult(filename=filename, errors=[str(e)]))
+        return
     logger.info("End save")
+    if worker:
+        worker.finished.emit(
+            SaveResult(
+                filename=filename,
+                newly_saved=newly_saved or [],
+            )
+        )
 
 
 def load_images(filenames, pos, scene, worker):
     """Add images to existing scene."""
+    from beeref.items import BeePixmapItem
 
     errors = []
     items = []
@@ -97,14 +132,14 @@ def load_images(filenames, pos, scene, worker):
         worker.msleep(10)
 
     scene.undo_stack.push(commands.InsertItems(scene, items, ignore_first_redo=True))
-    worker.finished.emit("", errors)
+    worker.finished.emit(IOResult(filename="", errors=errors))
 
 
 class ThreadedIO(QtCore.QThread):
     """Dedicated thread for loading and saving."""
 
     progress = QtCore.pyqtSignal(int)
-    finished = QtCore.pyqtSignal(str, list)
+    finished = QtCore.pyqtSignal(IOResult)
     begin_processing = QtCore.pyqtSignal(int)
     user_input_required = QtCore.pyqtSignal(str)
 

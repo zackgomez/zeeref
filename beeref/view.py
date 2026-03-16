@@ -408,8 +408,10 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         logger.debug("On items loaded: add queued items")
         self.scene.add_queued_items()
 
-    def on_loading_finished(self, filename: str, errors: list[Any]) -> None:
-        if errors:
+    def on_loading_finished(self, result: fileio.IOResult) -> None:
+        from beeref.items import create_item_from_snapshot
+
+        if result.errors:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Problem loading file",
@@ -417,12 +419,15 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
                     "<p>Problem loading file %s</p>"
                     "<p>Not accessible or not a proper bee file</p>"
                 )
-                % filename,
+                % result.filename,
             )
-        else:
-            self.filename = filename
-            self.scene.add_queued_items()
-            self.on_action_fit_scene()
+            return
+        assert isinstance(result, fileio.LoadResult)
+        self.filename = result.filename
+        for snap in result.snapshots:
+            item = create_item_from_snapshot(snap)
+            self.scene.addItem(item)
+        self.on_action_fit_scene()
 
     def on_action_open_recent_file(self, filename: str) -> None:
         confirm = self.get_confirmation_unsaved_changes(
@@ -435,7 +440,6 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         logger.info(f"Opening file {filename}")
         self.clear_scene()
         self.worker = fileio.ThreadedIO(fileio.load_bee, filename, self.scene)
-        self.worker.progress.connect(self.on_items_loaded)
         self.worker.finished.connect(self.on_loading_finished)
         self.progress = widgets.BeeProgressDialog(
             f"Loading {filename}", worker=self.worker, parent=self
@@ -458,23 +462,34 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             self.open_from_file(filename)
             self.filename = filename
 
-    def on_saving_finished(self, filename: str, errors: list[Any]) -> None:
-        if errors:
+    def on_saving_finished(self, result: fileio.IOResult) -> None:
+        if result.errors:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Problem saving file",
                 ("<p>Problem saving file %s</p><p>File/directory not accessible</p>")
-                % filename,
+                % result.filename,
             )
-        else:
-            self.filename = filename
-            self.undo_stack.setClean()
+            return
+        assert isinstance(result, fileio.SaveResult)
+        self.filename = result.filename
+        self.undo_stack.setClean()
+        # Mark newly-saved items so their blobs aren't re-encoded on next save
+        for item in self.scene.user_items():
+            if isinstance(item, BeePixmapItem) and item.save_id in result.newly_saved:
+                item._blob_saved = True
 
     def do_save(self, filename: str, create_new: bool) -> None:
         if not fileio.is_bee_file(filename):
             filename = f"{filename}.bee"
+        # Snapshot scene state on the main thread before handing to
+        # the background thread — no Qt objects cross the boundary
+        snapshots = self.scene.snapshot_for_save()
         self.worker = fileio.ThreadedIO(
-            fileio.save_bee, filename, self.scene, create_new=create_new
+            fileio.save_bee,
+            filename,
+            snapshots,
+            create_new=create_new,
         )
         self.worker.finished.connect(self.on_saving_finished)
         self.progress = widgets.BeeProgressDialog(
@@ -538,13 +553,13 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         )
         self.worker.start()
 
-    def on_export_finished(self, filename: str, errors: list[Any]) -> None:
-        if errors:
-            err_msg = "</br>".join(str(errors))
+    def on_export_finished(self, result: fileio.IOResult) -> None:
+        if result.errors:
+            err_msg = "</br>".join(result.errors)
             QtWidgets.QMessageBox.warning(
                 self,
                 "Problem writing file",
-                f"<p>Problem writing file {filename}</p><p>{err_msg}</p>",
+                f"<p>Problem writing file {result.filename}</p><p>{err_msg}</p>",
             )
 
     def on_action_export_images(self) -> None:
@@ -607,20 +622,19 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         widgets.DebugLogDialog(self)
 
     def on_insert_images_finished(
-        self, new_scene: bool, filename: str, errors: list[str]
+        self, new_scene: bool, result: fileio.IOResult
     ) -> None:
         """Callback for when loading of images is finished.
 
         :param new_scene: True if the scene was empty before, else False
-        :param filename: Not used, for compatibility only
-        :param errors: List of filenames that couldn't be loaded
+        :param result: IOResult with errors list of filenames that couldn't be loaded
         """
 
         logger.debug("Insert images finished")
-        if errors:
-            errornames = [f"<li>{fn}</li>" for fn in errors]
+        if result.errors:
+            errornames = [f"<li>{fn}</li>" for fn in result.errors]
             errornames = "<ul>%s</ul>" % "\n".join(errornames)
-            num = len(errors)
+            num = len(result.errors)
             msg = f"{num} image(s) could not be opened.<br/>"
             QtWidgets.QMessageBox.warning(
                 self, "Problem loading images", msg + IMG_LOADING_ERROR_MSG + errornames

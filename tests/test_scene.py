@@ -41,7 +41,7 @@ def test_copy_selection_to_internal_clipboard(view):
 
     view.scene.copy_selection_to_internal_clipboard()
     assert set(view.scene.internal_clipboard) == {item1, item2}
-    assert set(view.scene.items_for_save()) == {item1, item2, item3}
+    assert set(view.scene.user_items()) == {item1, item2, item3}
 
 
 def test_paste_from_internal_clipboard(view):
@@ -53,7 +53,7 @@ def test_paste_from_internal_clipboard(view):
     view.scene.internal_clipboard = [item2]
 
     view.scene.paste_from_internal_clipboard(None)
-    assert len(list(view.scene.items_for_save())) == 2
+    assert len(list(view.scene.user_items())) == 2
     assert item1.isSelected() is False
     new_item = view.scene.selectedItems(user_only=True)[0]
     assert new_item.scale() == 3.3
@@ -1195,7 +1195,7 @@ def test_items_by_tpe(view):
     assert list(view.scene.items_by_type("text")) == [item2]
 
 
-def test_items_for_save(view):
+def test_user_items(view):
     item1 = BeePixmapItem(QtGui.QImage())
     view.scene.addItem(item1)
     item2 = BeePixmapItem(QtGui.QImage())
@@ -1203,7 +1203,7 @@ def test_items_for_save(view):
     item3 = QtWidgets.QGraphicsRectItem()
     view.scene.addItem(item3)
 
-    items = list(view.scene.items_for_save())
+    items = list(view.scene.user_items())
     assert items == [item1, item2]
 
 

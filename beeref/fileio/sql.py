@@ -23,20 +23,21 @@ https://www.sqlite.org/appfileformat.html
 https://www.sqlite.org/sqlar.html
 """
 
+from __future__ import annotations
+
 import json
 import os
 import pathlib
 import shutil
 import sqlite3
 import tempfile
-
-from PyQt6 import QtGui
+from typing import Any
 
 from beeref import constants
-from beeref.items import BeePixmapItem, BeeErrorItem
-from .errors import BeeFileIOError, IMG_LOADING_ERROR_MSG
-from .schema import SCHEMA, USER_VERSION, MIGRATIONS, APPLICATION_ID
 from beeref.logging import getLogger
+from .errors import BeeFileIOError
+from .schema import SCHEMA, USER_VERSION, MIGRATIONS, APPLICATION_ID
+from .snapshot import ErrorItemSnapshot, ItemSnapshot, PixmapItemSnapshot
 
 
 logger = getLogger(__name__)
@@ -51,28 +52,29 @@ def is_bee_file(path):
 def handle_sqlite_errors(func):
     def wrapper(self, *args, **kwargs):
         try:
-            func(self, *args, **kwargs)
+            return func(self, *args, **kwargs)
         except Exception as e:
             logger.exception(f"Error while reading/writing {self.filename}")
             try:
-                # Try to roll back transaction if there is any
                 if hasattr(self, "_connection") and self._connection.in_transaction:
                     self.ex("ROLLBACK")
                     logger.debug("Transaction rolled back")
             except sqlite3.Error:
                 pass
             self._close_connection()
-            if self.worker:
-                self.worker.finished.emit(self.filename, [str(e)])
-            else:
-                raise BeeFileIOError(msg=str(e), filename=self.filename) from e
+            raise BeeFileIOError(msg=str(e), filename=self.filename) from e
 
     return wrapper
 
 
 class SQLiteIO:
-    def __init__(self, filename, scene, create_new=False, readonly=False, worker=None):
-        self.scene = scene
+    def __init__(
+        self,
+        filename: str,
+        create_new: bool = False,
+        readonly: bool = False,
+        worker: Any = None,
+    ):
         self.create_new = create_new
         self.filename = filename
         self.readonly = readonly
@@ -179,7 +181,7 @@ class SQLiteIO:
                 self.ex(schema)
 
     @handle_sqlite_errors
-    def read(self):
+    def read(self) -> list[ItemSnapshot]:
         rows = self.fetchall(
             "SELECT items.id, type, x, y, z, scale, rotation, flip, "
             "items.data, sqlar.data, items.created_at "
@@ -198,83 +200,96 @@ class SQLiteIO:
         if self.worker:
             self.worker.begin_processing.emit(len(rows))
 
+        snapshots: list[ItemSnapshot] = []
         for i, row in enumerate(rows):
-            data = {
-                "save_id": row[0],
-                "type": row[1],
-                "x": row[2],
-                "y": row[3],
-                "z": row[4],
-                "scale": row[5],
-                "rotation": row[6],
-                "flip": row[7],
-                "data": json.loads(row[8]),
-                "created_at": row[10] or 0.0,
-            }
+            save_id: str = row[0]
+            item_type: str = row[1]
+            x: float = row[2]
+            y: float = row[3]
+            z: float = row[4]
+            scale: float = row[5]
+            rotation: float = row[6]
+            flip: float = row[7]
+            data: dict[str, Any] = json.loads(row[8])
+            created_at: float = row[10] or 0.0
 
-            if data["type"] == "pixmap":
-                item = BeePixmapItem(QtGui.QImage())
-                item.pixmap_from_bytes(row[9])
-                if item.pixmap().isNull():
-                    item = data["data"]["text"] = (
-                        f"Image could not be loaded: {item.filename}\n"
-                        + IMG_LOADING_ERROR_MSG
+            if item_type == "pixmap":
+                snapshots.append(
+                    PixmapItemSnapshot(
+                        save_id=save_id,
+                        type=item_type,
+                        x=x,
+                        y=y,
+                        z=z,
+                        scale=scale,
+                        rotation=rotation,
+                        flip=flip,
+                        data=data,
+                        created_at=created_at,
+                        width=0,
+                        height=0,
+                        export_filename="",
+                        pixmap_bytes=row[9],
                     )
-                    data["type"] = BeeErrorItem.TYPE
-                data["item"] = item
-
-            self.scene.add_item_later(data)
+                )
+            else:
+                snapshots.append(
+                    ItemSnapshot(
+                        save_id=save_id,
+                        type=item_type,
+                        x=x,
+                        y=y,
+                        z=z,
+                        scale=scale,
+                        rotation=rotation,
+                        flip=flip,
+                        data=data,
+                        created_at=created_at,
+                    )
+                )
 
             if self.worker:
                 logger.trace(f"Emit progress: {i}")
                 self.worker.progress.emit(i)
                 if self.worker.canceled:
-                    self.worker.finished.emit("", [])
-                    return
-                # Give main thread time to process items:
-                self.worker.msleep(10)
-        if self.worker:
-            self.worker.finished.emit(self.filename, [])
+                    return snapshots
+        return snapshots
 
     @handle_sqlite_errors
-    def write(self):
+    def write(self, snapshots: list[ItemSnapshot]) -> list[str]:
         if self.readonly:
             raise sqlite3.OperationalError("Attempt to write to a readonly database")
         try:
             self.create_schema_on_new()
-            self.write_data()
+            return self.write_data(snapshots)
         except Exception:
             if self.retry:
-                # Trying to recover failed
                 raise
             else:
                 self.retry = True
-                # Try creating file from scratch and save again
                 logger.exception(f"Updating to existing file {self.filename} failed")
                 self.create_new = True
                 self._close_connection()
-                self.write()
+                return self.write(snapshots)
 
-    def write_data(self):
+    def write_data(self, snapshots: list):
         existing_ids = {row[0] for row in self.fetchall("SELECT id from ITEMS")}
-        # We don't want to touch existing items that are displayed as errors:
-        keep = {
-            item.original_save_id
-            for item in self.scene.items_by_type(BeeErrorItem.TYPE)
-        }
-        logger.debug(f"Not saving error items: {keep}")
-        to_delete = existing_ids - keep
+        to_delete = set(existing_ids)
 
-        to_save = list(self.scene.items_for_save())
         if self.worker:
-            self.worker.begin_processing.emit(len(to_save))
-        for i, item in enumerate(to_save):
-            logger.debug(f"Saving {item} with id {item.save_id}")
-            if item.save_id in existing_ids:
-                self.update_item(item)
-                to_delete.discard(item.save_id)
+            self.worker.begin_processing.emit(len(snapshots))
+        newly_saved: list[str] = []
+        for i, snap in enumerate(snapshots):
+            if isinstance(snap, ErrorItemSnapshot):
+                to_delete.discard(snap.original_save_id)
+                continue
+            logger.debug(f"Saving {snap.type} with id {snap.save_id}")
+            if snap.save_id in existing_ids:
+                self._update_snapshot(snap)
+                to_delete.discard(snap.save_id)
             else:
-                self.insert_item(item)
+                self._insert_snapshot(snap)
+                newly_saved.append(snap.save_id)
             if self.worker:
                 self.worker.progress.emit(i)
                 if self.worker.canceled:
@@ -282,8 +297,7 @@ class SQLiteIO:
         self.delete_items(to_delete)
         self.ex("VACUUM")
         self.connection.commit()
-        if self.worker:
-            self.worker.finished.emit(self.filename, [])
+        return newly_saved
 
     def delete_items(self, to_delete):
         to_delete = [(pk,) for pk in to_delete]
@@ -291,63 +305,61 @@ class SQLiteIO:
         self.exmany("DELETE FROM sqlar WHERE item_id=?", to_delete)
         self.connection.commit()
 
-    def insert_item(self, item):
-        width = None
-        height = None
-        if hasattr(item, "pixmap"):
-            pm = item.pixmap()
-            if not pm.isNull():
-                width = pm.width()
-                height = pm.height()
+    def _insert_snapshot(self, snap):
+        """Insert a new item from a snapshot."""
+        from beeref.items import PixmapItemSnapshot
+
+        width = snap.width if isinstance(snap, PixmapItemSnapshot) else None
+        height = snap.height if isinstance(snap, PixmapItemSnapshot) else None
         self.ex(
             "INSERT INTO items (id, type, x, y, z, scale, rotation, flip, "
             "data, width, height, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                item.save_id,
-                item.TYPE,
-                item.pos().x(),
-                item.pos().y(),
-                item.zValue(),
-                item.scale(),
-                item.rotation(),
-                item.flip(),
-                json.dumps(item.get_extra_save_data()),
+                snap.save_id,
+                snap.type,
+                snap.x,
+                snap.y,
+                snap.z,
+                snap.scale,
+                snap.rotation,
+                snap.flip,
+                json.dumps(snap.data),
                 width,
                 height,
-                item.created_at,
+                snap.created_at,
             ),
         )
 
-        if hasattr(item, "pixmap_to_bytes"):
-            pixmap, imgformat = item.pixmap_to_bytes()
-            name = item.get_filename_for_export(imgformat)
+        if isinstance(snap, PixmapItemSnapshot) and snap.pixmap_bytes:
             self.ex(
                 "INSERT INTO sqlar (item_id, name, mode, sz, data) "
                 "VALUES (?, ?, ?, ?, ?)",
-                (item.save_id, name, 0o644, len(pixmap), pixmap),
+                (
+                    snap.save_id,
+                    snap.export_filename,
+                    0o644,
+                    len(snap.pixmap_bytes),
+                    snap.pixmap_bytes,
+                ),
             )
         self.connection.commit()
 
-    def update_item(self, item):
-        """Update item data.
-
-        We only update the item data, not the pixmap data, as pixmap
-        data never changes and is also time-consuming to save.
-        """
+    def _update_snapshot(self, snap):
+        """Update an existing item's metadata from a snapshot."""
         self.ex(
             "UPDATE items SET x=?, y=?, z=?, scale=?, rotation=?, flip=?, "
             "data=? "
             "WHERE id=?",
             (
-                item.pos().x(),
-                item.pos().y(),
-                item.zValue(),
-                item.scale(),
-                item.rotation(),
-                item.flip(),
-                json.dumps(item.get_extra_save_data()),
-                item.save_id,
+                snap.x,
+                snap.y,
+                snap.z,
+                snap.scale,
+                snap.rotation,
+                snap.flip,
+                json.dumps(snap.data),
+                snap.save_id,
             ),
         )
         self.connection.commit()
