@@ -13,14 +13,13 @@
 # You should have received a copy of the GNU General Public License
 # along with ZeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ZeeRef's native file format is using SQLite. Embedded files are
-stored in an sqlar table so that they can be extracted using sqlite's
-archive command line option.
+"""ZeeRef's native file format is using SQLite.
+
+Images are stored in an `images` table (metadata) and `tiles` table (blobs).
+Items reference images via `image_id` FK.
 
 For more info, see:
-
 https://www.sqlite.org/appfileformat.html
-https://www.sqlite.org/sqlar.html
 """
 
 from __future__ import annotations
@@ -108,6 +107,7 @@ class SQLiteIO:
         if self.readonly:
             uri = f"{uri}?mode=rw"
         self._connection = sqlite3.connect(uri, uri=True)
+        self._connection.execute("PRAGMA foreign_keys=ON")
         self._cursor = self.connection.cursor()
         if not self.create_new:
             try:
@@ -190,18 +190,12 @@ class SQLiteIO:
     def read(self) -> list[ItemSnapshot]:
         rows = self.fetchall(
             "SELECT items.id, type, x, y, z, scale, rotation, flip, "
-            "items.data, sqlar.data, items.created_at "
-            "FROM sqlar JOIN items on sqlar.item_id = items.id"
-        )
-        # Avoid OUTER JOIN for performance reasons; fetch text items
-        # separately instead
-        rows.extend(
-            self.fetchall(
-                "SELECT items.id, type, x, y, z, scale, rotation, flip, "
-                "items.data, null as data, items.created_at "
-                "FROM items "
-                'WHERE items.type = "text"'
-            )
+            "items.data, tiles.data, items.created_at, items.image_id, "
+            "images.width, images.height "
+            "FROM items "
+            "LEFT JOIN images ON items.image_id = images.id "
+            "LEFT JOIN tiles ON images.id = tiles.image_id "
+            "AND tiles.level = 0 AND tiles.col = 0 AND tiles.row = 0"
         )
         if self.worker:
             self.worker.begin_processing.emit(len(rows))
@@ -232,8 +226,9 @@ class SQLiteIO:
                         flip=flip,
                         data=data,
                         created_at=created_at,
-                        width=0,
-                        height=0,
+                        image_id=row[11] or "",
+                        width=row[12] or 0,
+                        height=row[13] or 0,
                         export_filename="",
                         pixmap_bytes=row[9],
                     )
@@ -311,17 +306,36 @@ class SQLiteIO:
     def delete_items(self, to_delete: set[str]) -> None:
         items = [(pk,) for pk in to_delete]
         self.exmany("DELETE FROM items WHERE id=?", items)
-        self.exmany("DELETE FROM sqlar WHERE item_id=?", items)
+        # Clean up orphaned images (tiles cascade via FK)
+        self.ex(
+            "DELETE FROM images WHERE id NOT IN "
+            "(SELECT image_id FROM items WHERE image_id IS NOT NULL)"
+        )
         self.connection.commit()
 
     def _insert_snapshot(self, snap: ItemSnapshot) -> None:
         """Insert a new item from a snapshot."""
-        width = snap.width if isinstance(snap, PixmapItemSnapshot) else None
-        height = snap.height if isinstance(snap, PixmapItemSnapshot) else None
+        image_id = snap.image_id if isinstance(snap, PixmapItemSnapshot) else None
+
+        # Insert images/tiles before items (FK constraint)
+        if isinstance(snap, PixmapItemSnapshot):
+            fmt = snap.pixmap_format or "png"
+            self.ex(
+                "INSERT OR IGNORE INTO images (id, width, height, format) "
+                "VALUES (?, ?, ?, ?)",
+                (snap.image_id, snap.width, snap.height, fmt),
+            )
+            if snap.pixmap_bytes:
+                self.ex(
+                    "INSERT OR REPLACE INTO tiles (image_id, level, col, row, data) "
+                    "VALUES (?, 0, 0, 0, ?)",
+                    (snap.image_id, snap.pixmap_bytes),
+                )
+
         self.ex(
             "INSERT INTO items (id, type, x, y, z, scale, rotation, flip, "
-            "data, width, height, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "data, image_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 snap.save_id,
                 snap.type,
@@ -332,24 +346,10 @@ class SQLiteIO:
                 snap.rotation,
                 snap.flip,
                 json.dumps(snap.data),
-                width,
-                height,
+                image_id,
                 snap.created_at,
             ),
         )
-
-        if isinstance(snap, PixmapItemSnapshot) and snap.pixmap_bytes:
-            self.ex(
-                "INSERT INTO sqlar (item_id, name, mode, sz, data) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (
-                    snap.save_id,
-                    snap.export_filename,
-                    0o644,
-                    len(snap.pixmap_bytes),
-                    snap.pixmap_bytes,
-                ),
-            )
         self.connection.commit()
 
     def _update_snapshot(self, snap: ItemSnapshot) -> None:

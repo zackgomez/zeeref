@@ -42,6 +42,7 @@ class ItemSnapshot:
 class PixmapItemSnapshot(ItemSnapshot):
     """Snapshot for pixmap items, including image dimensions and blob data."""
 
+    image_id: str
     width: int
     height: int
     export_filename: str

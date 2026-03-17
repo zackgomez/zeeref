@@ -2,6 +2,7 @@ import json
 import os
 import os.path
 import stat
+import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -17,6 +18,33 @@ from zeeref.items import (
     ZeeTextItem,
     ZeeErrorItem,
     create_item_from_snapshot,
+)
+
+
+def insert_test_image(io, item_id, blob, width=0, height=0, fmt="png"):
+    """Insert an image + tile row and link it to an existing item."""
+    image_id = uuid.uuid4().hex
+    io.ex(
+        "INSERT INTO images (id, width, height, format) VALUES (?, ?, ?, ?)",
+        (image_id, width, height, fmt),
+    )
+    io.ex(
+        "INSERT INTO tiles (image_id, level, col, row, data) VALUES (?, 0, 0, 0, ?)",
+        (image_id, blob),
+    )
+    io.ex("UPDATE items SET image_id=? WHERE id=?", (image_id, item_id))
+
+
+TILE_JOIN = (
+    "LEFT JOIN images ON items.image_id = images.id "
+    "LEFT JOIN tiles ON images.id = tiles.image_id "
+    "AND tiles.level = 0 AND tiles.col = 0 AND tiles.row = 0"
+)
+
+TILE_INNER_JOIN = (
+    "JOIN images ON items.image_id = images.id "
+    "JOIN tiles ON images.id = tiles.image_id "
+    "AND tiles.level = 0 AND tiles.col = 0 AND tiles.row = 0"
 )
 
 
@@ -135,14 +163,27 @@ def test_all_migrations(tmpfile):
     io = SQLiteIO(tmpfile, create_new=False)
     result = io.fetchone("PRAGMA user_version")
     assert result[0] == schema.USER_VERSION
+
+    # Verify v5 schema: items -> images -> tiles
     result = io.fetchone(
-        "SELECT x, y, items.data, sqlar.data FROM items "
-        "LEFT OUTER JOIN sqlar on sqlar.item_id = items.id"
+        "SELECT x, y, items.data, tiles.data, images.width, images.height "
+        "FROM items "
+        "JOIN images ON items.image_id = images.id "
+        "JOIN tiles ON images.id = tiles.image_id "
+        "AND tiles.level = 0 AND tiles.col = 0 AND tiles.row = 0"
     )
     assert result[0] == 22.2
     assert result[1] == 33.3
     assert json.loads(result[2]) == {"filename": "bee.png"}
     assert result[3] == b"bla"
+
+    # Verify sqlar is gone and width/height moved to images
+    tables = [
+        r[0] for r in io.fetchall("SELECT name FROM sqlite_master WHERE type='table'")
+    ]
+    assert "sqlar" not in tables
+    assert "images" in tables
+    assert "tiles" in tables
 
 
 def test_sqliteio_write_meta_application_id(tmpfile):
@@ -173,7 +214,7 @@ def test_sqliteio_create_schema_on_new_when_create_new(tmpfile):
         "SELECT COUNT(*) FROM sqlite_master "
         'WHERE type="table" AND name NOT LIKE "sqlite_%"'
     )
-    assert result[0] == 2
+    assert result[0] == 3  # images, tiles, items
 
 
 @patch("zeeref.fileio.sql.SQLiteIO._migrate")
@@ -231,10 +272,8 @@ def test_sqliteio_write_inserts_new_text_item(tmpfile, scene):
 
     assert io.fetchone("SELECT id FROM items WHERE id = ?", (item.save_id,))
     result = io.fetchone(
-        "SELECT x, y, z, scale, rotation, flip, items.data, type, "
-        "sqlar.data, sqlar.name "
-        "FROM items "
-        "LEFT OUTER JOIN sqlar on sqlar.item_id = items.id"
+        "SELECT x, y, z, scale, rotation, flip, items.data, type, tiles.data "
+        f"FROM items {TILE_JOIN}"
     )
     assert result[0] == 44.0
     assert result[1] == 55.0
@@ -245,7 +284,6 @@ def test_sqliteio_write_inserts_new_text_item(tmpfile, scene):
     assert json.loads(result[6]) == {"text": "foo bar"}
     assert result[7] == "text"
     assert result[8] is None
-    assert result[9] is None
 
 
 def test_sqliteio_write_inserts_new_pixmap_item_png(tmpfile, scene):
@@ -264,10 +302,8 @@ def test_sqliteio_write_inserts_new_pixmap_item_png(tmpfile, scene):
 
     assert io.fetchone("SELECT id FROM items WHERE id = ?", (item.save_id,))
     result = io.fetchone(
-        "SELECT x, y, z, scale, rotation, flip, items.data, type, "
-        "sqlar.data, sqlar.name "
-        "FROM items "
-        "INNER JOIN sqlar on sqlar.item_id = items.id"
+        "SELECT x, y, z, scale, rotation, flip, items.data, type, tiles.data "
+        f"FROM items {TILE_INNER_JOIN}"
     )
     assert result[0] == 44.0
     assert result[1] == 55.0
@@ -282,7 +318,6 @@ def test_sqliteio_write_inserts_new_pixmap_item_png(tmpfile, scene):
     }
     assert result[7] == "pixmap"
     assert result[8] == b"abc"
-    assert result[9] == f"{item.save_id[:8]}-bee.png"
 
 
 def test_sqliteio_write_inserts_new_pixmap_item_jpg(tmpfile, scene, imgfilename3x3):
@@ -293,14 +328,9 @@ def test_sqliteio_write_inserts_new_pixmap_item_jpg(tmpfile, scene, imgfilename3
         io.write(scene.snapshot_for_save())
 
     assert io.fetchone("SELECT id FROM items WHERE id = ?", (item.save_id,))
-    result = io.fetchone(
-        "SELECT type, sqlar.data, sqlar.name "
-        "FROM items "
-        "INNER JOIN sqlar on sqlar.item_id = items.id"
-    )
+    result = io.fetchone(f"SELECT type, tiles.data FROM items {TILE_INNER_JOIN}")
     assert result[0] == "pixmap"
     assert result[1].startswith(b"\xff\xd8\xff")  # JPEG magic bytes
-    assert result[2] == f"{item.save_id[:8]}-bee.jpg"
 
 
 def test_sqliteio_write_inserts_new_pixmap_item_without_filename(tmpfile, scene, item):
@@ -309,12 +339,9 @@ def test_sqliteio_write_inserts_new_pixmap_item_without_filename(tmpfile, scene,
     io.write(scene.snapshot_for_save())
 
     assert io.fetchone("SELECT id FROM items WHERE id = ?", (item.save_id,))
-    result = io.fetchone(
-        "SELECT items.data, sqlar.name FROM items "
-        "INNER JOIN sqlar on sqlar.item_id = items.id"
-    )
+    result = io.fetchone(f"SELECT items.data, tiles.data FROM items {TILE_INNER_JOIN}")
     assert json.loads(result[0])["filename"] is None
-    assert result[1] == f"{item.save_id[:8]}.png"
+    assert result[1] is not None
 
 
 def test_sqliteio_write_updates_existing_text_item(tmpfile, scene):
@@ -339,9 +366,8 @@ def test_sqliteio_write_updates_existing_text_item(tmpfile, scene):
 
     assert io.fetchone("SELECT COUNT(*) from items") == (1,)
     result = io.fetchone(
-        "SELECT x, y, z, scale, rotation, flip, items.data, sqlar.data "
-        "FROM items "
-        "LEFT OUTER JOIN sqlar on sqlar.item_id = items.id"
+        "SELECT x, y, z, scale, rotation, flip, items.data, tiles.data "
+        f"FROM items {TILE_JOIN}"
     )
     assert result[0] == 20
     assert result[1] == 30
@@ -381,9 +407,8 @@ def test_sqliteio_write_updates_existing_pixmap_item(tmpfile, scene, imgfilename
 
     assert io.fetchone("SELECT COUNT(*) from items") == (1,)
     result = io.fetchone(
-        "SELECT x, y, z, scale, rotation, flip, items.data, sqlar.data "
-        "FROM items "
-        "INNER JOIN sqlar on sqlar.item_id = items.id"
+        "SELECT x, y, z, scale, rotation, flip, items.data, tiles.data "
+        f"FROM items {TILE_INNER_JOIN}"
     )
     assert result[0] == 20
     assert result[1] == 30
@@ -427,9 +452,8 @@ def test_sqliteio_write_keeps_pixmap_item_of_error_item(tmpfile, scene, imgfilen
 
     assert io.fetchone("SELECT COUNT(*) from items") == (1,)
     result = io.fetchone(
-        "SELECT x, y, z, scale, rotation, flip, items.data, sqlar.data "
-        "FROM items "
-        "INNER JOIN sqlar on sqlar.item_id = items.id"
+        "SELECT x, y, z, scale, rotation, flip, items.data, tiles.data "
+        f"FROM items {TILE_INNER_JOIN}"
     )
     assert result[0] == 44
     assert result[1] == 55
@@ -468,7 +492,8 @@ def test_sqliteio_write_removes_nonexisting_text_item(tmpfile, scene):
     io.write(scene.snapshot_for_save(), compact=True)
 
     assert io.fetchone("SELECT COUNT(*) from items") == (0,)
-    assert io.fetchone("SELECT COUNT(*) from sqlar") == (0,)
+    assert io.fetchone("SELECT COUNT(*) from tiles") == (0,)
+    assert io.fetchone("SELECT COUNT(*) from images") == (0,)
 
 
 def test_sqliteio_write_removes_nonexisting_pixmap_item(tmpfile, scene, imgfilename3x3):
@@ -479,7 +504,7 @@ def test_sqliteio_write_removes_nonexisting_pixmap_item(tmpfile, scene, imgfilen
     io = SQLiteIO(tmpfile, create_new=True)
     io.write(scene.snapshot_for_save(), compact=True)
     assert io.fetchone("SELECT COUNT(*) from items") == (1,)
-    assert io.fetchone("SELECT COUNT(*) from sqlar") == (1,)
+    assert io.fetchone("SELECT COUNT(*) from tiles") == (1,)
 
     scene.removeItem(item)
 
@@ -488,7 +513,8 @@ def test_sqliteio_write_removes_nonexisting_pixmap_item(tmpfile, scene, imgfilen
     io.write(scene.snapshot_for_save(), compact=True)
 
     assert io.fetchone("SELECT COUNT(*) from items") == (0,)
-    assert io.fetchone("SELECT COUNT(*) from sqlar") == (0,)
+    assert io.fetchone("SELECT COUNT(*) from tiles") == (0,)
+    assert io.fetchone("SELECT COUNT(*) from images") == (0,)
 
 
 def test_sqliteio_write_update_recovers_from_borked_file(scene, tmpfile):
@@ -593,7 +619,7 @@ def test_sqliteio_read_reads_readonly_pixmap_item(tmpfile, scene, imgdata3x3):
             json.dumps({"filename": "bee.png"}),
         ),
     )
-    io.ex("INSERT INTO sqlar (item_id, data) VALUES (?, ?)", (pixmap_id, imgdata3x3))
+    insert_test_image(io, pixmap_id, imgdata3x3)
     io.connection.commit()
     del io
 
@@ -634,7 +660,7 @@ def test_sqliteio_read_reads_readonly_pixmap_item_error(tmpfile, scene):
             json.dumps({"filename": "bee.png"}),
         ),
     )
-    io.ex("INSERT INTO sqlar (item_id, data) VALUES (?, ?)", (err_id, b"not an image"))
+    insert_test_image(io, err_id, b"not an image")
     io.connection.commit()
     del io
 
@@ -661,7 +687,7 @@ def test_sqliteio_read_updates_progress(tmpfile, scene):
         "INSERT INTO items (id, type, x, y, z, scale, data) VALUES (?, ?, ?, ?, ?, ?, ?) ",
         (prog_id, "pixmap", 0, 0, 0, 1, json.dumps({"filename": "bee.png"})),
     )
-    io.ex("INSERT INTO sqlar (item_id, data) VALUES (?, ?)", (prog_id, b""))
+    insert_test_image(io, prog_id, b"")
     io.connection.commit()
 
     snapshots = io.read()
@@ -680,12 +706,12 @@ def test_sqliteio_read_canceled(tmpfile, scene):
         "INSERT INTO items (id, type, x, y, z, scale, data) VALUES (?, ?, ?, ?, ?, ?, ?) ",
         (cancel_id1, "pixmap", 0, 0, 0, 1, json.dumps({"filename": "bee.png"})),
     )
-    io.ex("INSERT INTO sqlar (item_id, data) VALUES (?, ?)", (cancel_id1, b""))
+    insert_test_image(io, cancel_id1, b"")
     io.ex(
         "INSERT INTO items (id, type, x, y, z, scale, data) VALUES (?, ?, ?, ?, ?, ?, ?) ",
         (cancel_id2, "pixmap", 50, 50, 0, 1, json.dumps({"filename": "bee2.png"})),
     )
-    io.ex("INSERT INTO sqlar (item_id, data) VALUES (?, ?)", (cancel_id2, b""))
+    insert_test_image(io, cancel_id2, b"")
     io.connection.commit()
 
     snapshots = io.read()

@@ -76,7 +76,8 @@ def test_create_scratch_file_none_creates_empty_db(settings):
     ).fetchall()
     table_names = [t[0] for t in tables]
     assert "items" in table_names
-    assert "sqlar" in table_names
+    assert "images" in table_names
+    assert "tiles" in table_names
     conn.close()
     swp.unlink()
 

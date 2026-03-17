@@ -201,6 +201,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.is_image = True
         self.crop_mode: bool = False
         self._blob_saved: bool = False
+        self.image_id: str = uuid.uuid4().hex
         self.init_selectable()
         self.settings = ZeeSettings()
 
@@ -222,6 +223,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             flip=self.flip(),
             data=self.get_extra_save_data(),
             created_at=self.created_at,
+            image_id=self.image_id,
             width=pm.width(),
             height=pm.height(),
             export_filename=self.get_filename_for_export(
@@ -256,6 +258,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             item.setPixmap(pixmap)
         item.save_id = snap.save_id
         item.created_at = snap.created_at
+        item.image_id = snap.image_id
         item.filename = snap.data.get("filename")
         if "crop" in snap.data:
             item.crop = QtCore.QRectF(*snap.data["crop"])
