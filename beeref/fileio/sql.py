@@ -81,11 +81,11 @@ class SQLiteIO:
         readonly: bool = False,
         worker: ThreadedIO | None = None,
     ) -> None:
-        self.create_new = create_new
+        self.create_new: bool = create_new
         self.filename: Path = filename
-        self.readonly = readonly
-        self.worker = worker
-        self.retry = False
+        self.readonly: bool = readonly
+        self.worker: ThreadedIO | None = worker
+        self.retry: bool = False
 
     def __del__(self) -> None:
         self._close_connection()

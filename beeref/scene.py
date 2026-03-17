@@ -57,7 +57,7 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
     def __init__(self, undo_stack: QtGui.QUndoStack) -> None:
         super().__init__()
         self.active_mode: int | None = None
-        self.undo_stack = undo_stack
+        self.undo_stack: QtGui.QUndoStack = undo_stack
         self._scratch_file: Path | None = None
         self.max_z: float = 0
         self.min_z: float = 0
@@ -68,16 +68,17 @@ class BeeGraphicsScene(QtWidgets.QGraphicsScene):
         self.edit_item: BeeTextItem | None = None
         self.crop_item: BeePixmapItem | None = None
         self.internal_clipboard: list[BeeItemMixin] = []
-        self.settings = BeeSettings()
+        self.event_start: QtCore.QPointF = QtCore.QPointF()
+        self.settings: BeeSettings = BeeSettings()
         self.clear()
-        self._clear_ongoing = False
+        self._clear_ongoing: bool = False
 
     def clear(self) -> None:
         self._clear_ongoing = True
         super().clear()
-        self.internal_clipboard = []
-        self.rubberband_item = RubberbandItem()
-        self.multi_select_item = MultiSelectItem()
+        self.internal_clipboard: list[BeeItemMixin] = []
+        self.rubberband_item: RubberbandItem = RubberbandItem()
+        self.multi_select_item: MultiSelectItem = MultiSelectItem()
         self._clear_ongoing = False
 
     def addItem(self, item: QtWidgets.QGraphicsItem) -> None:

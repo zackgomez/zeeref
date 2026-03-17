@@ -217,11 +217,11 @@ class ThreadedIO(QtCore.QThread):
 
     def __init__(self, func: Callable[..., None], *args: Any, **kwargs: Any) -> None:
         super().__init__()
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
+        self.func: Callable[..., None] = func
+        self.args: tuple[Any, ...] = args
+        self.kwargs: dict[str, Any] = kwargs
         self.kwargs["worker"] = self
-        self.canceled = False
+        self.canceled: bool = False
 
     def run(self) -> None:
         self.func(*self.args, **self.kwargs)

@@ -82,7 +82,7 @@ class SceneExporterBase(ExporterBase):
         raise NotImplementedError
 
     def __init__(self, scene: BeeGraphicsScene) -> None:
-        self.scene = scene
+        self.scene: BeeGraphicsScene = scene
         self.scene.cancel_active_modes()
         self.scene.deselect_all_items()
         # Selection outlines/handles will be rendered to the exported
@@ -92,8 +92,10 @@ class SceneExporterBase(ExporterBase):
         logger.trace(f"Items bounding rect: {rect}")
         size = QtCore.QSize(int(rect.width()), int(rect.height()))
         logger.trace(f"Export size without margins: {size}")
-        self.margin = max(size.width(), size.height()) * 0.03
-        self.default_size = size.grownBy(QtCore.QMargins(*([int(self.margin)] * 4)))
+        self.margin: float = max(size.width(), size.height()) * 0.03
+        self.default_size: QtCore.QSize = size.grownBy(
+            QtCore.QMargins(*([int(self.margin)] * 4))
+        )
         logger.debug(f"Default export margin: {self.margin}")
         logger.debug(f"Default export size with margins: {self.default_size}")
 
@@ -222,27 +224,29 @@ class SceneToSVGExporter(SceneExporterBase):
         rect = self.scene.itemsBoundingRect()
         offset = rect.topLeft() - QtCore.QPointF(self.margin, self.margin)
 
-        for i, item in enumerate(sorted(self.scene.items(), key=lambda x: x.zValue())):
+        for i, item in enumerate(
+            sorted(self.scene.user_items(), key=lambda x: x.zValue())
+        ):
             # z order in SVG specified via the order of elements in the tree
             pos = item.pos() - offset
             anchor = pos
 
-            if item.TYPE == "text":
+            if isinstance(item, BeeTextItem):
                 styles = self._get_textstyles(item)
                 element = ET.Element(
                     "text",
                     attrib={"style": ";".join(styles), "dominant-baseline": "hanging"},
                 )
                 element.text = item._markdown
-            if item.TYPE == "pixmap":
+            elif isinstance(item, BeePixmapItem):
                 width = item.width * item.scale()
                 height = item.height * item.scale()
-                pixmap, imgformat = item.pixmap_to_bytes(apply_crop=True)
-                pixmap = base64.b64encode(pixmap).decode("ascii")
+                pixmap_bytes, imgformat = item.pixmap_to_bytes(apply_crop=True)
+                pixmap_b64 = base64.b64encode(pixmap_bytes).decode("ascii")
                 element = ET.Element(
                     "image",
                     attrib={
-                        "xlink:href": f"data:image/{imgformat};base64,{pixmap}",
+                        "xlink:href": f"data:image/{imgformat};base64,{pixmap_b64}",
                         "width": str(width),
                         "height": str(height),
                         "image-rendering": (
@@ -251,6 +255,8 @@ class SceneToSVGExporter(SceneExporterBase):
                     },
                 )
                 pos = pos + item.crop.topLeft()
+            else:
+                continue
 
             transforms = []
             if item.flip() == -1:
@@ -309,12 +315,16 @@ class ImagesToDirectoryExporter(ExporterBase):
     """
 
     def __init__(self, scene: BeeGraphicsScene, dirname: Path) -> None:
-        self.scene = scene
-        self.dirname = dirname
-        self.items = list(self.scene.items_by_type(BeePixmapItem.TYPE))
-        self.num_total = len(self.items)
-        self.start_from = 0
-        self.handle_existing = None
+        self.scene: BeeGraphicsScene = scene
+        self.dirname: Path = dirname
+        self.items: list[BeePixmapItem] = [
+            i
+            for i in self.scene.items_by_type(BeePixmapItem.TYPE)
+            if isinstance(i, BeePixmapItem)
+        ]
+        self.num_total: int = len(self.items)
+        self.start_from: int = 0
+        self.handle_existing: str | None = None
 
     def export(self, worker: ThreadedIO | None = None) -> None:
         logger.debug(f"Exporting images to {self.dirname}")

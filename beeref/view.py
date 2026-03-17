@@ -57,12 +57,14 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self, app: QtWidgets.QApplication, parent: QtWidgets.QMainWindow | None = None
     ) -> None:
         super().__init__(parent)
-        self.app = app
+        self.app: QtWidgets.QApplication = app
         assert parent is not None
-        self.parent = parent
-        self.settings = BeeSettings()
-        self.keyboard_settings = KeyboardSettings()
-        self.welcome_overlay = widgets.welcome_overlay.WelcomeOverlay(self)
+        self.parent: QtWidgets.QMainWindow = parent
+        self.settings: BeeSettings = BeeSettings()
+        self.keyboard_settings: KeyboardSettings = KeyboardSettings()
+        self.welcome_overlay: widgets.welcome_overlay.WelcomeOverlay = (
+            widgets.welcome_overlay.WelcomeOverlay(self)
+        )
 
         canvas_color = self.settings.valueOrDefault("View/canvas_color")
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(canvas_color)))
@@ -79,7 +81,7 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        self.undo_stack = QtGui.QUndoStack(self)
+        self.undo_stack: QtGui.QUndoStack = QtGui.QUndoStack(self)
         self.undo_stack.setUndoLimit(100)
         self.undo_stack.canRedoChanged.connect(self.on_can_redo_changed)
         self.undo_stack.canUndoChanged.connect(self.on_can_undo_changed)
@@ -88,11 +90,16 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
         self.filename = None
         self.worker: fileio.ThreadedIO | None = None
-        self._drain_dirty = False
+        self._drain_dirty: bool = False
         self.previous_transform: dict[str, Any] | None = None
         self.active_mode: int | None = None
+        self.event_start: QtCore.QPointF = QtCore.QPointF()
+        self.event_anchor: QtCore.QPointF = QtCore.QPointF()
+        self.event_inverted: bool = False
+        self.progress: widgets.BeeProgressDialog | None = None
+        self.exporter: ImagesToDirectoryExporter | None = None
 
-        self.scene = BeeGraphicsScene(self.undo_stack)
+        self.scene: BeeGraphicsScene = BeeGraphicsScene(self.undo_stack)
         self.scene.changed.connect(self.on_scene_changed)
         self.scene.selectionChanged.connect(self.on_selection_changed)
         self.scene.cursor_changed.connect(self.on_cursor_changed)
@@ -101,14 +108,14 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
         # Context menu and actions
         self.build_menu_and_actions()
-        self.control_target = self
+        self.control_target: BeeGraphicsView = self
         self.init_main_controls(main_window=parent)
 
         # Create empty .swp for untitled scene
         self.scene._scratch_file = fileio.create_scratch_file(None)
 
         # Drain timer — periodically write scene state to .swp
-        self.drain_timer = QtCore.QTimer(self)
+        self.drain_timer: QtCore.QTimer = QtCore.QTimer(self)
         self.drain_timer.setInterval(60_000)
         self.drain_timer.timeout.connect(self.drain_tick)
         self.drain_timer.start()
@@ -640,6 +647,7 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
     def on_export_images_file_exists(self, filename: str) -> None:
         dlg = widgets.ExportImagesFileExistsDialog(self, filename)
         if dlg.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            assert self.exporter is not None
             self.exporter.handle_existing = dlg.get_answer()
             directory = self.exporter.dirname
             assert self.worker is not None
