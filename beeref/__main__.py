@@ -71,6 +71,12 @@ class BeeRefMainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: Optional[QtGui.QCloseEvent]) -> None:
         assert event is not None
+        if not self.view.get_confirmation_unsaved_changes(
+            "There are unsaved changes. Are you sure you want to quit?"
+        ):
+            event.ignore()
+            return
+        logger.info("Exiting...")
         geom = self.saveGeometry()
         self.view.settings.setValue("MainWindow/geometry", geom)
         if self.view.scene._scratch_file:

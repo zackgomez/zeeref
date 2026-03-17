@@ -655,12 +655,7 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             self.worker.start()
 
     def on_action_quit(self) -> None:
-        confirm = self.get_confirmation_unsaved_changes(
-            "There are unsaved changes. Are you sure you want to quit?"
-        )
-        if confirm:
-            logger.info("User quit. Exiting...")
-            self.app.quit()
+        self.app.quit()
 
     def on_action_settings(self) -> None:
         widgets.settings.SettingsDialog(self)
