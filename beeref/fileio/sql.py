@@ -281,7 +281,7 @@ class SQLiteIO:
         newly_saved: list[str] = []
         for i, snap in enumerate(snapshots):
             if isinstance(snap, ErrorItemSnapshot):
-                to_delete.discard(snap.original_save_id)
+                to_delete.discard(snap.save_id)
                 continue
             logger.debug(f"Saving {snap.type} with id {snap.save_id}")
             if snap.save_id in existing_ids:

@@ -50,7 +50,7 @@ class PixmapItemSnapshot(ItemSnapshot):
 class ErrorItemSnapshot:
     """Preserves a broken item's DB row from deletion."""
 
-    original_save_id: str
+    save_id: str
 
 
 @dataclass

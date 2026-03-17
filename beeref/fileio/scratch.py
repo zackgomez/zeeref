@@ -18,7 +18,7 @@
 import hashlib
 import logging
 import os
-import time
+import uuid
 
 from beeref.config import BeeSettings
 from beeref.fileio.schema import SCHEMA
@@ -37,7 +37,8 @@ def derive_swp_path(original: str) -> str:
 def derive_untitled_swp_path() -> str:
     """Create a .swp path for a new unsaved scene."""
     recovery_dir = BeeSettings().get_recovery_dir()
-    return os.path.join(recovery_dir, f"untitled_{int(time.time())}.bee.swp")
+    suffix = uuid.uuid4().hex[:8]
+    return os.path.join(recovery_dir, f"untitled_{suffix}.bee.swp")
 
 
 def create_scratch_file(original: str | None, worker=None) -> str:

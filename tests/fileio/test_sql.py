@@ -415,7 +415,7 @@ def test_sqliteio_write_keeps_pixmap_item_of_error_item(tmpfile, view, imgfilena
     assert io.fetchone("SELECT COUNT(*) from items") == (1,)
 
     err_item = BeeErrorItem("errormsg")
-    err_item.original_save_id = saved_id
+    err_item.save_id = saved_id
     err_item.setScale(0.7)
     err_item.setPos(20, 30)
     err_item.setZValue(0.33)
@@ -446,7 +446,7 @@ def test_sqliteio_write_keeps_pixmap_item_of_error_item(tmpfile, view, imgfilena
 
 def test_sqliteio_doesnt_write_error_item_to_new_file(tmpfile, view):
     err_item = BeeErrorItem("errormsg")
-    err_item.original_save_id = "a" * 32
+    err_item.save_id = "a" * 32
     view.scene.addItem(err_item)
     io = SQLiteIO(tmpfile, create_new=True)
     io.create_new = True
@@ -647,7 +647,7 @@ def test_sqliteio_read_reads_readonly_pixmap_item_error(tmpfile, view):
     # Corrupt blob should produce an error item
     item = create_item_from_snapshot(snap)
     assert isinstance(item, BeeErrorItem)
-    assert item.original_save_id == err_id
+    assert item.save_id == err_id
 
 
 def test_sqliteio_read_updates_progress(tmpfile, view):

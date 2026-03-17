@@ -57,7 +57,7 @@ def create_item_from_snapshot(snap: ItemSnapshot) -> BeeItemMixin:
     cls = item_registry.get(snap.type)
     if cls is None:
         err = BeeErrorItem(f"Item of unknown type: {snap.type}")
-        err.original_save_id = snap.save_id
+        err.save_id = snap.save_id
         err.setPos(snap.x, snap.y)
         err.setZValue(snap.z)
         return err
@@ -68,7 +68,7 @@ def create_item_from_snapshot(snap: ItemSnapshot) -> BeeItemMixin:
         logger.exception(f"Failed to create {snap.type} from snapshot")
         filename = snap.data.get("filename", "unknown")
         err = BeeErrorItem(f"Failed to load {snap.type}: {filename}\n{e}")
-        err.original_save_id = snap.save_id
+        err.save_id = snap.save_id
         err.setPos(snap.x, snap.y)
         err.setZValue(snap.z)
         return err
@@ -1028,7 +1028,8 @@ class BeeErrorItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
 
     def __init__(self, text: str | None = None, **kwargs: Any) -> None:
         super().__init__(text or "Text")
-        self.original_save_id: str | None = None
+        self.save_id: str = uuid.uuid4().hex
+        self.created_at: float = time.time()
         logger.debug(f"Initialized {self}")
         self.is_image = False
         self.init_selectable()
@@ -1037,9 +1038,7 @@ class BeeErrorItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
 
     def snapshot(self) -> ErrorItemSnapshot:
         """Error items just preserve the original DB row."""
-        return ErrorItemSnapshot(
-            original_save_id=self.original_save_id or self.save_id,
-        )
+        return ErrorItemSnapshot(save_id=self.save_id)
 
     @classmethod
     def create_from_data(cls, **kwargs: Any) -> BeeErrorItem:
@@ -1072,7 +1071,7 @@ class BeeErrorItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
         self.paint_selectable(painter, option, widget)
 
     def update_from_data(self, **kwargs: Any) -> None:
-        self.original_save_id = kwargs.get("save_id", self.original_save_id)
+        self.save_id = kwargs.get("save_id", self.save_id)
         self.setPos(kwargs.get("x", self.pos().x()), kwargs.get("y", self.pos().y()))
         self.setZValue(kwargs.get("z", self.zValue()))
         self.setScale(kwargs.get("scale", self.scale()))
