@@ -22,6 +22,7 @@ import os
 import platform
 import signal
 import sys
+from pathlib import Path
 from typing import Optional, cast
 
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -42,7 +43,7 @@ class BeeRefApplication(QtWidgets.QApplication):
             file_event = cast(QtGui.QFileOpenEvent, event)
             for widget in self.topLevelWidgets():
                 if isinstance(widget, BeeRefMainWindow):
-                    widget.view.open_from_file(file_event.file())
+                    widget.view.open_from_file(Path(file_event.file()))
                     return True
             return False
         else:

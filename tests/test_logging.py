@@ -24,16 +24,16 @@ def test_beelogger(log_mock):
     log_mock.assert_called_once_with(TRACE, "blah: %s", "spam", extra={"foo": "bar"})
 
 
-def test_rotating_file_handler_creates_new_dir(tmpdir):
-    logfile = os.path.join(tmpdir, "foo", "bar.log")
+def test_rotating_file_handler_creates_new_dir(tmp_path):
+    logfile = os.path.join(tmp_path, "foo", "bar.log")
     handler = BeeRotatingFileHandler(logfile)
     handler.emit(logging.LogRecord("foo", logging.INFO, "bar", 66, "baz", [], None))
     handler.close()
     assert os.path.exists(logfile)
 
 
-def testrotating_file_handler_uses_existing_dir(tmpdir):
-    logfile = os.path.join(tmpdir, "bar.log")
+def testrotating_file_handler_uses_existing_dir(tmp_path):
+    logfile = os.path.join(tmp_path, "bar.log")
     handler = BeeRotatingFileHandler(logfile)
     handler.emit(logging.LogRecord("foo", logging.INFO, "bar", 66, "baz", [], None))
     handler.close()

@@ -18,6 +18,7 @@ from __future__ import annotations
 from functools import partial
 import os
 import os.path
+from pathlib import Path
 from typing import Any, Callable, cast
 
 from beeref.logging import getLogger
@@ -113,8 +114,8 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
         # Load files given via command line
         if commandline_args.filenames:
-            fn = commandline_args.filenames[0]
-            if os.path.splitext(fn)[1] == ".bee":
+            fn = Path(commandline_args.filenames[0])
+            if fn.suffix == ".bee":
                 self.open_from_file(fn)
             else:
                 self.do_insert_images(commandline_args.filenames)
@@ -122,15 +123,15 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.update_window_title()
 
     @property
-    def filename(self) -> str | None:
+    def filename(self) -> Path | None:
         return self._filename
 
     @filename.setter
-    def filename(self, value: str | None) -> None:
+    def filename(self, value: Path | None) -> None:
         self._filename = value
         self.update_window_title()
         if value:
-            self.settings.update_recent_files(value)
+            self.settings.update_recent_files(str(value))
             self.update_menu_and_actions()
 
     def require_viewport(self) -> QtWidgets.QWidget:
@@ -158,9 +159,9 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         if clean and not self.filename:
             title = constants.APPNAME
         else:
-            name = os.path.basename(self.filename or "[Untitled]")
-            clean = "" if clean else "*"
-            title = f"{name}{clean} - {constants.APPNAME}"
+            name = self.filename.name if self.filename else "[Untitled]"
+            marker = "" if clean else "*"
+            title = f"{name}{marker} - {constants.APPNAME}"
         self.parent.setWindowTitle(title)
 
     def on_scene_changed(self, region: list[QtCore.QRectF]) -> None:
@@ -479,9 +480,9 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             "There are unsaved changes. Are you sure you want to open a new scene?"
         )
         if confirm:
-            self.open_from_file(filename)
+            self.open_from_file(Path(filename))
 
-    def open_from_file(self, filename: str) -> None:
+    def open_from_file(self, filename: Path) -> None:
         logger.info(f"Opening file {filename}")
         self.clear_scene()
         self.worker = fileio.ThreadedIO(fileio.load_bee, filename, self.scene)
@@ -503,9 +504,9 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             parent=self, caption="Open file", filter=f"{constants.APPNAME} File (*.bee)"
         )
         if filename:
-            filename = os.path.normpath(filename)
-            self.open_from_file(filename)
-            self.filename = filename
+            path = Path(filename).resolve()
+            self.open_from_file(path)
+            self.filename = path
 
     def on_saving_finished(self, result: fileio.IOResult) -> None:
         if result.errors:
@@ -517,6 +518,7 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             )
             return
         assert isinstance(result, fileio.SaveResult)
+        assert result.filename is not None
         old_filename = self.filename
         self.filename = result.filename
         self.undo_stack.setClean()
@@ -531,9 +533,9 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
                 os.rename(self.scene._scratch_file, new_swp)
                 self.scene._scratch_file = new_swp
 
-    def do_save(self, filename: str) -> None:
+    def do_save(self, filename: Path) -> None:
         if not fileio.is_bee_file(filename):
-            filename = f"{filename}.bee"
+            filename = filename.with_suffix(".bee")
         assert self.scene._scratch_file is not None
         # Snapshot scene state on the main thread before handing to
         # the background thread — no Qt objects cross the boundary
@@ -552,15 +554,15 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
     def on_action_save_as(self) -> None:
         self.cancel_active_modes()
-        directory = os.path.dirname(self.filename) if self.filename else None
-        filename, f = QtWidgets.QFileDialog.getSaveFileName(
+        directory = str(self.filename.parent) if self.filename else None
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
             parent=self,
             caption="Save file",
             directory=directory,
             filter=f"{constants.APPNAME} File (*.bee)",
         )
         if filename:
-            self.do_save(filename)
+            self.do_save(Path(filename))
 
     def on_action_save(self) -> None:
         self.cancel_active_modes()
@@ -570,7 +572,7 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             self.do_save(self.filename)
 
     def on_action_export_scene(self) -> None:
-        directory = os.path.dirname(self.filename) if self.filename else None
+        directory = str(self.filename.parent) if self.filename else None
         filename, formatstr = QtWidgets.QFileDialog.getSaveFileName(
             parent=self,
             caption="Export Scene to Image",
@@ -588,18 +590,18 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         if not filename:
             return
 
-        name, ext = os.path.splitext(filename)
-        if not ext:
+        path = Path(filename)
+        if not path.suffix:
             ext = get_file_extension_from_format(formatstr)
-            filename = f"{filename}.{ext}"
-        logger.debug(f"Got export filename {filename}")
+            path = path.with_suffix(f".{ext}")
+        logger.debug(f"Got export filename {path}")
 
-        exporter_cls = exporter_registry[ext]
+        exporter_cls = exporter_registry[path.suffix]
         exporter = exporter_cls(self.scene)
         if not exporter.get_user_input(self):
             return
 
-        self.worker = fileio.ThreadedIO(exporter.export, filename)
+        self.worker = fileio.ThreadedIO(exporter.export, path)
         self.worker.finished.connect(self.on_export_finished)
         self.progress = widgets.BeeProgressDialog(
             f"Exporting {filename}", worker=self.worker, parent=self
@@ -616,7 +618,7 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             )
 
     def on_action_export_images(self) -> None:
-        directory = os.path.dirname(self.filename) if self.filename else None
+        directory = str(self.filename.parent) if self.filename else None
         directory = QtWidgets.QFileDialog.getExistingDirectory(
             parent=self, caption="Export Images", directory=directory
         )
@@ -625,7 +627,7 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             return
 
         logger.debug(f"Got export directory {directory}")
-        self.exporter = ImagesToDirectoryExporter(self.scene, directory)
+        self.exporter = ImagesToDirectoryExporter(self.scene, Path(directory))
         self.worker = fileio.ThreadedIO(self.exporter.export)
         self.worker.user_input_required.connect(self.on_export_images_file_exists)
         self.worker.finished.connect(self.on_export_finished)

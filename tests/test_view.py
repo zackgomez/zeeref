@@ -43,7 +43,7 @@ def test_init_with_filenames_beefile(open_file_mock, qapp, commandline_args):
     commandline_args.filenames = ["test.bee"]
     parent = QtWidgets.QMainWindow()
     view = BeeGraphicsView(qapp, parent)
-    open_file_mock.assert_called_once_with("test.bee")
+    open_file_mock.assert_called_once_with(Path("test.bee"))
     del view
 
 
@@ -89,7 +89,7 @@ def test_clear_scene(view, item):
     view.scene.internal_clipboard.append(item)
     view.scale(2, 2)
     view.translate(123, 456)
-    view.filename = "test.bee"
+    view.filename = Path("test.bee")
     view.undo_stack = MagicMock()
 
     view.clear_scene()
@@ -253,13 +253,12 @@ def test_on_action_open_recent_file_when_unsaved_changes_confirmed(confirm_mock,
     view.open_from_file = MagicMock()
     view.on_action_open_recent_file("foo.bee")
     confirm_mock.assert_called_once()
-    view.open_from_file.assert_called_once_with("foo.bee")
+    view.open_from_file.assert_called_once_with(Path("foo.bee"))
 
 
 @patch("beeref.view.BeeGraphicsView.clear_scene")
 def test_open_from_file(clear_mock, view, qtbot):
-    root = os.path.dirname(__file__)
-    filename = os.path.join(root, "assets", "test1item.bee")
+    filename = Path(__file__).parent / "assets" / "test1item.bee"
     view.open_from_file(filename)
     view.worker.wait()
     qtbot.waitUntil(lambda: len(view.scene.items()) > 0)
@@ -273,18 +272,17 @@ def test_open_from_file(clear_mock, view, qtbot):
 
 def test_open_from_file_when_error(view, qtbot):
     view.on_loading_finished = MagicMock()
-    view.open_from_file("uieauiae")
+    view.open_from_file(Path("uieauiae"))
     view.worker.wait()
     qtbot.waitUntil(lambda: view.on_loading_finished.called is True)
     assert list(view.scene.items()) == []
-    assert_load_result(view.on_loading_finished, "uieauiae", has_errors=True)
+    assert_load_result(view.on_loading_finished, Path("uieauiae"), has_errors=True)
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileName")
 def test_on_action_open(dialog_mock, view, qtbot):
-    root = os.path.dirname(__file__)
-    filename = os.path.join(root, "assets", "test1item.bee")
-    dialog_mock.return_value = (filename, None)
+    filename = Path(__file__).parent / "assets" / "test1item.bee"
+    dialog_mock.return_value = (str(filename), None)
     view.cancel_active_modes = MagicMock()
 
     view.on_action_open()
@@ -323,11 +321,11 @@ def test_on_action_open_when_no_filename(open_mock, dialog_mock, view):
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
-def test_on_action_save_as(dialog_mock, view, imgfilename3x3, tmpdir):
+def test_on_action_save_as(dialog_mock, view, imgfilename3x3, tmp_path):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
-    filename = os.path.join(tmpdir, "test.bee")
+    filename = tmp_path / "test.bee"
     assert os.path.exists(filename) is False
     dialog_mock.return_value = (filename, None)
     view.on_action_save_as()
@@ -352,33 +350,33 @@ def test_on_action_save_as_when_no_filename(
 
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 def test_on_action_save_as_filename_doesnt_end_with_bee(
-    dialog_mock, view, qtbot, imgfilename3x3, tmpdir
+    dialog_mock, view, qtbot, imgfilename3x3, tmp_path
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
     view.on_saving_finished = MagicMock()
-    filename = os.path.join(tmpdir, "test")
-    assert os.path.exists(filename) is False
-    dialog_mock.return_value = (filename, None)
+    filename = tmp_path / "test"
+    assert not filename.exists()
+    dialog_mock.return_value = (str(filename), None)
     view.on_action_save_as()
     qtbot.waitUntil(lambda: view.on_saving_finished.called is True)
-    assert os.path.exists(f"{filename}.bee") is True
-    assert_save_result(view.on_saving_finished, f"{filename}.bee")
+    assert filename.with_suffix(".bee").exists()
+    assert_save_result(view.on_saving_finished, filename.with_suffix(".bee"))
     view.cancel_active_modes.assert_called_once_with()
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 @patch("beeref.fileio.sql.SQLiteIO.write_data")
 def test_on_action_save_as_when_error(
-    save_mock, dialog_mock, view, qtbot, imgfilename3x3, tmpdir
+    save_mock, dialog_mock, view, qtbot, imgfilename3x3, tmp_path
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.on_saving_finished = MagicMock()
     view.cancel_active_modes = MagicMock()
-    filename = os.path.join(tmpdir, "test.bee")
-    dialog_mock.return_value = (filename, None)
+    filename = tmp_path / "test.bee"
+    dialog_mock.return_value = (str(filename), None)
     save_mock.side_effect = sqlite3.Error("foo")
     view.on_action_save_as()
     qtbot.waitUntil(lambda: view.on_saving_finished.called is True)
@@ -386,13 +384,12 @@ def test_on_action_save_as_when_error(
     view.cancel_active_modes.assert_called_once_with()
 
 
-def test_on_action_save(view, qtbot, imgfilename3x3, tmpdir):
+def test_on_action_save(view, qtbot, imgfilename3x3, tmp_path):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
-    view.filename = os.path.join(tmpdir, "test.bee")
-    root = os.path.dirname(__file__)
-    shutil.copyfile(os.path.join(root, "assets", "test1item.bee"), view.filename)
+    view.filename = tmp_path / "test.bee"
+    shutil.copyfile(Path(__file__).parent / "assets" / "test1item.bee", view.filename)
     view.on_saving_finished = MagicMock()
     view.on_action_save()
     qtbot.waitUntil(lambda: view.on_saving_finished.called is True)
@@ -415,10 +412,12 @@ def test_on_action_save_when_no_filename(save_as_mock, view, imgfilename3x3):
 @patch("beeref.widgets.SceneToPixmapExporterDialog.exec")
 @patch("beeref.widgets.SceneToPixmapExporterDialog.value")
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
-def test_on_action_export_scene(file_mock, value_mock, exec_mock, view, tmpdir, qtbot):
+def test_on_action_export_scene(
+    file_mock, value_mock, exec_mock, view, tmp_path, qtbot
+):
     item = BeeTextItem("foo")
     view.scene.addItem(item)
-    filename = os.path.join(tmpdir, "test.png")
+    filename = tmp_path / "test.png"
     assert os.path.exists(filename) is False
     file_mock.return_value = (filename, None)
     exec_mock.return_value = 1
@@ -436,11 +435,11 @@ def test_on_action_export_scene(file_mock, value_mock, exec_mock, view, tmpdir, 
 @patch("beeref.widgets.SceneToPixmapExporterDialog.value")
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 def test_on_action_export_scene_no_file_extension(
-    file_mock, value_mock, exec_mock, view, tmpdir, qtbot
+    file_mock, value_mock, exec_mock, view, tmp_path, qtbot
 ):
     item = BeeTextItem("foo")
     view.scene.addItem(item)
-    filename = os.path.join(tmpdir, "test")
+    filename = tmp_path / "test"
     assert os.path.exists(filename) is False
     file_mock.return_value = (filename, "PNG (*.png)")
     exec_mock.return_value = 1
@@ -473,11 +472,11 @@ def test_on_action_export_scene_no_filename(file_mock, value_mock, exec_mock, vi
 @patch("beeref.widgets.SceneToPixmapExporterDialog.value")
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 def test_on_action_export_scene_settings_input_canceled(
-    file_mock, value_mock, exec_mock, view, tmpdir
+    file_mock, value_mock, exec_mock, view, tmp_path
 ):
     item = BeeTextItem("foo")
     view.scene.addItem(item)
-    filename = os.path.join(tmpdir, "test.png")
+    filename = tmp_path / "test.png"
     assert os.path.exists(filename) is False
     file_mock.return_value = (filename, None)
     exec_mock.return_value = 0
@@ -487,21 +486,21 @@ def test_on_action_export_scene_settings_input_canceled(
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
-def test_on_action_export_images(dir_mock, view, tmpdir, qtbot, imgfilename3x3):
+def test_on_action_export_images(dir_mock, view, tmp_path, qtbot, imgfilename3x3):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
-    dir_mock.return_value = tmpdir
+    dir_mock.return_value = tmp_path
     view.on_export_finished = MagicMock()
 
     view.on_action_export_images()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
-    assert_io_result(view.on_export_finished, tmpdir)
-    assert os.path.exists(os.path.join(tmpdir, f"{item.save_id[:8]}.png"))
+    assert_io_result(view.on_export_finished, tmp_path)
+    assert (tmp_path / f"{item.save_id[:8]}.png").exists()
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
 def test_on_action_export_images_no_dirname(
-    dir_mock, view, tmpdir, qtbot, imgfilename3x3
+    dir_mock, view, tmp_path, qtbot, imgfilename3x3
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
@@ -510,7 +509,7 @@ def test_on_action_export_images_no_dirname(
 
     view.on_action_export_images()
     view.on_export_finished.assert_not_called()
-    assert os.path.exists(os.path.join(tmpdir, f"{item.save_id[:8]}.png")) is False
+    assert (tmp_path / f"{item.save_id[:8]}.png").exists() is False
 
 
 @patch(
@@ -522,19 +521,19 @@ def test_on_action_export_images_no_dirname(
 )
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
 def test_on_action_export_images_file_exists_overwrite(
-    dir_mock, answer_mock, exec_mock, view, tmpdir, qtbot, imgfilename3x3
+    dir_mock, answer_mock, exec_mock, view, tmp_path, qtbot, imgfilename3x3
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
-    dir_mock.return_value = tmpdir
+    dir_mock.return_value = tmp_path
     view.on_export_finished = MagicMock()
 
-    imgfilename = Path(tmpdir) / f"{item.save_id[:8]}.png"
+    imgfilename = tmp_path / f"{item.save_id[:8]}.png"
     imgfilename.write_text("foo")
 
     view.on_action_export_images()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
-    assert_io_result(view.on_export_finished, tmpdir)
+    assert_io_result(view.on_export_finished, tmp_path)
     answer_mock.assert_called_once_with()
     exec_mock.assert_called_once_with()
     imgfilename.read_bytes().startswith(b"\x89PNG")
@@ -547,18 +546,18 @@ def test_on_action_export_images_file_exists_overwrite(
 @patch("beeref.widgets.ExportImagesFileExistsDialog.get_answer", return_value="skip")
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
 def test_on_action_export_images_file_exists_skip(
-    dir_mock, answer_mock, exec_mock, view, tmpdir, qtbot, imgfilename3x3
+    dir_mock, answer_mock, exec_mock, view, tmp_path, qtbot, imgfilename3x3
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
-    dir_mock.return_value = tmpdir
+    dir_mock.return_value = tmp_path
     view.on_export_finished = MagicMock()
-    imgfilename = Path(tmpdir) / f"{item.save_id[:8]}.png"
+    imgfilename = tmp_path / f"{item.save_id[:8]}.png"
     imgfilename.write_text("foo")
 
     view.on_action_export_images()
     qtbot.waitUntil(lambda: view.on_export_finished.called is True)
-    assert_io_result(view.on_export_finished, tmpdir)
+    assert_io_result(view.on_export_finished, tmp_path)
     answer_mock.assert_called_once_with()
     exec_mock.assert_called_once_with()
     imgfilename.read_text() == "foo"
@@ -571,13 +570,13 @@ def test_on_action_export_images_file_exists_skip(
 @patch("beeref.widgets.ExportImagesFileExistsDialog.get_answer", return_value="skip")
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
 def test_on_action_export_images_file_exists_canceled(
-    dir_mock, answer_mock, exec_mock, view, tmpdir, qtbot, imgfilename3x3
+    dir_mock, answer_mock, exec_mock, view, tmp_path, qtbot, imgfilename3x3
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
-    dir_mock.return_value = tmpdir
+    dir_mock.return_value = tmp_path
     view.on_export_finished = MagicMock()
-    imgfilename = Path(tmpdir) / f"{item.save_id[:8]}.png"
+    imgfilename = tmp_path / f"{item.save_id[:8]}.png"
     imgfilename.write_text("foo")
 
     view.on_action_export_images()
@@ -1087,14 +1086,14 @@ def test_update_window_title_changes_no_filename(clear_mock, view):
 
 @patch("PyQt6.QtGui.QUndoStack.isClean", return_value=True)
 def test_update_window_title_no_changes_filename(clear_mock, view):
-    view.filename = "test.bee"
+    view.filename = Path("test.bee")
     view.update_window_title()
     assert view.parent.windowTitle() == "test.bee - BeeRef"
 
 
 @patch("PyQt6.QtGui.QUndoStack.isClean", return_value=False)
 def test_update_window_title_changes_filename(clear_mock, view):
-    view.filename = "test.bee"
+    view.filename = Path("test.bee")
     view.update_window_title()
     assert view.parent.windowTitle() == "test.bee* - BeeRef"
 
@@ -1668,9 +1667,8 @@ def test_drop_when_url(insert_mock, view, imgfilename3x3):
 
 @patch("beeref.view.BeeGraphicsView.open_from_file")
 def test_drop_when_url_beefile_and_scene_empty(open_mock, view):
-    root = os.path.dirname(__file__)
-    filename = os.path.join(root, "assets", "test1item.bee")
-    url = QtCore.QUrl.fromLocalFile(filename)
+    filename = Path(__file__).parent / "assets" / "test1item.bee"
+    url = QtCore.QUrl.fromLocalFile(str(filename))
     mimedata = QtCore.QMimeData()
     mimedata.setUrls([url])
     event = MagicMock()
@@ -1685,9 +1683,8 @@ def test_drop_when_url_beefile_and_scene_empty(open_mock, view):
 @patch("beeref.view.BeeGraphicsView.open_from_file")
 def test_drop_when_url_beefile_and_scene_not_empty(open_mock, insert_mock, view, item):
     view.scene.addItem(item)
-    root = os.path.dirname(__file__)
-    filename = os.path.join(root, "assets", "test1item.bee")
-    url = QtCore.QUrl.fromLocalFile(filename)
+    filename = Path(__file__).parent / "assets" / "test1item.bee"
+    url = QtCore.QUrl.fromLocalFile(str(filename))
     mimedata = QtCore.QMimeData()
     mimedata.setUrls([url])
     event = MagicMock()

@@ -1,5 +1,6 @@
 import os
 import stat
+from pathlib import Path
 from unittest.mock import MagicMock
 import pytest
 
@@ -171,8 +172,8 @@ def test_scene_to_svg_exporter_render_text(view):
     assert element.get("y") == "5.0"
 
 
-def test_scene_to_svg_exporter_export_when_file_not_writeable(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.svg")
+def test_scene_to_svg_exporter_export_when_file_not_writeable(view, tmp_path):
+    filename = tmp_path / "foo.svg"
     with open(filename, "w") as f:
         f.write("foo")
     os.chmod(filename, stat.S_IREAD)
@@ -213,8 +214,8 @@ def test_scene_to_svg_exporter_render_with_worker_canceled(view):
     assert svg is None
 
 
-def test_scene_to_svg_exporter_export_writes_svg(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.svg")
+def test_scene_to_svg_exporter_export_writes_svg(view, tmp_path):
+    filename = tmp_path / "foo.svg"
     item = BeeTextItem("foo")
     view.scene.addItem(item)
     exporter = SceneToSVGExporter(view.scene)
@@ -225,8 +226,8 @@ def test_scene_to_svg_exporter_export_writes_svg(view, tmpdir):
         assert f.read().startswith(b"<?xml")
 
 
-def test_scene_to_svg_exporter_export_with_worker(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.svg")
+def test_scene_to_svg_exporter_export_with_worker(view, tmp_path):
+    filename = tmp_path / "foo.svg"
     item = BeeTextItem("foo")
     view.scene.addItem(item)
     exporter = SceneToSVGExporter(view.scene)
@@ -237,14 +238,14 @@ def test_scene_to_svg_exporter_export_with_worker(view, tmpdir):
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_once_with(0)
     worker.finished.emit.assert_called_once_with(
-        IOResult(filename=str(filename), errors=[])
+        IOResult(filename=Path(filename), errors=[])
     )
     with open(filename, "rb") as f:
         assert f.read().startswith(b"<?xml")
 
 
-def test_scene_to_svg_exporter_export_with_worker_canceled(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.svg")
+def test_scene_to_svg_exporter_export_with_worker_canceled(view, tmp_path):
+    filename = tmp_path / "foo.svg"
     item = BeeTextItem("foo")
     view.scene.addItem(item)
     exporter = SceneToSVGExporter(view.scene)
@@ -255,13 +256,15 @@ def test_scene_to_svg_exporter_export_with_worker_canceled(view, tmpdir):
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_once_with(0)
     worker.finished.emit.assert_called_once_with(
-        IOResult(filename=str(filename), errors=[])
+        IOResult(filename=Path(filename), errors=[])
     )
     os.path.exists(filename) is False
 
 
-def test_scene_to_svg_exporter_export_when_file_not_writeable_with_worker(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.svg")
+def test_scene_to_svg_exporter_export_when_file_not_writeable_with_worker(
+    view, tmp_path
+):
+    filename = tmp_path / "foo.svg"
     with open(filename, "w") as f:
         f.write("foo")
     os.chmod(filename, stat.S_IREAD)
@@ -277,5 +280,5 @@ def test_scene_to_svg_exporter_export_when_file_not_writeable_with_worker(view, 
     worker.finished.emit.assert_called_once()
     result = worker.finished.emit.call_args.args[0]
     assert isinstance(result, IOResult)
-    assert result.filename == str(filename)
+    assert result.filename == filename
     assert len(result.errors) == 1

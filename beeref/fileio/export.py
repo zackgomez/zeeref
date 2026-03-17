@@ -13,8 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with BeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import base64
-import pathlib
+from pathlib import Path
+from typing import TYPE_CHECKING
 from xml.etree import ElementTree as ET
 
 from PyQt6 import QtCore, QtGui
@@ -23,6 +26,9 @@ from .errors import BeeFileIOError
 from beeref import widgets
 from beeref.items import BeePixmapItem
 from beeref.logging import getLogger
+
+if TYPE_CHECKING:
+    from beeref.fileio import ThreadedIO
 
 
 logger = getLogger(__name__)
@@ -47,29 +53,31 @@ def register_exporter(cls):
 
 
 class ExporterBase:
-    def emit_begin_processing(self, worker, start):
+    def emit_begin_processing(self, worker: ThreadedIO | None, start: int) -> None:
         if worker:
             worker.begin_processing.emit(start)
 
-    def emit_progress(self, worker, progress):
+    def emit_progress(self, worker: ThreadedIO | None, progress: int) -> None:
         if worker:
             worker.progress.emit(progress)
 
-    def emit_finished(self, worker, filename, errors):
+    def emit_finished(
+        self, worker: ThreadedIO | None, filename: Path, errors: list[str]
+    ) -> None:
         from beeref.fileio.snapshot import IOResult
 
-        filename = str(filename)
         if worker:
             worker.finished.emit(IOResult(filename=filename, errors=errors))
 
-    def emit_user_input_required(self, worker, msg):
+    def emit_user_input_required(self, worker: ThreadedIO | None, msg: str) -> None:
         if worker:
             worker.user_input_required.emit(msg)
 
-    def handle_export_error(self, filename, error, worker):
+    def handle_export_error(
+        self, filename: Path, error: Exception | str, worker: ThreadedIO | None
+    ) -> None:
         from beeref.fileio.snapshot import IOResult
 
-        filename = str(filename)
         logger.debug(f"Export failed: {error}")
         if worker:
             worker.finished.emit(IOResult(filename=filename, errors=[str(error)]))
@@ -142,7 +150,7 @@ class SceneToPixmapExporter(SceneExporterBase):
         painter.end()
         return image
 
-    def export(self, filename, worker=None):
+    def export(self, filename: Path, worker: ThreadedIO | None = None) -> None:
         logger.debug(f"Exporting scene to {filename}")
         self.emit_begin_processing(worker, 1)
         image = self.render_to_image()
@@ -152,7 +160,7 @@ class SceneToPixmapExporter(SceneExporterBase):
             self.emit_finished(worker, filename, [])
             return
 
-        if not image.save(filename, quality=90):
+        if not image.save(str(filename), quality=90):
             self.handle_export_error(filename, "Error writing file", worker)
             return
 
@@ -190,7 +198,7 @@ class SceneToSVGExporter(SceneExporterBase):
             f"font-style:{fontstyle}",
         )
 
-    def render_to_svg(self, worker=None):
+    def render_to_svg(self, worker: ThreadedIO | None = None):
         svg = ET.Element(
             "svg",
             attrib={
@@ -257,7 +265,7 @@ class SceneToSVGExporter(SceneExporterBase):
 
         return svg
 
-    def export(self, filename, worker=None):
+    def export(self, filename: Path, worker: ThreadedIO | None = None) -> None:
         logger.debug(f"Exporting scene to {filename}")
         self.emit_begin_processing(worker, len(self.scene.items()))
         svg = self.render_to_svg(worker)
@@ -266,7 +274,7 @@ class SceneToSVGExporter(SceneExporterBase):
             from beeref.fileio.snapshot import IOResult
 
             logger.debug("Export canceled")
-            worker.finished.emit(IOResult(filename=str(filename), errors=[]))
+            worker.finished.emit(IOResult(filename=filename, errors=[]))
             return
 
         tree = ET.ElementTree(svg)
@@ -290,7 +298,7 @@ class ImagesToDirectoryExporter(ExporterBase):
     not auto-detected by file extension.
     """
 
-    def __init__(self, scene, dirname):
+    def __init__(self, scene, dirname: Path):
         self.scene = scene
         self.dirname = dirname
         self.items = list(self.scene.items_by_type(BeePixmapItem.TYPE))
@@ -298,7 +306,7 @@ class ImagesToDirectoryExporter(ExporterBase):
         self.start_from = 0
         self.handle_existing = None
 
-    def export(self, worker=None):
+    def export(self, worker: ThreadedIO | None = None) -> None:
         logger.debug(f"Exporting images to {self.dirname}")
         logger.debug(f"Starting at {self.start_from}")
 
@@ -310,7 +318,7 @@ class ImagesToDirectoryExporter(ExporterBase):
                 from beeref.fileio.snapshot import IOResult
 
                 logger.debug("Export canceled")
-                worker.finished.emit(IOResult(filename=str(self.dirname), errors=[]))
+                worker.finished.emit(IOResult(filename=self.dirname, errors=[]))
                 return
 
             pixmap, imgformat = item.pixmap_to_bytes()
@@ -323,7 +331,7 @@ class ImagesToDirectoryExporter(ExporterBase):
                 filename = item.get_filename_for_export(imgformat, save_id)
 
             try:
-                path = pathlib.Path(self.dirname) / filename
+                path = self.dirname / filename
                 path_exists = path.exists()
             except OSError as e:
                 self.handle_export_error(self.dirname, e, worker)

@@ -15,7 +15,10 @@
 
 """Immutable snapshot dataclasses and IO result types."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -57,7 +60,7 @@ class ErrorItemSnapshot:
 class IOResult:
     """Base result from a threaded IO operation."""
 
-    filename: str
+    filename: Path | None
     errors: list[str] = field(default_factory=list)
 
 
@@ -66,7 +69,7 @@ class LoadResult(IOResult):
     """Result from loading a bee file."""
 
     snapshots: list[ItemSnapshot] = field(default_factory=list)
-    scratch_file: str | None = None
+    scratch_file: Path | None = None
 
 
 @dataclass

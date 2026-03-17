@@ -27,10 +27,10 @@ from __future__ import annotations
 
 import json
 import os
-import pathlib
 import shutil
 import sqlite3
 import tempfile
+from pathlib import Path
 from typing import Any
 
 from beeref import constants
@@ -43,10 +43,10 @@ from .snapshot import ErrorItemSnapshot, ItemSnapshot, PixmapItemSnapshot
 logger = getLogger(__name__)
 
 
-def is_bee_file(path):
+def is_bee_file(path: Path) -> bool:
     """Check whether the file at the given path is a bee file."""
 
-    return os.path.splitext(path)[1] == ".bee"
+    return path.suffix == ".bee"
 
 
 def handle_sqlite_errors(func):
@@ -70,13 +70,13 @@ def handle_sqlite_errors(func):
 class SQLiteIO:
     def __init__(
         self,
-        filename: str,
+        filename: Path,
         create_new: bool = False,
         readonly: bool = False,
         worker: Any = None,
     ):
         self.create_new = create_new
-        self.filename = filename
+        self.filename: Path = filename
         self.readonly = readonly
         self.worker = worker
         self.retry = False
@@ -98,7 +98,7 @@ class SQLiteIO:
         if self.create_new and not self.readonly and os.path.exists(self.filename):
             os.remove(self.filename)
 
-        uri = pathlib.Path(self.filename).resolve().as_uri()
+        uri = self.filename.resolve().as_uri()
         if self.readonly:
             uri = f"{uri}?mode=rw"
         self._connection = sqlite3.connect(uri, uri=True)

@@ -1,4 +1,5 @@
 import os.path
+
 import pytest
 import uuid
 
@@ -38,11 +39,11 @@ def commandline_args():
 
 
 @pytest.fixture(autouse=True)
-def settings(tmpdir):
+def settings(tmp_path):
     from beeref.config import BeeSettings
 
     dir_patcher = patch(
-        "beeref.config.BeeSettings.get_settings_dir", return_value=str(tmpdir)
+        "beeref.config.BeeSettings.get_settings_dir", return_value=str(tmp_path)
     )
     dir_patcher.start()
     settings = BeeSettings()
@@ -96,8 +97,8 @@ def imgdata3x3(imgfilename3x3):
 
 
 @pytest.fixture
-def tmpfile(tmpdir):
-    yield os.path.join(tmpdir, str(uuid.uuid4()))
+def tmpfile(tmp_path):
+    yield tmp_path / str(uuid.uuid4())
 
 
 @pytest.fixture

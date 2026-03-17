@@ -18,7 +18,7 @@ def _export_filename(item):
 
 def test_images_to_directory_exporter_export_writes_images(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -26,18 +26,18 @@ def test_images_to_directory_exporter_export_writes_images(
     view.scene.addItem(item1)
     item2 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item2)
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.export()
 
-    with open(os.path.join(tmpdir, _export_filename(item1)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
-    with open(os.path.join(tmpdir, _export_filename(item2)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
 
 
 def test_images_to_directory_exporter_export_file_exists_no_user_input(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -49,17 +49,17 @@ def test_images_to_directory_exporter_export_file_exists_no_user_input(
     view.scene.addItem(item2)
 
     # Pre-create file matching item1 (at index 1 in exporter's list)
-    with open(os.path.join(tmpdir, _export_filename(item1)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "w") as f:
         assert f.write("foo")
 
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.export()
 
     # item2 (index 0) was written successfully
-    with open(os.path.join(tmpdir, _export_filename(item2)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
     # item1 (index 1) file still has original content
-    with open(os.path.join(tmpdir, _export_filename(item1)), "r") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "r") as f:
         assert f.read() == "foo"
 
     assert exporter.start_from == 1
@@ -67,7 +67,7 @@ def test_images_to_directory_exporter_export_file_exists_no_user_input(
 
 def test_images_to_directory_exporter_export_file_exists_skip(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -80,23 +80,23 @@ def test_images_to_directory_exporter_export_file_exists_skip(
     view.scene.addItem(item3)
 
     # Pre-create files for item2 (index 1) and item1 (index 2)
-    with open(os.path.join(tmpdir, _export_filename(item2)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "w") as f:
         assert f.write("foo")
-    with open(os.path.join(tmpdir, _export_filename(item1)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "w") as f:
         assert f.write("bar")
 
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.handle_existing = "skip"
     exporter.export()
 
     # item3 (index 0) was written
-    with open(os.path.join(tmpdir, _export_filename(item3)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item3)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
     # item2 (index 1) skipped
-    with open(os.path.join(tmpdir, _export_filename(item2)), "r") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "r") as f:
         assert f.read() == "foo"
     # item1 (index 2) file still has original
-    with open(os.path.join(tmpdir, _export_filename(item1)), "r") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "r") as f:
         assert f.read() == "bar"
 
     # 'skip' handles one file then resets to None; stops at next existing
@@ -106,7 +106,7 @@ def test_images_to_directory_exporter_export_file_exists_skip(
 
 def test_images_to_directory_exporter_export_file_exists_skip_all(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -118,20 +118,20 @@ def test_images_to_directory_exporter_export_file_exists_skip_all(
     item3 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item3)
 
-    with open(os.path.join(tmpdir, _export_filename(item2)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "w") as f:
         assert f.write("foo")
-    with open(os.path.join(tmpdir, _export_filename(item1)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "w") as f:
         assert f.write("bar")
 
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.handle_existing = "skip_all"
     exporter.export()
 
-    with open(os.path.join(tmpdir, _export_filename(item3)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item3)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
-    with open(os.path.join(tmpdir, _export_filename(item2)), "r") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "r") as f:
         assert f.read() == "foo"
-    with open(os.path.join(tmpdir, _export_filename(item1)), "r") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "r") as f:
         assert f.read() == "bar"
 
     assert exporter.handle_existing == "skip_all"
@@ -139,7 +139,7 @@ def test_images_to_directory_exporter_export_file_exists_skip_all(
 
 def test_images_to_directory_exporter_export_file_exists_overwrite(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -151,23 +151,23 @@ def test_images_to_directory_exporter_export_file_exists_overwrite(
     item3 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item3)
 
-    with open(os.path.join(tmpdir, _export_filename(item2)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "w") as f:
         assert f.write("foo")
-    with open(os.path.join(tmpdir, _export_filename(item1)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "w") as f:
         assert f.write("bar")
 
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.handle_existing = "overwrite"
     exporter.export()
 
     # item3 (index 0) written
-    with open(os.path.join(tmpdir, _export_filename(item3)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item3)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
     # item2 (index 1) overwritten
-    with open(os.path.join(tmpdir, _export_filename(item2)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
     # item1 (index 2) still 'bar' (overwrite handles one, then resets)
-    with open(os.path.join(tmpdir, _export_filename(item1)), "r") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "r") as f:
         assert f.read() == "bar"
 
     assert exporter.start_from == 2
@@ -176,7 +176,7 @@ def test_images_to_directory_exporter_export_file_exists_overwrite(
 
 def test_images_to_directory_exporter_export_file_exists_overwrite_all(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -188,20 +188,20 @@ def test_images_to_directory_exporter_export_file_exists_overwrite_all(
     item3 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item3)
 
-    with open(os.path.join(tmpdir, _export_filename(item2)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "w") as f:
         assert f.write("foo")
-    with open(os.path.join(tmpdir, _export_filename(item1)), "w") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "w") as f:
         assert f.write("bar")
 
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.handle_existing = "overwrite_all"
     exporter.export()
 
-    with open(os.path.join(tmpdir, _export_filename(item3)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item3)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
-    with open(os.path.join(tmpdir, _export_filename(item2)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item2)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
-    with open(os.path.join(tmpdir, _export_filename(item1)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item1)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
 
     assert exporter.handle_existing == "overwrite_all"
@@ -209,62 +209,58 @@ def test_images_to_directory_exporter_export_file_exists_overwrite_all(
 
 def test_images_to_directory_exporter_export_with_worker(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     worker = MagicMock(canceled=False)
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.export(worker)
 
-    with open(os.path.join(tmpdir, _export_filename(item)), "rb") as f:
+    with open(os.path.join(tmp_path, _export_filename(item)), "rb") as f:
         assert f.read().startswith(b"\x89PNG")
 
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_with(0)
-    worker.finished.emit.assert_called_once_with(
-        IOResult(filename=str(tmpdir), errors=[])
-    )
+    worker.finished.emit.assert_called_once_with(IOResult(filename=tmp_path, errors=[]))
 
 
 def test_images_to_directory_exporter_export_with_worker_when_canceled(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     worker = MagicMock(canceled=True)
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.export(worker)
 
-    assert os.path.exists(os.path.join(tmpdir, _export_filename(item))) is False
+    assert os.path.exists(os.path.join(tmp_path, _export_filename(item))) is False
 
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_once_with(0)
-    worker.finished.emit.assert_called_once_with(
-        IOResult(filename=str(tmpdir), errors=[])
-    )
+    worker.finished.emit.assert_called_once_with(IOResult(filename=tmp_path, errors=[]))
 
 
 def test_images_to_directory_exporter_export_with_worker_when_file_exists(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    imgfilename = os.path.join(tmpdir, _export_filename(item))
+    imgfilename = os.path.join(tmp_path, _export_filename(item))
     with open(imgfilename, "w") as f:
         assert f.write("foo")
 
     worker = MagicMock(canceled=False)
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.export(worker)
 
     with open(imgfilename, "r") as f:
@@ -277,7 +273,7 @@ def test_images_to_directory_exporter_export_with_worker_when_file_exists(
 
 def test_images_to_directory_exporter_export_when_dir_not_writeable(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -285,17 +281,17 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable(
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    os.chmod(tmpdir, stat.S_IREAD)
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    os.chmod(tmp_path, stat.S_IREAD)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
 
     with pytest.raises(BeeFileIOError) as e:
         exporter.export()
-        assert e.filename == tmpdir
+        assert e.filename == tmp_path
 
 
 def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -303,8 +299,8 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    os.chmod(tmpdir, stat.S_IREAD)
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    os.chmod(tmp_path, stat.S_IREAD)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     worker = MagicMock(canceled=False)
 
     exporter.export(worker)
@@ -312,13 +308,13 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
     worker.finished.emit.assert_called_once()
     result = worker.finished.emit.call_args.args[0]
     assert isinstance(result, IOResult)
-    assert result.filename == str(tmpdir)
+    assert result.filename == tmp_path
     assert len(result.errors) == 1
 
 
 def test_images_to_directory_exporter_export_when_img_not_writeable(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -326,22 +322,22 @@ def test_images_to_directory_exporter_export_when_img_not_writeable(
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    imgfilename = os.path.join(tmpdir, _export_filename(item))
+    imgfilename = os.path.join(tmp_path, _export_filename(item))
     with open(imgfilename, "w") as f:
         assert f.write("foo")
     os.chmod(imgfilename, stat.S_IREAD)
 
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.handle_existing = "overwrite_all"
 
     with pytest.raises(BeeFileIOError) as e:
         exporter.export()
-        assert e.filename == tmpdir
+        assert e.filename == tmp_path
 
 
 def test_images_to_directory_exporter_export_when_img_not_writeable_w_worker(
     view,
-    tmpdir,
+    tmp_path,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -349,12 +345,12 @@ def test_images_to_directory_exporter_export_when_img_not_writeable_w_worker(
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    imgfilename = os.path.join(tmpdir, _export_filename(item))
+    imgfilename = os.path.join(tmp_path, _export_filename(item))
     with open(imgfilename, "w") as f:
         assert f.write("foo")
     os.chmod(imgfilename, stat.S_IREAD)
 
-    exporter = ImagesToDirectoryExporter(view.scene, tmpdir)
+    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
     exporter.handle_existing = "overwrite_all"
     worker = MagicMock(canceled=False)
 

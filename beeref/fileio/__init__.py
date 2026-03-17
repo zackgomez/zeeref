@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PyQt6 import QtCore
@@ -57,7 +58,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_bee(
-    filename: str, scene: BeeGraphicsScene, worker: ThreadedIO | None = None
+    filename: Path, scene: BeeGraphicsScene, worker: ThreadedIO | None = None
 ) -> None:
     """Load BeeRef native file via scratch copy."""
     logger.info(f"Loading from file {filename}...")
@@ -84,9 +85,9 @@ def load_bee(
 
 
 def save_bee(
-    filename: str,
+    filename: Path,
     snapshots: list[ItemSnapshot],
-    swp_path: str,
+    swp_path: Path,
     worker: ThreadedIO | None = None,
 ) -> None:
     """Save BeeRef native file via .swp drain + copy + compact.
@@ -97,7 +98,7 @@ def save_bee(
     4. Atomic replace target .bee
     """
     logger.info(f"Saving to file {filename}...")
-    temp_path = None
+    temp_path: Path | None = None
     try:
         # 1. Final drain to .swp
         drain_io = SQLiteIO(swp_path, worker=worker)
@@ -105,9 +106,9 @@ def save_bee(
         drain_io._close_connection()
 
         # 2. Copy .swp to temp file next to target
-        target_dir = os.path.dirname(os.path.abspath(filename))
+        target_dir = filename.resolve().parent
         tf = tempfile.NamedTemporaryFile(dir=target_dir, suffix=".bee", delete=False)
-        temp_path = tf.name
+        temp_path = Path(tf.name)
         tf.close()
         copy_with_progress(swp_path, temp_path, worker=worker)
 
@@ -127,8 +128,8 @@ def save_bee(
         temp_path = None
     except Exception as e:
         logger.exception(f"Failed to save {filename}")
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+        if temp_path and temp_path.exists():
+            temp_path.unlink()
         if worker:
             worker.finished.emit(SaveResult(filename=filename, errors=[str(e)]))
         return
@@ -144,7 +145,7 @@ def save_bee(
 
 
 def drain_bee(
-    filename: str,
+    filename: Path,
     snapshots: list[ItemSnapshot],
     worker: ThreadedIO | None = None,
 ) -> None:
@@ -194,7 +195,7 @@ def load_images(filenames, pos, scene, worker):
         worker.msleep(10)
 
     scene.undo_stack.push(commands.InsertItems(scene, items, ignore_first_redo=True))
-    worker.finished.emit(IOResult(filename="", errors=errors))
+    worker.finished.emit(IOResult(filename=None, errors=errors))
 
 
 class ThreadedIO(QtCore.QThread):

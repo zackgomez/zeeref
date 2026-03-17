@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -119,9 +120,11 @@ class MainControlsMixin(_MainControlsBase):
             target = self.control_target
             if not target.scene.items():
                 # Check if we have a bee file we can open directly
-                path = mimedata.urls()[0]
-                if path.isLocalFile() and fileio.is_bee_file(path.toLocalFile()):
-                    target.open_from_file(path.toLocalFile())
+                url = mimedata.urls()[0]
+                if url.isLocalFile():
+                    local_path = Path(url.toLocalFile())
+                    if fileio.is_bee_file(local_path):
+                        target.open_from_file(local_path)
                     return
             target.do_insert_images(mimedata.urls(), pos)
         elif mimedata.hasImage():

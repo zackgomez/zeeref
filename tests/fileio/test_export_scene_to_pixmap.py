@@ -1,5 +1,6 @@
 import os
 import stat
+from pathlib import Path
 from unittest.mock import patch, ANY, MagicMock
 import pytest
 
@@ -98,8 +99,8 @@ def test_scene_to_pixmap_exporter_render_renders_scene(view):
     assert image.pixel(100, 100) == QtGui.QColor(11, 22, 33)
 
 
-def test_scene_to_pixmap_exporter_export_writes_image(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.png")
+def test_scene_to_pixmap_exporter_export_writes_image(view, tmp_path):
+    filename = tmp_path / "foo.png"
     item_img = QtGui.QImage(1000, 1200, QtGui.QImage.Format.Format_RGB32)
     item = BeePixmapItem(item_img)
     view.scene.addItem(item)
@@ -111,8 +112,8 @@ def test_scene_to_pixmap_exporter_export_writes_image(view, tmpdir):
         assert f.read().startswith(b"\x89PNG")
 
 
-def test_scene_to_pixmap_exporter_export_with_worker(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.png")
+def test_scene_to_pixmap_exporter_export_with_worker(view, tmp_path):
+    filename = tmp_path / "foo.png"
     item_img = QtGui.QImage(1000, 1200, QtGui.QImage.Format.Format_RGB32)
     item = BeePixmapItem(item_img)
     view.scene.addItem(item)
@@ -124,14 +125,14 @@ def test_scene_to_pixmap_exporter_export_with_worker(view, tmpdir):
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_once_with(1)
     worker.finished.emit.assert_called_once_with(
-        IOResult(filename=str(filename), errors=[])
+        IOResult(filename=Path(filename), errors=[])
     )
     with open(filename, "rb") as f:
         assert f.read().startswith(b"\x89PNG")
 
 
-def test_scene_to_pixmap_exporter_export_with_worker_when_canceled(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.png")
+def test_scene_to_pixmap_exporter_export_with_worker_when_canceled(view, tmp_path):
+    filename = tmp_path / "foo.png"
     item_img = QtGui.QImage(1000, 1200, QtGui.QImage.Format.Format_RGB32)
     item = BeePixmapItem(item_img)
     view.scene.addItem(item)
@@ -143,13 +144,13 @@ def test_scene_to_pixmap_exporter_export_with_worker_when_canceled(view, tmpdir)
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_not_called()
     worker.finished.emit.assert_called_once_with(
-        IOResult(filename=str(filename), errors=[])
+        IOResult(filename=Path(filename), errors=[])
     )
     os.path.exists(filename) is False
 
 
-def test_scene_to_pixmap_exporter_export_when_file_not_writeable(view, tmpdir):
-    filename = os.path.join(tmpdir, "foo.png")
+def test_scene_to_pixmap_exporter_export_when_file_not_writeable(view, tmp_path):
+    filename = tmp_path / "foo.png"
     with open(filename, "w") as f:
         f.write("foo")
     os.chmod(filename, stat.S_IREAD)
@@ -165,9 +166,9 @@ def test_scene_to_pixmap_exporter_export_when_file_not_writeable(view, tmpdir):
 
 
 def test_scene_to_pixmap_exporter_export_when_file_not_writeable_with_worker(
-    view, tmpdir
+    view, tmp_path
 ):
-    filename = os.path.join(tmpdir, "foo.png")
+    filename = tmp_path / "foo.png"
     with open(filename, "w") as f:
         f.write("foo")
     os.chmod(filename, stat.S_IREAD)
@@ -182,5 +183,5 @@ def test_scene_to_pixmap_exporter_export_when_file_not_writeable_with_worker(
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_not_called()
     worker.finished.emit.assert_called_once_with(
-        IOResult(filename=str(filename), errors=["Error writing file"])
+        IOResult(filename=Path(filename), errors=["Error writing file"])
     )

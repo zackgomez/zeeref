@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from beeref.fileio.snapshot import IOResult, LoadResult, SaveResult
 
 
@@ -8,7 +10,7 @@ def queue2list(queue):
     return qlist
 
 
-def assert_load_result(mock, filename: str, has_errors: bool = False) -> LoadResult:
+def assert_load_result(mock, filename: Path, has_errors: bool = False) -> LoadResult:
     """Assert a mock was called with a LoadResult and return it."""
     mock.assert_called_once()
     result = mock.call_args[0][0]
@@ -18,7 +20,7 @@ def assert_load_result(mock, filename: str, has_errors: bool = False) -> LoadRes
     return result
 
 
-def assert_save_result(mock, filename: str, has_errors: bool = False) -> SaveResult:
+def assert_save_result(mock, filename: Path, has_errors: bool = False) -> SaveResult:
     """Assert a mock was called with a SaveResult and return it."""
     mock.assert_called_once()
     result = mock.call_args[0][0]
@@ -28,7 +30,7 @@ def assert_save_result(mock, filename: str, has_errors: bool = False) -> SaveRes
     return result
 
 
-def assert_io_result(mock, filename: str, has_errors: bool = False) -> IOResult:
+def assert_io_result(mock, filename: Path, has_errors: bool = False) -> IOResult:
     """Assert a mock was called with an IOResult and return it."""
     mock.assert_called_once()
     result = mock.call_args[0][0]

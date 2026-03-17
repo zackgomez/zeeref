@@ -15,35 +15,43 @@
 
 """Scratch file (working copy) management for crash recovery and saving."""
 
+from __future__ import annotations
+
 import hashlib
 import logging
-import os
+import sqlite3
 import uuid
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from beeref.config import BeeSettings
-from beeref.fileio.schema import SCHEMA
+from beeref.fileio.schema import APPLICATION_ID, SCHEMA, USER_VERSION
+
+if TYPE_CHECKING:
+    from beeref.fileio import ThreadedIO
 
 logger = logging.getLogger(__name__)
 
 
-def derive_swp_path(original: str) -> str:
+def derive_swp_path(original: Path) -> Path:
     """Derive the .swp path in the recovery dir for a given original file."""
-    recovery_dir = BeeSettings().get_recovery_dir()
-    stem = os.path.splitext(os.path.basename(original))[0]
-    path_hash = hashlib.sha256(original.encode()).hexdigest()[:8]
-    return os.path.join(recovery_dir, f"{stem}_{path_hash}.bee.swp")
+    recovery_dir = Path(BeeSettings().get_recovery_dir())
+    path_hash = hashlib.sha256(str(original).encode()).hexdigest()[:8]
+    return recovery_dir / f"{original.stem}_{path_hash}.bee.swp"
 
 
-def derive_untitled_swp_path() -> str:
+def derive_untitled_swp_path() -> Path:
     """Create a .swp path for a new unsaved scene."""
-    recovery_dir = BeeSettings().get_recovery_dir()
+    recovery_dir = Path(BeeSettings().get_recovery_dir())
     suffix = uuid.uuid4().hex[:8]
-    return os.path.join(recovery_dir, f"untitled_{suffix}.bee.swp")
+    return recovery_dir / f"untitled_{suffix}.bee.swp"
 
 
-def copy_with_progress(src_path: str, dst_path: str, worker=None) -> None:
+def copy_with_progress(
+    src_path: Path, dst_path: Path, worker: ThreadedIO | None = None
+) -> None:
     """Copy a file with optional progress reporting via worker signals."""
-    total = os.path.getsize(src_path)
+    total = src_path.stat().st_size
     if worker:
         worker.begin_processing.emit(100)
     with open(src_path, "rb") as src, open(dst_path, "wb") as dst:
@@ -55,7 +63,9 @@ def copy_with_progress(src_path: str, dst_path: str, worker=None) -> None:
                 worker.progress.emit(int(copied / total * 100))
 
 
-def create_scratch_file(original: str | None, worker=None) -> str:
+def create_scratch_file(
+    original: Path | None, worker: ThreadedIO | None = None
+) -> Path:
     """Create a scratch file in the recovery dir.
 
     If original is a path, copies the file with progress reporting.
@@ -67,10 +77,6 @@ def create_scratch_file(original: str | None, worker=None) -> str:
         copy_with_progress(original, swp, worker=worker)
         logger.info(f"Created scratch file: {swp}")
     else:
-        import sqlite3
-
-        from beeref.fileio.schema import APPLICATION_ID, USER_VERSION
-
         swp = derive_untitled_swp_path()
         conn = sqlite3.connect(swp)
         cursor = conn.cursor()
@@ -86,20 +92,16 @@ def create_scratch_file(original: str | None, worker=None) -> str:
     return swp
 
 
-def delete_scratch_file(swp_path: str) -> None:
+def delete_scratch_file(swp_path: Path) -> None:
     """Delete a scratch file if it exists."""
-    if os.path.exists(swp_path):
-        os.remove(swp_path)
+    if swp_path.exists():
+        swp_path.unlink()
         logger.info(f"Deleted scratch file: {swp_path}")
 
 
-def list_recovery_files() -> list[str]:
+def list_recovery_files() -> list[Path]:
     """List all .swp files in the recovery directory."""
-    recovery_dir = BeeSettings().get_recovery_dir()
-    if not os.path.exists(recovery_dir):
+    recovery_dir = Path(BeeSettings().get_recovery_dir())
+    if not recovery_dir.exists():
         return []
-    return [
-        os.path.join(recovery_dir, f)
-        for f in os.listdir(recovery_dir)
-        if f.endswith(".bee.swp")
-    ]
+    return [p for p in recovery_dir.iterdir() if p.name.endswith(".bee.swp")]
