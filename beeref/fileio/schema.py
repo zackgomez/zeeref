@@ -1,3 +1,9 @@
+import time
+import uuid
+from io import BytesIO
+
+from PIL import Image
+
 USER_VERSION = 4
 APPLICATION_ID = 2060242126
 
@@ -38,9 +44,6 @@ SCHEMA = [
 
 def _populate_image_dimensions(io):
     """Read image headers from sqlar blobs to populate width/height."""
-    from io import BytesIO
-    from PIL import Image
-
     rows = io.fetchall("SELECT item_id, data FROM sqlar")
     for item_id, blob in rows:
         try:
@@ -53,9 +56,6 @@ def _populate_image_dimensions(io):
 
 def _migrate_to_uuid_ids(io):
     """Migrate integer IDs to UUID text IDs with created_at timestamps."""
-    import time
-    import uuid
-
     io.ex(
         """CREATE TABLE items_new (
             id TEXT PRIMARY KEY,

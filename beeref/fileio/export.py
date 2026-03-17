@@ -22,7 +22,9 @@ from xml.etree import ElementTree as ET
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+from beeref.config import BeeSettings
 from .errors import BeeFileIOError
+from .snapshot import IOResult
 from beeref import widgets
 from beeref.items import BeePixmapItem, BeeTextItem
 from beeref.logging import getLogger
@@ -47,7 +49,6 @@ class ExporterBase:
     def emit_finished(
         self, worker: ThreadedIO | None, filename: Path, errors: list[str]
     ) -> None:
-        from beeref.fileio.snapshot import IOResult
 
         if worker:
             worker.finished.emit(IOResult(filename=filename, errors=errors))
@@ -59,7 +60,6 @@ class ExporterBase:
     def handle_export_error(
         self, filename: Path, error: Exception | str, worker: ThreadedIO | None
     ) -> None:
-        from beeref.fileio.snapshot import IOResult
 
         logger.debug(f"Export failed: {error}")
         if worker:
@@ -144,8 +144,6 @@ class SceneToPixmapExporter(SceneExporterBase):
         logger.debug(f"Final export margin: {margin}")
 
         image = QtGui.QImage(self.size, QtGui.QImage.Format.Format_RGB32)
-        from beeref.config import BeeSettings
-
         canvas_color = BeeSettings().valueOrDefault("View/canvas_color")
         image.fill(QtGui.QColor(canvas_color))
         painter = QtGui.QPainter(image)
@@ -287,8 +285,6 @@ class SceneToSVGExporter(SceneExporterBase):
         svg = self.render_to_svg(worker)
 
         if worker and worker.canceled:
-            from beeref.fileio.snapshot import IOResult
-
             logger.debug("Export canceled")
             worker.finished.emit(IOResult(filename=filename, errors=[]))
             return
@@ -335,8 +331,6 @@ class ImagesToDirectoryExporter(ExporterBase):
 
         for i, item in enumerate(self.items[self.start_from :], start=self.start_from):
             if worker and worker.canceled:
-                from beeref.fileio.snapshot import IOResult
-
                 logger.debug("Export canceled")
                 worker.finished.emit(IOResult(filename=self.dirname, errors=[]))
                 return
