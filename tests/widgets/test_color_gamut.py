@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 
 from PyQt6 import QtGui
 
-from beeref.items import BeePixmapItem
-from beeref.widgets.color_gamut import (
+from zeeref.items import ZeePixmapItem
+from zeeref.widgets.color_gamut import (
     GamutDialog,
     GamutPainterThread,
     GamutWidget,
@@ -11,7 +11,7 @@ from beeref.widgets.color_gamut import (
 
 
 def test_gamut_painter_thread_generates_image(view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     dialog = GamutDialog(view, item)
     dialog.threshold_input.setValue(0)
@@ -28,9 +28,8 @@ def test_gamut_painter_thread_generates_image(view, imgfilename3x3):
     assert image.allGray() is False
 
 
-def test_gamut_painter_thread_generates_image_below_threshold(
-        view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+def test_gamut_painter_thread_generates_image_below_threshold(view, imgfilename3x3):
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     dialog = GamutDialog(view, item)
     dialog.threshold_input.setValue(20)
@@ -48,7 +47,7 @@ def test_gamut_painter_thread_generates_image_below_threshold(
 
 
 def test_gamut_widget_generates_image(view, imgfilename3x3, qtbot):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     dialog = GamutDialog(view, item)
     dialog.threshold_input.setValue(0)

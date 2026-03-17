@@ -3,14 +3,14 @@ from unittest.mock import patch, MagicMock
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import Qt
 
-from beeref.config.controls import MouseConfig
-from beeref.widgets.controls.mouse import (
+from zeeref.config.controls import MouseConfig
+from zeeref.widgets.controls.mouse import (
     MouseDelegate,
     MouseControlsEditor,
     MouseModel,
     MouseProxy,
 )
-from beeref.utils import ActionList
+from zeeref.utils import ActionList
 
 
 def test_mouse_editor_inits_buttons_and_modifiers_when_not_configured(view):
@@ -23,7 +23,7 @@ def test_mouse_editor_inits_buttons_and_modifiers_when_not_configured(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -47,7 +47,7 @@ def test_mouse_editor_inits_buttons_and_modifiers_when_configured(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -74,7 +74,7 @@ def test_mouse_editor_set_modifiers_no_modifier(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -98,7 +98,7 @@ def test_mouse_editor_on_modifiers_changed_when_no_modifiers_checked(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -122,7 +122,7 @@ def test_mouse_editor_on_modifiers_changed_when_a_modifier_checked(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -139,7 +139,7 @@ def test_mouse_editor_on_modifiers_changed_when_everything_unchecked(view):
         id="foo1", group="foo", text="Foo", button="Left", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -158,7 +158,7 @@ def test_mouse_editor_get_modifiers(view):
         id="foo1", group="foo", text="Foo", button="Left", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -173,7 +173,7 @@ def test_mouse_editor_get_modifiers_when_no_modifiers(view):
         id="foo1", group="foo", text="Foo", button="Left", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -195,7 +195,7 @@ def test_mouse_editor_get_modifiers_when_not_configured_cleaned(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -219,7 +219,7 @@ def test_mouse_editor_get_modifiers_when_not_configured_cleaned_false(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -238,7 +238,7 @@ def test_mouse_editor_set_modifiers(view):
         id="foo1", group="foo", text="Foo", button="Left", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -262,7 +262,7 @@ def test_mouse_editor_on_button_changed_when_button(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -293,7 +293,7 @@ def test_mouse_editor_on_button_changed_when_no_button(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -321,7 +321,7 @@ def test_mouse_editor_set_modifiers_enabled_true(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -345,7 +345,7 @@ def test_mouse_editor_set_modifiers_enabled_false(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -369,7 +369,7 @@ def test_mouse_editor_get_button(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -389,7 +389,7 @@ def test_mouse_editor_set_button(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -409,7 +409,7 @@ def test_mouse_editor_get_temp_action(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -430,7 +430,7 @@ def test_mouse_editor_reset_inputs(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -443,7 +443,7 @@ def test_mouse_editor_reset_inputs(view):
     assert editor.get_modifiers() == ["Alt"]
 
 
-@patch("beeref.widgets.controls.mouse.MouseControlsEditor.accept")
+@patch("zeeref.widgets.controls.mouse.MouseControlsEditor.accept")
 def test_mouse_editor_on_save_no_conflicts(accept_mock, view):
     a1 = MouseConfig(
         id="foo1",
@@ -463,7 +463,7 @@ def test_mouse_editor_on_save_no_conflicts(accept_mock, view):
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -478,7 +478,7 @@ def test_mouse_editor_on_save_no_conflicts(accept_mock, view):
     accept_mock.assert_called_once_with()
 
 
-@patch("beeref.widgets.controls.mouse.MouseControlsEditor.accept")
+@patch("zeeref.widgets.controls.mouse.MouseControlsEditor.accept")
 def test_mouse_editor_on_save_reenter_existing_shortcut(accept_mock, view):
     a1 = MouseConfig(
         id="foo1",
@@ -498,7 +498,7 @@ def test_mouse_editor_on_save_reenter_existing_shortcut(accept_mock, view):
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -515,7 +515,7 @@ def test_mouse_editor_on_save_reenter_existing_shortcut(accept_mock, view):
     "PyQt6.QtWidgets.QMessageBox.question",
     return_value=QtWidgets.QMessageBox.StandardButton.No,
 )
-@patch("beeref.widgets.controls.mouse.MouseControlsEditor.accept")
+@patch("zeeref.widgets.controls.mouse.MouseControlsEditor.accept")
 def test_mouse_editor_on_save_conflicts_cancel(accept_mock, msg_mock, view):
     a1 = MouseConfig(
         id="foo1",
@@ -535,7 +535,7 @@ def test_mouse_editor_on_save_conflicts_cancel(accept_mock, msg_mock, view):
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -554,7 +554,7 @@ def test_mouse_editor_on_save_conflicts_cancel(accept_mock, msg_mock, view):
     "PyQt6.QtWidgets.QMessageBox.question",
     return_value=QtWidgets.QMessageBox.StandardButton.Yes,
 )
-@patch("beeref.widgets.controls.mouse.MouseControlsEditor.accept")
+@patch("zeeref.widgets.controls.mouse.MouseControlsEditor.accept")
 def test_mouse_editor_on_save_conflicts_confirm(accept_mock, msg_mock, view):
     a1 = MouseConfig(
         id="foo1",
@@ -574,7 +574,7 @@ def test_mouse_editor_on_save_conflicts_confirm(accept_mock, msg_mock, view):
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
     ):
         editor = MouseControlsEditor(
             view, index=MagicMock(row=MagicMock(return_value=0))
@@ -608,7 +608,7 @@ def test_mouse_delegate_setmodeldata(view):
         invertible=True,
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         delegate = MouseDelegate()
         model = MouseModel()
@@ -650,7 +650,7 @@ def test_mouse_model_rowcount():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
     ):
         model = MouseModel()
         model.rowCount(None) == 2
@@ -693,7 +693,7 @@ def test_flags_inverted_column_when_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -717,7 +717,7 @@ def test_flags_inverted_column_when_not_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -738,7 +738,7 @@ def test_mouse_model_data_gets_text():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -762,7 +762,7 @@ def test_mouse_model_data_gets_changed_when_not_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -786,7 +786,7 @@ def test_mouse_model_data_gets_changed_when_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -811,7 +811,7 @@ def test_mouse_model_data_gets_button():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -835,7 +835,7 @@ def test_mouse_model_data_gets_modifiers():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -859,7 +859,7 @@ def test_mouse_model_data_gets_inverted_when_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -883,7 +883,7 @@ def test_mouse_model_data_gets_inverted_when_not_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -907,7 +907,7 @@ def test_mouse_model_data_tooltip_changed_when_not_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
     value = model.data(
@@ -930,7 +930,7 @@ def test_mouse_model_data_tooltip_changed_when_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -955,7 +955,7 @@ def test_mouse_model_data_tooltip_button_when_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -980,7 +980,7 @@ def test_mouse_model_data_tooltip_button_when_changed_from_not_configured():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1005,7 +1005,7 @@ def test_mouse_model_data_tooltip_modifiers_when_changed_from_not_configured():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1030,7 +1030,7 @@ def test_mouse_model_data_tooltip_modifiers_when_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1055,7 +1055,7 @@ def test_mouse_model_data_tooltip_inverted_when_changed_and_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1080,7 +1080,7 @@ def test_mouse_model_data_tooltip_inverted_when_changed_and_not_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1105,7 +1105,7 @@ def test_mouse_model_data_checkstaterole_invertible_invertedcol_inverted():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1130,7 +1130,7 @@ def test_mouse_model_data_checkstaterole_invertible_invertedcol_not_inverted():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1154,7 +1154,7 @@ def test_mouse_model_data_checkstaterole_other_column():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1178,7 +1178,7 @@ def test_mouse_model_setdate_saves_inverted():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1203,7 +1203,7 @@ def test_mouse_model_setdata_saves_controls():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([action])
     ):
         model = MouseModel()
 
@@ -1238,7 +1238,7 @@ def test_mouse_model_setdata_saves_controls_and_removes_from_other():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a1, a2])
     ):
         model = MouseModel()
 
@@ -1284,7 +1284,7 @@ def test_mouse_proxy_data_unfiltered():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS",
         ActionList([a2, a1, a3]),
     ):
         proxy = MouseProxy()
@@ -1321,7 +1321,7 @@ def test_mouse_proxy_data_filtered():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS",
         ActionList([a2, a1, a3]),
     ):
         proxy = MouseProxy()
@@ -1358,7 +1358,7 @@ def test_mouse_proxy_setdata_saves_correct_filtered_index():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS",
         ActionList([a2, a1, a3]),
     ):
         proxy = MouseProxy()
@@ -1393,7 +1393,7 @@ def test_mouse_proxy_setdata_remove_from_other():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a2, a1])
+        "zeeref.config.controls.KeyboardSettings.MOUSE_ACTIONS", ActionList([a2, a1])
     ):
         proxy = MouseProxy()
 

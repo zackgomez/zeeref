@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=BeeRef
-Comment=Reference image board
-Exec=beeref %f
-Icon=beeref
-MimeType=application/x-beeref;
-Categories=Graphics;

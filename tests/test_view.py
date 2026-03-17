@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch, mock_open
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 
-from beeref import commands, widgets
-from beeref.config import logfile_name
-from beeref.items import BeePixmapItem, BeeTextItem
-from beeref.view import BeeGraphicsView
+from zeeref import commands, widgets
+from zeeref.config import logfile_name
+from zeeref.items import ZeePixmapItem, ZeeTextItem
+from zeeref.view import ZeeGraphicsView
 from tests.utils import (
     assert_load_result,
     assert_save_result,
@@ -21,57 +21,57 @@ from tests.utils import (
 
 def test_inits_menu(qapp):
     parent = QtWidgets.QMainWindow()
-    view = BeeGraphicsView(qapp, parent)
+    view = ZeeGraphicsView(qapp, parent)
     assert isinstance(view.context_menu, QtWidgets.QMenu)
     assert len(view.actions()) > 0
     assert view.actions()
     assert view.bee_actiongroups
 
 
-@patch("beeref.view.BeeGraphicsView.open_from_file")
+@patch("zeeref.view.ZeeGraphicsView.open_from_file")
 def test_init_without_filenames(open_file_mock, qapp, commandline_args):
     commandline_args.filenames = None
     parent = QtWidgets.QMainWindow()
-    view = BeeGraphicsView(qapp, parent)
+    view = ZeeGraphicsView(qapp, parent)
     open_file_mock.assert_not_called()
-    assert view.parent.windowTitle() == "BeeRef"
+    assert view.parent.windowTitle() == "ZeeRef"
     del view
 
 
-@patch("beeref.view.BeeGraphicsView.open_from_file")
+@patch("zeeref.view.ZeeGraphicsView.open_from_file")
 def test_init_with_filenames_beefile(open_file_mock, qapp, commandline_args):
-    commandline_args.filenames = ["test.bee"]
+    commandline_args.filenames = ["test.zref"]
     parent = QtWidgets.QMainWindow()
-    view = BeeGraphicsView(qapp, parent)
-    open_file_mock.assert_called_once_with(Path("test.bee"))
+    view = ZeeGraphicsView(qapp, parent)
+    open_file_mock.assert_called_once_with(Path("test.zref"))
     del view
 
 
-@patch("beeref.view.BeeGraphicsView.do_insert_images")
+@patch("zeeref.view.ZeeGraphicsView.do_insert_images")
 def test_init_with_filenames_images(insert_img_mock, qapp, commandline_args):
     commandline_args.filenames = ["/foo/bar.png", "/foo/baz.jpg"]
     parent = QtWidgets.QMainWindow()
-    view = BeeGraphicsView(qapp, parent)
+    view = ZeeGraphicsView(qapp, parent)
     insert_img_mock.assert_called_once_with(["/foo/bar.png", "/foo/baz.jpg"])
     del view
 
 
-@patch("beeref.widgets.welcome_overlay.WelcomeOverlay.hide")
+@patch("zeeref.widgets.welcome_overlay.WelcomeOverlay.hide")
 def test_on_scene_changed_when_items(hide_mock, view):
-    item = BeePixmapItem(QtGui.QImage())
+    item = ZeePixmapItem(QtGui.QImage())
     view.scene.addItem(item)
     view.scale(2, 2)
-    with patch("beeref.view.BeeGraphicsView.recalc_scene_rect") as r:
+    with patch("zeeref.view.ZeeGraphicsView.recalc_scene_rect") as r:
         view.on_scene_changed(None)
         r.assert_called_once_with()
         hide_mock.assert_called_once_with()
         assert view.get_scale() == 2
 
 
-@patch("beeref.widgets.welcome_overlay.WelcomeOverlay.show")
+@patch("zeeref.widgets.welcome_overlay.WelcomeOverlay.show")
 def test_on_scene_changed_when_no_items(show_mock, view):
     view.scale(2, 2)
-    with patch("beeref.view.BeeGraphicsView.recalc_scene_rect") as r:
+    with patch("zeeref.view.ZeeGraphicsView.recalc_scene_rect") as r:
         view.on_scene_changed(None)
         r.assert_called()
         show_mock.assert_called_once_with()
@@ -89,7 +89,7 @@ def test_clear_scene(view, item):
     view.scene.internal_clipboard.append(item)
     view.scale(2, 2)
     view.translate(123, 456)
-    view.filename = Path("test.bee")
+    view.filename = Path("test.zref")
     view.undo_stack = MagicMock()
 
     view.clear_scene()
@@ -98,7 +98,7 @@ def test_clear_scene(view, item):
     assert view.transform().isIdentity()
     assert view.filename is None
     view.undo_stack.clear.assert_called_once_with()
-    assert view.parent.windowTitle() == "BeeRef"
+    assert view.parent.windowTitle() == "ZeeRef"
 
 
 def test_reset_previous_transform_when_other_item(view):
@@ -125,7 +125,7 @@ def test_reset_previous_transform_when_same_item(view):
     }
 
 
-@patch("beeref.view.BeeGraphicsView.fitInView")
+@patch("zeeref.view.ZeeGraphicsView.fitInView")
 def test_fit_rect_no_toggle(fit_mock, view):
     rect = QtCore.QRectF(30, 40, 100, 80)
     view.previous_transform = {"toggle_item": MagicMock()}
@@ -134,7 +134,7 @@ def test_fit_rect_no_toggle(fit_mock, view):
     assert view.previous_transform is None
 
 
-@patch("beeref.view.BeeGraphicsView.fitInView")
+@patch("zeeref.view.ZeeGraphicsView.fitInView")
 def test_fit_rect_toggle_when_no_previous(fit_mock, view):
     item = MagicMock()
     view.previous_transform = None
@@ -150,8 +150,8 @@ def test_fit_rect_toggle_when_no_previous(fit_mock, view):
     assert isinstance(view.previous_transform["center"], QtCore.QPointF)
 
 
-@patch("beeref.view.BeeGraphicsView.fitInView")
-@patch("beeref.view.BeeGraphicsView.centerOn")
+@patch("zeeref.view.ZeeGraphicsView.fitInView")
+@patch("zeeref.view.ZeeGraphicsView.centerOn")
 def test_fit_rect_toggle_when_previous(center_mock, fit_mock, view):
     item = MagicMock()
     view.previous_transform = {
@@ -215,7 +215,7 @@ def test_get_confirmation_unsaved_changes_when_changes_not_confirmed(
 
 
 @patch(
-    "beeref.view.BeeGraphicsView.get_confirmation_unsaved_changes", return_value=False
+    "zeeref.view.ZeeGraphicsView.get_confirmation_unsaved_changes", return_value=False
 )
 def test_on_action_new_scene_when_unsaved_changes_not_confirmed(confirm_mock, view):
     view.clear_scene = MagicMock()
@@ -225,7 +225,7 @@ def test_on_action_new_scene_when_unsaved_changes_not_confirmed(confirm_mock, vi
 
 
 @patch(
-    "beeref.view.BeeGraphicsView.get_confirmation_unsaved_changes", return_value=True
+    "zeeref.view.ZeeGraphicsView.get_confirmation_unsaved_changes", return_value=True
 )
 def test_on_action_new_scene_when_unsaved_changes_confirmed(confirm_mock, view):
     view.clear_scene = MagicMock()
@@ -235,30 +235,30 @@ def test_on_action_new_scene_when_unsaved_changes_confirmed(confirm_mock, view):
 
 
 @patch(
-    "beeref.view.BeeGraphicsView.get_confirmation_unsaved_changes", return_value=False
+    "zeeref.view.ZeeGraphicsView.get_confirmation_unsaved_changes", return_value=False
 )
 def test_on_action_open_recent_file_when_unsaved_changes_not_confirmed(
     confirm_mock, view
 ):
     view.open_from_file = MagicMock()
-    view.on_action_open_recent_file("foo.bee")
+    view.on_action_open_recent_file("foo.zref")
     confirm_mock.assert_called_once()
     view.open_from_file.assert_not_called()
 
 
 @patch(
-    "beeref.view.BeeGraphicsView.get_confirmation_unsaved_changes", return_value=True
+    "zeeref.view.ZeeGraphicsView.get_confirmation_unsaved_changes", return_value=True
 )
 def test_on_action_open_recent_file_when_unsaved_changes_confirmed(confirm_mock, view):
     view.open_from_file = MagicMock()
-    view.on_action_open_recent_file("foo.bee")
+    view.on_action_open_recent_file("foo.zref")
     confirm_mock.assert_called_once()
-    view.open_from_file.assert_called_once_with(Path("foo.bee"))
+    view.open_from_file.assert_called_once_with(Path("foo.zref"))
 
 
-@patch("beeref.view.BeeGraphicsView.clear_scene")
+@patch("zeeref.view.ZeeGraphicsView.clear_scene")
 def test_open_from_file(clear_mock, view, qtbot):
-    filename = Path(__file__).parent / "assets" / "test1item.bee"
+    filename = Path(__file__).parent / "assets" / "test1item.zref"
     view.open_from_file(filename)
     view.worker.wait()
     qtbot.waitUntil(lambda: len(view.scene.items()) > 0)
@@ -281,7 +281,7 @@ def test_open_from_file_when_error(view, qtbot):
 
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileName")
 def test_on_action_open(dialog_mock, view, qtbot):
-    filename = Path(__file__).parent / "assets" / "test1item.bee"
+    filename = Path(__file__).parent / "assets" / "test1item.zref"
     dialog_mock.return_value = (str(filename), None)
     view.cancel_active_modes = MagicMock()
 
@@ -296,7 +296,7 @@ def test_on_action_open(dialog_mock, view, qtbot):
 
 
 @patch(
-    "beeref.view.BeeGraphicsView.get_confirmation_unsaved_changes", return_value=False
+    "zeeref.view.ZeeGraphicsView.get_confirmation_unsaved_changes", return_value=False
 )
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileName")
 def test_on_action_open_when_unsaved_changes_not_confirmed(
@@ -311,7 +311,7 @@ def test_on_action_open_when_unsaved_changes_not_confirmed(
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileName")
-@patch("beeref.view.BeeGraphicsView.open_from_file")
+@patch("zeeref.view.ZeeGraphicsView.open_from_file")
 def test_on_action_open_when_no_filename(open_mock, dialog_mock, view):
     dialog_mock.return_value = (None, None)
     view.cancel_active_modes = MagicMock()
@@ -322,10 +322,10 @@ def test_on_action_open_when_no_filename(open_mock, dialog_mock, view):
 
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 def test_on_action_save_as(dialog_mock, view, imgfilename3x3, tmp_path):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
-    filename = tmp_path / "test.bee"
+    filename = tmp_path / "test.zref"
     assert os.path.exists(filename) is False
     dialog_mock.return_value = (filename, None)
     view.on_action_save_as()
@@ -335,11 +335,11 @@ def test_on_action_save_as(dialog_mock, view, imgfilename3x3, tmp_path):
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
-@patch("beeref.view.BeeGraphicsView.do_save")
+@patch("zeeref.view.ZeeGraphicsView.do_save")
 def test_on_action_save_as_when_no_filename(
     save_mock, dialog_mock, view, imgfilename3x3
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
     dialog_mock.return_value = (None, None)
@@ -352,7 +352,7 @@ def test_on_action_save_as_when_no_filename(
 def test_on_action_save_as_filename_doesnt_end_with_bee(
     dialog_mock, view, qtbot, imgfilename3x3, tmp_path
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
     view.on_saving_finished = MagicMock()
@@ -361,21 +361,21 @@ def test_on_action_save_as_filename_doesnt_end_with_bee(
     dialog_mock.return_value = (str(filename), None)
     view.on_action_save_as()
     qtbot.waitUntil(lambda: view.on_saving_finished.called is True)
-    assert filename.with_suffix(".bee").exists()
-    assert_save_result(view.on_saving_finished, filename.with_suffix(".bee"))
+    assert filename.with_suffix(".zref").exists()
+    assert_save_result(view.on_saving_finished, filename.with_suffix(".zref"))
     view.cancel_active_modes.assert_called_once_with()
 
 
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
-@patch("beeref.fileio.sql.SQLiteIO.write_data")
+@patch("zeeref.fileio.sql.SQLiteIO.write_data")
 def test_on_action_save_as_when_error(
     save_mock, dialog_mock, view, qtbot, imgfilename3x3, tmp_path
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.on_saving_finished = MagicMock()
     view.cancel_active_modes = MagicMock()
-    filename = tmp_path / "test.bee"
+    filename = tmp_path / "test.zref"
     dialog_mock.return_value = (str(filename), None)
     save_mock.side_effect = sqlite3.Error("foo")
     view.on_action_save_as()
@@ -385,11 +385,11 @@ def test_on_action_save_as_when_error(
 
 
 def test_on_action_save(view, qtbot, imgfilename3x3, tmp_path):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
-    view.filename = tmp_path / "test.bee"
-    shutil.copyfile(Path(__file__).parent / "assets" / "test1item.bee", view.filename)
+    view.filename = tmp_path / "test.zref"
+    shutil.copyfile(Path(__file__).parent / "assets" / "test1item.zref", view.filename)
     view.on_saving_finished = MagicMock()
     view.on_action_save()
     qtbot.waitUntil(lambda: view.on_saving_finished.called is True)
@@ -398,9 +398,9 @@ def test_on_action_save(view, qtbot, imgfilename3x3, tmp_path):
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.on_action_save_as")
+@patch("zeeref.view.ZeeGraphicsView.on_action_save_as")
 def test_on_action_save_when_no_filename(save_as_mock, view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
     view.filename = None
@@ -409,13 +409,13 @@ def test_on_action_save_when_no_filename(save_as_mock, view, imgfilename3x3):
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.widgets.SceneToPixmapExporterDialog.exec")
-@patch("beeref.widgets.SceneToPixmapExporterDialog.value")
+@patch("zeeref.widgets.SceneToPixmapExporterDialog.exec")
+@patch("zeeref.widgets.SceneToPixmapExporterDialog.value")
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 def test_on_action_export_scene(
     file_mock, value_mock, exec_mock, view, tmp_path, qtbot
 ):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     view.scene.addItem(item)
     filename = tmp_path / "test.png"
     assert os.path.exists(filename) is False
@@ -431,13 +431,13 @@ def test_on_action_export_scene(
     assert img.size() == QtCore.QSize(100, 100)
 
 
-@patch("beeref.widgets.SceneToPixmapExporterDialog.exec")
-@patch("beeref.widgets.SceneToPixmapExporterDialog.value")
+@patch("zeeref.widgets.SceneToPixmapExporterDialog.exec")
+@patch("zeeref.widgets.SceneToPixmapExporterDialog.value")
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 def test_on_action_export_scene_no_file_extension(
     file_mock, value_mock, exec_mock, view, tmp_path, qtbot
 ):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     view.scene.addItem(item)
     filename = tmp_path / "test"
     assert os.path.exists(filename) is False
@@ -453,11 +453,11 @@ def test_on_action_export_scene_no_file_extension(
     assert img.size() == QtCore.QSize(100, 100)
 
 
-@patch("beeref.widgets.SceneToPixmapExporterDialog.exec")
-@patch("beeref.widgets.SceneToPixmapExporterDialog.value")
+@patch("zeeref.widgets.SceneToPixmapExporterDialog.exec")
+@patch("zeeref.widgets.SceneToPixmapExporterDialog.value")
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 def test_on_action_export_scene_no_filename(file_mock, value_mock, exec_mock, view):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     view.scene.addItem(item)
     file_mock.return_value = (None, None)
     view.on_export_finished = MagicMock()
@@ -468,13 +468,13 @@ def test_on_action_export_scene_no_filename(file_mock, value_mock, exec_mock, vi
     view.on_export_finished.assert_not_called()
 
 
-@patch("beeref.widgets.SceneToPixmapExporterDialog.exec")
-@patch("beeref.widgets.SceneToPixmapExporterDialog.value")
+@patch("zeeref.widgets.SceneToPixmapExporterDialog.exec")
+@patch("zeeref.widgets.SceneToPixmapExporterDialog.value")
 @patch("PyQt6.QtWidgets.QFileDialog.getSaveFileName")
 def test_on_action_export_scene_settings_input_canceled(
     file_mock, value_mock, exec_mock, view, tmp_path
 ):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     view.scene.addItem(item)
     filename = tmp_path / "test.png"
     assert os.path.exists(filename) is False
@@ -487,7 +487,7 @@ def test_on_action_export_scene_settings_input_canceled(
 
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
 def test_on_action_export_images(dir_mock, view, tmp_path, qtbot, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     dir_mock.return_value = tmp_path
     view.on_export_finished = MagicMock()
@@ -502,7 +502,7 @@ def test_on_action_export_images(dir_mock, view, tmp_path, qtbot, imgfilename3x3
 def test_on_action_export_images_no_dirname(
     dir_mock, view, tmp_path, qtbot, imgfilename3x3
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     dir_mock.return_value = None
     view.on_export_finished = MagicMock()
@@ -513,17 +513,17 @@ def test_on_action_export_images_no_dirname(
 
 
 @patch(
-    "beeref.widgets.ExportImagesFileExistsDialog.exec",
+    "zeeref.widgets.ExportImagesFileExistsDialog.exec",
     return_value=QtWidgets.QDialog.DialogCode.Accepted,
 )
 @patch(
-    "beeref.widgets.ExportImagesFileExistsDialog.get_answer", return_value="overwrite"
+    "zeeref.widgets.ExportImagesFileExistsDialog.get_answer", return_value="overwrite"
 )
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
 def test_on_action_export_images_file_exists_overwrite(
     dir_mock, answer_mock, exec_mock, view, tmp_path, qtbot, imgfilename3x3
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     dir_mock.return_value = tmp_path
     view.on_export_finished = MagicMock()
@@ -540,15 +540,15 @@ def test_on_action_export_images_file_exists_overwrite(
 
 
 @patch(
-    "beeref.widgets.ExportImagesFileExistsDialog.exec",
+    "zeeref.widgets.ExportImagesFileExistsDialog.exec",
     return_value=QtWidgets.QDialog.DialogCode.Accepted,
 )
-@patch("beeref.widgets.ExportImagesFileExistsDialog.get_answer", return_value="skip")
+@patch("zeeref.widgets.ExportImagesFileExistsDialog.get_answer", return_value="skip")
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
 def test_on_action_export_images_file_exists_skip(
     dir_mock, answer_mock, exec_mock, view, tmp_path, qtbot, imgfilename3x3
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     dir_mock.return_value = tmp_path
     view.on_export_finished = MagicMock()
@@ -564,15 +564,15 @@ def test_on_action_export_images_file_exists_skip(
 
 
 @patch(
-    "beeref.widgets.ExportImagesFileExistsDialog.exec",
+    "zeeref.widgets.ExportImagesFileExistsDialog.exec",
     return_value=QtWidgets.QDialog.DialogCode.Rejected,
 )
-@patch("beeref.widgets.ExportImagesFileExistsDialog.get_answer", return_value="skip")
+@patch("zeeref.widgets.ExportImagesFileExistsDialog.get_answer", return_value="skip")
 @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory")
 def test_on_action_export_images_file_exists_canceled(
     dir_mock, answer_mock, exec_mock, view, tmp_path, qtbot, imgfilename3x3
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     dir_mock.return_value = tmp_path
     view.on_export_finished = MagicMock()
@@ -587,40 +587,38 @@ def test_on_action_export_images_file_exists_canceled(
 
 
 @patch(
-    "beeref.view.BeeGraphicsView.get_confirmation_unsaved_changes", return_value=False
+    "zeeref.view.ZeeGraphicsView.get_confirmation_unsaved_changes", return_value=False
 )
-@patch("beeref.__main__.BeeRefApplication.quit")
-def test_on_action_quit_when_unsaved_changes_not_confirmed(
-    quit_mock, confirm_mock, view
-):
-    view.on_action_quit()
+def test_close_event_when_unsaved_changes_not_confirmed(confirm_mock, view):
+    event = QtGui.QCloseEvent()
+    view.parent.closeEvent(event)
     confirm_mock.assert_called_once()
-    quit_mock.assert_not_called()
+    assert not event.isAccepted()
 
 
 @patch(
-    "beeref.view.BeeGraphicsView.get_confirmation_unsaved_changes", return_value=True
+    "zeeref.view.ZeeGraphicsView.get_confirmation_unsaved_changes", return_value=True
 )
-@patch("beeref.__main__.BeeRefApplication.quit")
-def test_on_action_quit_when_unsaved_changes_confirmed(quit_mock, confirm_mock, view):
-    view.on_action_quit()
+def test_close_event_when_unsaved_changes_confirmed(confirm_mock, view):
+    event = QtGui.QCloseEvent()
+    view.parent.closeEvent(event)
     confirm_mock.assert_called_once()
-    quit_mock.assert_called_once_with()
+    assert event.isAccepted()
 
 
-@patch("beeref.widgets.settings.SettingsDialog.show")
+@patch("zeeref.widgets.settings.SettingsDialog.show")
 def test_on_action_settings(show_mock, view):
     view.on_action_settings()
     show_mock.assert_called_once()
 
 
-@patch("beeref.widgets.HelpDialog.show")
+@patch("zeeref.widgets.HelpDialog.show")
 def test_on_action_help(show_mock, view):
     view.on_action_help()
     show_mock.assert_called_once()
 
 
-@patch("beeref.widgets.DebugLogDialog.show")
+@patch("zeeref.widgets.DebugLogDialog.show")
 def test_on_action_debuglog(show_mock, view):
     with patch("builtins.open", mock_open(read_data="log")) as open_mock:
         view.on_action_debuglog()
@@ -628,7 +626,7 @@ def test_on_action_debuglog(show_mock, view):
         open_mock.assert_called_once_with(logfile_name())
 
 
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileNames")
 def test_on_action_insert_images_new_scene(
     dialog_mock, clear_mock, view, imgfilename3x3, qtbot
@@ -647,7 +645,7 @@ def test_on_action_insert_images_new_scene(
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileNames")
 def test_on_action_insert_images_existing_scene(
     dialog_mock, clear_mock, view, imgfilename3x3, qtbot, item
@@ -667,7 +665,7 @@ def test_on_action_insert_images_existing_scene(
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileNames")
 def test_on_action_insert_images_when_error(
     dialog_mock, clear_mock, view, imgfilename3x3, qtbot
@@ -691,7 +689,7 @@ def test_on_action_insert_images_when_error(
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 def test_on_action_insert_text(clear_mock, view):
     view.cancel_active_modes = MagicMock()
     view.on_action_insert_text()
@@ -705,7 +703,7 @@ def test_on_action_insert_text(clear_mock, view):
 
 @patch("PyQt6.QtWidgets.QApplication.clipboard")
 def test_on_action_copy_image(clipboard_mock, view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
     item.setSelected(True)
@@ -715,13 +713,13 @@ def test_on_action_copy_image(clipboard_mock, view, imgfilename3x3):
 
     clipboard_mock.return_value.setPixmap.assert_called_once()
     view.scene.internal_clipboard == [item]
-    assert mimedata.data("beeref/items") == b"1"
+    assert mimedata.data("zeeref/items") == b"1"
     view.cancel_active_modes.assert_called_once_with()
 
 
 @patch("PyQt6.QtWidgets.QApplication.clipboard")
 def test_on_action_copy_text(clipboard_mock, view, imgfilename3x3):
-    item = BeeTextItem("foo bar")
+    item = ZeeTextItem("foo bar")
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
     item.setSelected(True)
@@ -731,15 +729,16 @@ def test_on_action_copy_text(clipboard_mock, view, imgfilename3x3):
 
     clipboard_mock.return_value.setText.assert_called_once_with("foo bar")
     view.scene.internal_clipboard == [item]
-    assert mimedata.data("beeref/items") == b"1"
+    assert mimedata.data("zeeref/items") == b"1"
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.on_action_fit_scene")
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.view.ZeeGraphicsView.on_action_fit_scene")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtGui.QClipboard.image")
+@patch("PyQt6.QtGui.QClipboard.mimeData", return_value=QtCore.QMimeData())
 def test_on_action_paste_external_new_scene(
-    clipboard_mock, clear_mock, fit_mock, view, imgfilename3x3
+    mimedata_mock, clipboard_mock, clear_mock, fit_mock, view, imgfilename3x3
 ):
     clipboard_mock.return_value = QtGui.QImage(imgfilename3x3)
     view.cancel_active_modes = MagicMock()
@@ -750,11 +749,12 @@ def test_on_action_paste_external_new_scene(
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.on_action_fit_scene")
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.view.ZeeGraphicsView.on_action_fit_scene")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtGui.QClipboard.image")
+@patch("PyQt6.QtGui.QClipboard.mimeData", return_value=QtCore.QMimeData())
 def test_on_action_paste_external_existing_scene(
-    clipboard_mock, clear_mock, fit_mock, view, item, imgfilename3x3
+    mimedata_mock, clipboard_mock, clear_mock, fit_mock, view, item, imgfilename3x3
 ):
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
@@ -767,13 +767,13 @@ def test_on_action_paste_external_existing_scene(
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtGui.QClipboard.mimeData")
 def test_on_action_paste_internal(mimedata_mock, clear_mock, view):
     mimedata = QtCore.QMimeData()
-    mimedata.setData("beeref/items", QtCore.QByteArray.number(1))
+    mimedata.setData("zeeref/items", QtCore.QByteArray.number(1))
     mimedata_mock.return_value = mimedata
-    item = BeePixmapItem(QtGui.QImage())
+    item = ZeePixmapItem(QtGui.QImage())
     view.scene.internal_clipboard = [item]
     view.cancel_active_modes = MagicMock()
     view.on_action_paste()
@@ -783,10 +783,13 @@ def test_on_action_paste_internal(mimedata_mock, clear_mock, view):
     view.cancel_active_modes.assert_called()
 
 
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtGui.QClipboard.text")
 @patch("PyQt6.QtGui.QClipboard.image")
-def test_on_action_paste_when_text(img_mock, text_mock, clear_mock, view):
+@patch("PyQt6.QtGui.QClipboard.mimeData", return_value=QtCore.QMimeData())
+def test_on_action_paste_when_text(
+    mimedata_mock, img_mock, text_mock, clear_mock, view
+):
     img_mock.return_value = QtGui.QImage()
     text_mock.return_value = "foo bar"
     view.cancel_active_modes = MagicMock()
@@ -798,12 +801,13 @@ def test_on_action_paste_when_text(img_mock, text_mock, clear_mock, view):
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.scene.BeeGraphicsScene.clearSelection")
+@patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtGui.QClipboard.text")
 @patch("PyQt6.QtGui.QClipboard.image")
-@patch("beeref.widgets.BeeNotification")
+@patch("PyQt6.QtGui.QClipboard.mimeData", return_value=QtCore.QMimeData())
+@patch("zeeref.widgets.ZeeNotification")
 def test_on_action_paste_when_empty(
-    notification_mock, img_mock, text_mock, clear_mock, view
+    notification_mock, mimedata_mock, img_mock, text_mock, clear_mock, view
 ):
     view.cancel_active_modes = MagicMock()
     img_mock.return_value = QtGui.QImage()
@@ -817,7 +821,7 @@ def test_on_action_paste_when_empty(
     view.cancel_active_modes.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.on_action_copy")
+@patch("zeeref.view.ZeeGraphicsView.on_action_copy")
 def test_on_action_cut(copy_mock, view, item):
     view.scene.addItem(item)
     item.setSelected(True)
@@ -887,7 +891,7 @@ def test_on_action_sample_color(view):
 def test_on_action_sample_color_when_multi_selection(view, item):
     view.scene.addItem(item)
     item.setSelected(True)
-    item2 = BeeTextItem("foo")
+    item2 = ZeeTextItem("foo")
     view.scene.addItem(item2)
     item2.setSelected(True)
 
@@ -945,7 +949,7 @@ def test_on_action_show_titlebar_unchecked(show_mock, destroy_mock, create_mock,
     create_mock.assert_called_once()
 
 
-@patch("beeref.view.BeeGraphicsView.cursor")
+@patch("zeeref.view.ZeeGraphicsView.cursor")
 def test_on_action_move_window_when_welcome_overlay(cursor_mock, view):
     cursor_mock.return_value = MagicMock(
         pos=MagicMock(return_value=QtCore.QPointF(10.0, 20.0))
@@ -963,7 +967,7 @@ def test_on_action_move_window_when_already_active(view):
     assert view.event_start == QtCore.QPointF(10.0, 20.0)
 
 
-@patch("beeref.view.BeeGraphicsView.cursor")
+@patch("zeeref.view.ZeeGraphicsView.cursor")
 def test_on_action_move_window_when_scene(cursor_mock, view):
     cursor_mock.return_value = MagicMock(
         pos=MagicMock(return_value=QtCore.QPointF(10.0, 20.0))
@@ -998,41 +1002,41 @@ def test_on_action_delete_items(view, item):
     view.cancel_active_modes.assert_called_once()
 
 
-@patch("beeref.scene.BeeGraphicsScene.arrange")
+@patch("zeeref.scene.ZeeGraphicsScene.arrange")
 def test_on_action_arrange_horizontal(arrange_mock, view):
     view.on_action_arrange_horizontal()
     arrange_mock.assert_called_once_with()
 
 
-@patch("beeref.scene.BeeGraphicsScene.arrange")
+@patch("zeeref.scene.ZeeGraphicsScene.arrange")
 def test_on_action_arrange_vertical(arrange_mock, view):
     view.on_action_arrange_vertical()
     arrange_mock.assert_called_once_with(vertical=True)
 
 
-@patch("beeref.scene.BeeGraphicsScene.arrange_optimal")
+@patch("zeeref.scene.ZeeGraphicsScene.arrange_optimal")
 def test_on_action_arrange_optimal(arrange_mock, view):
     view.on_action_arrange_optimal()
     arrange_mock.assert_called_once_with()
 
 
-@patch("beeref.scene.BeeGraphicsScene.arrange_square")
+@patch("zeeref.scene.ZeeGraphicsScene.arrange_square")
 def test_on_action_arrange_square(arrange_mock, view):
     view.on_action_arrange_square()
     arrange_mock.assert_called_once_with()
 
 
-@patch("beeref.widgets.ChangeOpacityDialog.__init__", return_value=None)
+@patch("zeeref.widgets.ChangeOpacityDialog.__init__", return_value=None)
 def test_on_action_change_opacity(dialog_mock, view):
-    pixmapitem1 = BeePixmapItem(QtGui.QImage())
+    pixmapitem1 = ZeePixmapItem(QtGui.QImage())
     view.scene.addItem(pixmapitem1)
     pixmapitem1.setSelected(True)
 
-    pixmapitem2 = BeePixmapItem(QtGui.QImage())
+    pixmapitem2 = ZeePixmapItem(QtGui.QImage())
     view.scene.addItem(pixmapitem2)
     pixmapitem2.setSelected(False)
 
-    textitem = BeeTextItem("foo")
+    textitem = ZeeTextItem("foo")
     view.scene.addItem(textitem)
     textitem.setSelected(True)
 
@@ -1054,7 +1058,7 @@ def test_cancel_active_modes_when_sample_color_mode(view):
 def test_cancel_sample_color_mode_when_multi_selection(view, item):
     view.scene.addItem(item)
     item.setSelected(True)
-    item2 = BeeTextItem("foo")
+    item2 = ZeeTextItem("foo")
     view.scene.addItem(item2)
     item2.setSelected(True)
 
@@ -1074,32 +1078,32 @@ def test_cancel_sample_color_mode_when_multi_selection(view, item):
 def test_update_window_title_no_changes_no_filename(clear_mock, view):
     view.filename = None
     view.update_window_title()
-    assert view.parent.windowTitle() == "BeeRef"
+    assert view.parent.windowTitle() == "ZeeRef"
 
 
 @patch("PyQt6.QtGui.QUndoStack.isClean", return_value=False)
 def test_update_window_title_changes_no_filename(clear_mock, view):
     view.filename = None
     view.update_window_title()
-    assert view.parent.windowTitle() == "[Untitled]* - BeeRef"
+    assert view.parent.windowTitle() == "[Untitled]* - ZeeRef"
 
 
 @patch("PyQt6.QtGui.QUndoStack.isClean", return_value=True)
 def test_update_window_title_no_changes_filename(clear_mock, view):
-    view.filename = Path("test.bee")
+    view.filename = Path("test.zref")
     view.update_window_title()
-    assert view.parent.windowTitle() == "test.bee - BeeRef"
+    assert view.parent.windowTitle() == "test.zref - ZeeRef"
 
 
 @patch("PyQt6.QtGui.QUndoStack.isClean", return_value=False)
 def test_update_window_title_changes_filename(clear_mock, view):
-    view.filename = Path("test.bee")
+    view.filename = Path("test.zref")
     view.update_window_title()
-    assert view.parent.windowTitle() == "test.bee* - BeeRef"
+    assert view.parent.windowTitle() == "test.zref* - ZeeRef"
 
 
-@patch("beeref.view.BeeGraphicsView.recalc_scene_rect")
-@patch("beeref.scene.BeeGraphicsScene.on_view_scale_change")
+@patch("zeeref.view.ZeeGraphicsView.recalc_scene_rect")
+@patch("zeeref.scene.ZeeGraphicsScene.on_view_scale_change")
 def test_scale(view_scale_mock, recalc_mock, view):
     view.scale(3.3, 3.3)
     view_scale_mock.assert_called_once_with()
@@ -1120,10 +1124,10 @@ def test_pan_when_no_items(scroll_value_mock, view):
     scroll_value_mock.assert_not_called()
 
 
-@patch("beeref.view.BeeGraphicsView.reset_previous_transform")
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.reset_previous_transform")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_zoom_in(pan_mock, reset_mock, view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.zoom(40, QtCore.QPointF(10.0, 10.0))
     assert view.get_scale() == 1.04
@@ -1131,10 +1135,10 @@ def test_zoom_in(pan_mock, reset_mock, view, imgfilename3x3):
     pan_mock.assert_called_once()
 
 
-@patch("beeref.view.BeeGraphicsView.reset_previous_transform")
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.reset_previous_transform")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_zoom_in_max_zoom_size(pan_mock, reset_mock, view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scale(10000000, 10000000)
     view.scene.addItem(item)
     view.zoom(40, QtCore.QPointF(10.0, 10.0))
@@ -1143,10 +1147,10 @@ def test_zoom_in_max_zoom_size(pan_mock, reset_mock, view, imgfilename3x3):
     pan_mock.assert_not_called()
 
 
-@patch("beeref.view.BeeGraphicsView.reset_previous_transform")
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.reset_previous_transform")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_zoom_out(pan_mock, reset_mock, view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scale(100, 100)
     view.scene.addItem(item)
     view.zoom(-40, QtCore.QPointF(10.0, 10.0))
@@ -1155,8 +1159,8 @@ def test_zoom_out(pan_mock, reset_mock, view, imgfilename3x3):
     pan_mock.assert_called_once()
 
 
-@patch("beeref.view.BeeGraphicsView.reset_previous_transform")
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.reset_previous_transform")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_zoom_out_min_zoom_size(pan_mock, reset_mock, view, item):
     view.scene.addItem(item)
     view.zoom(-40, QtCore.QPointF(10.0, 10.0))
@@ -1165,8 +1169,8 @@ def test_zoom_out_min_zoom_size(pan_mock, reset_mock, view, item):
     pan_mock.assert_not_called()
 
 
-@patch("beeref.view.BeeGraphicsView.reset_previous_transform")
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.reset_previous_transform")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_no_items(pan_mock, reset_mock, view, item):
     view.zoom(40, QtCore.QPointF(10.0, 10.0))
     assert view.get_scale() == 1
@@ -1174,8 +1178,8 @@ def test_no_items(pan_mock, reset_mock, view, item):
     pan_mock.assert_not_called()
 
 
-@patch("beeref.view.BeeGraphicsView.reset_previous_transform")
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.reset_previous_transform")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_delta_zero(pan_mock, reset_mock, view, item):
     view.scene.addItem(item)
     view.zoom(0, QtCore.QPointF(10.0, 10.0))
@@ -1184,7 +1188,7 @@ def test_delta_zero(pan_mock, reset_mock, view, item):
     pan_mock.assert_not_called()
 
 
-@patch("beeref.view.BeeGraphicsView.zoom")
+@patch("zeeref.view.ZeeGraphicsView.zoom")
 def test_wheel_event_zoom(zoom_mock, view):
     event = MagicMock()
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
@@ -1195,7 +1199,7 @@ def test_wheel_event_zoom(zoom_mock, view):
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.zoom")
+@patch("zeeref.view.ZeeGraphicsView.zoom")
 def test_wheel_event_zoom_custom_inverted(zoom_mock, view, kbsettings):
     kbsettings.MOUSEWHEEL_ACTIONS["zoom2"].set_modifiers(["Alt"])
     kbsettings.MOUSEWHEEL_ACTIONS["zoom2"].set_inverted(True)
@@ -1208,7 +1212,7 @@ def test_wheel_event_zoom_custom_inverted(zoom_mock, view, kbsettings):
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_wheel_event_pan_vertically(pan_mock, view):
     event = MagicMock()
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
@@ -1221,7 +1225,7 @@ def test_wheel_event_pan_vertically(pan_mock, view):
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_wheel_event_pan_vertically_custom_inverted(pan_mock, view, kbsettings):
     kbsettings.MOUSEWHEEL_ACTIONS["pan_vertical2"].set_modifiers(["Alt"])
     kbsettings.MOUSEWHEEL_ACTIONS["pan_vertical2"].set_inverted(True)
@@ -1234,7 +1238,7 @@ def test_wheel_event_pan_vertically_custom_inverted(pan_mock, view, kbsettings):
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_wheel_event_pan_horizontally(pan_mock, view):
     event = MagicMock()
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
@@ -1245,7 +1249,7 @@ def test_wheel_event_pan_horizontally(pan_mock, view):
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_wheel_event_pan_horizontally_custom_inverted(pan_mock, view, kbsettings):
     kbsettings.MOUSEWHEEL_ACTIONS["pan_horizontal2"].set_modifiers(["Alt"])
     kbsettings.MOUSEWHEEL_ACTIONS["pan_horizontal2"].set_inverted(True)
@@ -1321,7 +1325,7 @@ def test_mouse_press_pan_alt_left_drag(mouse_event_mock, view):
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.widgets.BeeNotification")
+@patch("zeeref.widgets.ZeeNotification")
 @patch("PyQt6.QtWidgets.QGraphicsView.mousePressEvent")
 def test_mouse_press_sample_color_when_color(mouse_event_mock, notification_mock, view):
     view.scene.sample_color_at = MagicMock(return_value=QtGui.QColor(255, 0, 0, 255))
@@ -1340,7 +1344,7 @@ def test_mouse_press_sample_color_when_color(mouse_event_mock, notification_mock
     mouse_event_mock.assert_not_called()
 
 
-@patch("beeref.widgets.BeeNotification")
+@patch("zeeref.widgets.ZeeNotification")
 @patch("PyQt6.QtWidgets.QGraphicsView.mousePressEvent")
 def test_mouse_press_sample_color_when_color_with_alpha(
     mouse_event_mock, notification_mock, view
@@ -1361,7 +1365,7 @@ def test_mouse_press_sample_color_when_color_with_alpha(
     mouse_event_mock.assert_not_called()
 
 
-@patch("beeref.widgets.BeeNotification")
+@patch("zeeref.widgets.ZeeNotification")
 @patch("PyQt6.QtWidgets.QGraphicsView.mousePressEvent")
 def test_mouse_press_sample_color_when_no_color(
     mouse_event_mock, notification_mock, view
@@ -1381,7 +1385,7 @@ def test_mouse_press_sample_color_when_no_color(
 
 
 @patch("PyQt6.QtWidgets.QGraphicsView.mousePressEvent")
-@patch("beeref.view.BeeGraphicsView.cursor")
+@patch("zeeref.view.ZeeGraphicsView.cursor")
 def test_mouse_press_move_window(cursor_mock, mouse_event_mock, view):
     event = MagicMock()
     cursor_mock.return_value = MagicMock(
@@ -1416,7 +1420,7 @@ def test_right_click_drag_moves_window_and_suppresses_context_menu(view):
     view.parent.move = MagicMock()
     view.on_context_menu = MagicMock()
 
-    with patch("beeref.view.BeeGraphicsView.cursor") as cursor_mock:
+    with patch("zeeref.view.ZeeGraphicsView.cursor") as cursor_mock:
         cursor_mock.return_value = MagicMock(
             pos=MagicMock(return_value=QtCore.QPointF(0.0, 0.0))
         )
@@ -1494,7 +1498,7 @@ def test_mouse_press_unhandled(mouse_event_mock, view):
 
 
 @patch("PyQt6.QtWidgets.QGraphicsView.mouseMoveEvent")
-@patch("beeref.view.BeeGraphicsView.pan")
+@patch("zeeref.view.ZeeGraphicsView.pan")
 def test_mouse_move_pan(pan_mock, mouse_event_mock, view):
     view.active_mode = view.PAN_MODE
     view.event_start = QtCore.QPointF(55.0, 66.0)
@@ -1507,7 +1511,7 @@ def test_mouse_move_pan(pan_mock, mouse_event_mock, view):
 
 
 @patch("PyQt6.QtWidgets.QGraphicsView.mouseMoveEvent")
-@patch("beeref.view.BeeGraphicsView.zoom")
+@patch("zeeref.view.ZeeGraphicsView.zoom")
 def test_mouse_move_zoom(zoom_mock, mouse_event_mock, view):
     view.active_mode = view.ZOOM_MODE
     view.event_anchor = QtCore.QPointF(55.0, 66.0)
@@ -1522,7 +1526,7 @@ def test_mouse_move_zoom(zoom_mock, mouse_event_mock, view):
 
 
 @patch("PyQt6.QtWidgets.QGraphicsView.mouseMoveEvent")
-@patch("beeref.view.BeeGraphicsView.zoom")
+@patch("zeeref.view.ZeeGraphicsView.zoom")
 def test_mouse_move_zoom_inverted(zoom_mock, mouse_event_mock, view):
     view.active_mode = view.ZOOM_MODE
     view.event_anchor = QtCore.QPointF(55.0, 66.0)
@@ -1652,7 +1656,7 @@ def test_drag_move(view):
     event.acceptProposedAction.assert_called_once()
 
 
-@patch("beeref.view.BeeGraphicsView.do_insert_images")
+@patch("zeeref.view.ZeeGraphicsView.do_insert_images")
 def test_drop_when_url(insert_mock, view, imgfilename3x3):
     url = QtCore.QUrl.fromLocalFile(imgfilename3x3)
     mimedata = QtCore.QMimeData()
@@ -1665,9 +1669,9 @@ def test_drop_when_url(insert_mock, view, imgfilename3x3):
     insert_mock.assert_called_once_with([url], QtCore.QPoint(10, 20))
 
 
-@patch("beeref.view.BeeGraphicsView.open_from_file")
+@patch("zeeref.view.ZeeGraphicsView.open_from_file")
 def test_drop_when_url_beefile_and_scene_empty(open_mock, view):
-    filename = Path(__file__).parent / "assets" / "test1item.bee"
+    filename = Path(__file__).parent / "assets" / "test1item.zref"
     url = QtCore.QUrl.fromLocalFile(str(filename))
     mimedata = QtCore.QMimeData()
     mimedata.setUrls([url])
@@ -1679,11 +1683,11 @@ def test_drop_when_url_beefile_and_scene_empty(open_mock, view):
     open_mock.assert_called_once_with(filename)
 
 
-@patch("beeref.view.BeeGraphicsView.do_insert_images")
-@patch("beeref.view.BeeGraphicsView.open_from_file")
+@patch("zeeref.view.ZeeGraphicsView.do_insert_images")
+@patch("zeeref.view.ZeeGraphicsView.open_from_file")
 def test_drop_when_url_beefile_and_scene_not_empty(open_mock, insert_mock, view, item):
     view.scene.addItem(item)
-    filename = Path(__file__).parent / "assets" / "test1item.bee"
+    filename = Path(__file__).parent / "assets" / "test1item.zref"
     url = QtCore.QUrl.fromLocalFile(str(filename))
     mimedata = QtCore.QMimeData()
     mimedata.setUrls([url])

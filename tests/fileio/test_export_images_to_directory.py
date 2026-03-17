@@ -5,11 +5,11 @@ import pytest
 
 from PyQt6 import QtGui
 
-from beeref.items import BeePixmapItem
-from beeref.scene import BeeGraphicsScene
-from beeref.fileio.errors import BeeFileIOError
-from beeref.fileio.export import ImagesToDirectoryExporter
-from beeref.types.snapshot import IOResult
+from zeeref.items import ZeePixmapItem
+from zeeref.scene import ZeeGraphicsScene
+from zeeref.fileio.errors import ZeeFileIOError
+from zeeref.fileio.export import ImagesToDirectoryExporter
+from zeeref.types.snapshot import IOResult
 
 
 @pytest.fixture
@@ -29,9 +29,9 @@ def test_images_to_directory_exporter_export_writes_images(
     imgdata3x3,
     imgfilename3x3,
 ):
-    item1 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item1 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item2 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item2)
     exporter = ImagesToDirectoryExporter(scene, tmp_path)
     exporter.export()
@@ -50,9 +50,9 @@ def test_images_to_directory_exporter_export_file_exists_no_user_input(
 ):
     # items_by_type returns items in reverse insertion order (descending stacking)
     # so exporter.items = [item2, item1]
-    item1 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item1 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item2 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item2)
 
     # Pre-create file matching item1 (at index 1 in exporter's list)
@@ -79,11 +79,11 @@ def test_images_to_directory_exporter_export_file_exists_skip(
     imgfilename3x3,
 ):
     # exporter.items = [item3, item2, item1] (reverse insertion order)
-    item1 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item1 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item2 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item2)
-    item3 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item3 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item3)
 
     # Pre-create files for item2 (index 1) and item1 (index 2)
@@ -118,11 +118,11 @@ def test_images_to_directory_exporter_export_file_exists_skip_all(
     imgfilename3x3,
 ):
     # exporter.items = [item3, item2, item1]
-    item1 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item1 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item2 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item2)
-    item3 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item3 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item3)
 
     with open(os.path.join(tmp_path, _export_filename(item2)), "w") as f:
@@ -151,11 +151,11 @@ def test_images_to_directory_exporter_export_file_exists_overwrite(
     imgfilename3x3,
 ):
     # exporter.items = [item3, item2, item1]
-    item1 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item1 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item2 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item2)
-    item3 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item3 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item3)
 
     with open(os.path.join(tmp_path, _export_filename(item2)), "w") as f:
@@ -188,11 +188,11 @@ def test_images_to_directory_exporter_export_file_exists_overwrite_all(
     imgfilename3x3,
 ):
     # exporter.items = [item3, item2, item1]
-    item1 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item1 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item2 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item2)
-    item3 = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item3 = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item3)
 
     with open(os.path.join(tmp_path, _export_filename(item2)), "w") as f:
@@ -220,7 +220,7 @@ def test_images_to_directory_exporter_export_with_worker(
     imgdata3x3,
     imgfilename3x3,
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item)
     worker = MagicMock(canceled=False)
     exporter = ImagesToDirectoryExporter(scene, tmp_path)
@@ -240,7 +240,7 @@ def test_images_to_directory_exporter_export_with_worker_when_canceled(
     imgdata3x3,
     imgfilename3x3,
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item)
     worker = MagicMock(canceled=True)
     exporter = ImagesToDirectoryExporter(scene, tmp_path)
@@ -259,7 +259,7 @@ def test_images_to_directory_exporter_export_with_worker_when_file_exists(
     imgdata3x3,
     imgfilename3x3,
 ):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item)
 
     imgfilename = os.path.join(tmp_path, _export_filename(item))
@@ -282,14 +282,14 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable(
     readonly_dir,
     imgfilename3x3,
 ):
-    scene = BeeGraphicsScene(QtGui.QUndoStack())
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    scene = ZeeGraphicsScene(QtGui.QUndoStack())
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item)
 
     os.chmod(readonly_dir, stat.S_IREAD)
     exporter = ImagesToDirectoryExporter(scene, readonly_dir)
 
-    with pytest.raises(BeeFileIOError) as e:
+    with pytest.raises(ZeeFileIOError) as e:
         exporter.export()
         assert e.filename == readonly_dir
 
@@ -298,8 +298,8 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
     readonly_dir,
     imgfilename3x3,
 ):
-    scene = BeeGraphicsScene(QtGui.QUndoStack())
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    scene = ZeeGraphicsScene(QtGui.QUndoStack())
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item)
 
     os.chmod(readonly_dir, stat.S_IREAD)
@@ -322,7 +322,7 @@ def test_images_to_directory_exporter_export_when_img_not_writeable(
     imgfilename3x3,
 ):
 
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item)
 
     imgfilename = tmp_path / _export_filename(item)
@@ -333,7 +333,7 @@ def test_images_to_directory_exporter_export_when_img_not_writeable(
     exporter = ImagesToDirectoryExporter(scene, tmp_path)
     exporter.handle_existing = "overwrite_all"
 
-    with pytest.raises(BeeFileIOError) as e:
+    with pytest.raises(ZeeFileIOError) as e:
         exporter.export()
         assert e.filename == readonly_dir
 
@@ -345,7 +345,7 @@ def test_images_to_directory_exporter_export_when_img_not_writeable_w_worker(
     imgfilename3x3,
 ):
 
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item)
 
     imgfilename = tmp_path / _export_filename(item)

@@ -12,74 +12,6 @@ wheels = [
 ]
 
 [[package]]
-name = "beeref"
-version = "0.3.4.dev0"
-source = { editable = "." }
-dependencies = [
-    { name = "mistune" },
-    { name = "pillow" },
-    { name = "pyqt6" },
-    { name = "pyqt6-qt6" },
-    { name = "rectangle-packer" },
-]
-
-[package.optional-dependencies]
-build = [
-    { name = "pyinstaller" },
-]
-dev = [
-    { name = "coverage" },
-    { name = "httpretty" },
-    { name = "pybadges" },
-    { name = "pyinstaller" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-qt" },
-    { name = "ruff" },
-    { name = "yamllint" },
-]
-test = [
-    { name = "coverage" },
-    { name = "httpretty" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-qt" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ty" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "coverage", marker = "extra == 'dev'", specifier = "==7.5.1" },
-    { name = "coverage", marker = "extra == 'test'", specifier = "==7.5.1" },
-    { name = "httpretty", marker = "extra == 'dev'", specifier = "==1.1.4" },
-    { name = "httpretty", marker = "extra == 'test'", specifier = "==1.1.4" },
-    { name = "mistune", specifier = ">=3.0.0" },
-    { name = "pillow", specifier = ">=10.0.0" },
-    { name = "pybadges", marker = "extra == 'dev'", specifier = "==3.0.1" },
-    { name = "pyinstaller", marker = "extra == 'build'", specifier = "==6.6.0" },
-    { name = "pyinstaller", marker = "extra == 'dev'", specifier = "==6.6.0" },
-    { name = "pyqt6", specifier = ">=6.7.0,<=6.7.0" },
-    { name = "pyqt6-qt6", specifier = ">=6.7.0,<=6.7.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = "==8.2.0" },
-    { name = "pytest", marker = "extra == 'test'", specifier = "==8.2.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==5.0.0" },
-    { name = "pytest-cov", marker = "extra == 'test'", specifier = "==5.0.0" },
-    { name = "pytest-qt", marker = "extra == 'dev'", specifier = "==4.4.0" },
-    { name = "pytest-qt", marker = "extra == 'test'", specifier = "==4.4.0" },
-    { name = "rectangle-packer", specifier = ">=2.0.1,<=2.0.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
-    { name = "yamllint", marker = "extra == 'dev'", specifier = "==1.35.1" },
-]
-provides-extras = ["test", "build", "dev"]
-
-[package.metadata.requires-dev]
-dev = [{ name = "ty", specifier = ">=0.0.23" }]
-
-[[package]]
 name = "certifi"
 version = "2026.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -548,3 +480,71 @@ sdist = { url = "https://files.pythonhosted.org/packages/da/06/d8cee5c3dfd550cc0
 wheels = [
     { url = "https://files.pythonhosted.org/packages/09/28/2abf1ec14df2d584b9e7ce3b0be458838741e6aaff7a540374ba9af83916/yamllint-1.35.1-py3-none-any.whl", hash = "sha256:2e16e504bb129ff515b37823b472750b36b6de07963bd74b307341ef5ad8bdc3", size = 66738, upload-time = "2024-02-16T10:50:16.06Z" },
 ]
+
+[[package]]
+name = "zeeref"
+version = "0.3.4.dev0"
+source = { editable = "." }
+dependencies = [
+    { name = "mistune" },
+    { name = "pillow" },
+    { name = "pyqt6" },
+    { name = "pyqt6-qt6" },
+    { name = "rectangle-packer" },
+]
+
+[package.optional-dependencies]
+build = [
+    { name = "pyinstaller" },
+]
+dev = [
+    { name = "coverage" },
+    { name = "httpretty" },
+    { name = "pybadges" },
+    { name = "pyinstaller" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-qt" },
+    { name = "ruff" },
+    { name = "yamllint" },
+]
+test = [
+    { name = "coverage" },
+    { name = "httpretty" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-qt" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ty" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "coverage", marker = "extra == 'dev'", specifier = "==7.5.1" },
+    { name = "coverage", marker = "extra == 'test'", specifier = "==7.5.1" },
+    { name = "httpretty", marker = "extra == 'dev'", specifier = "==1.1.4" },
+    { name = "httpretty", marker = "extra == 'test'", specifier = "==1.1.4" },
+    { name = "mistune", specifier = ">=3.0.0" },
+    { name = "pillow", specifier = ">=10.0.0" },
+    { name = "pybadges", marker = "extra == 'dev'", specifier = "==3.0.1" },
+    { name = "pyinstaller", marker = "extra == 'build'", specifier = "==6.6.0" },
+    { name = "pyinstaller", marker = "extra == 'dev'", specifier = "==6.6.0" },
+    { name = "pyqt6", specifier = ">=6.7.0,<=6.7.0" },
+    { name = "pyqt6-qt6", specifier = ">=6.7.0,<=6.7.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = "==8.2.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = "==8.2.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==5.0.0" },
+    { name = "pytest-cov", marker = "extra == 'test'", specifier = "==5.0.0" },
+    { name = "pytest-qt", marker = "extra == 'dev'", specifier = "==4.4.0" },
+    { name = "pytest-qt", marker = "extra == 'test'", specifier = "==4.4.0" },
+    { name = "rectangle-packer", specifier = ">=2.0.1,<=2.0.2" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
+    { name = "yamllint", marker = "extra == 'dev'", specifier = "==1.35.1" },
+]
+provides-extras = ["test", "build", "dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ty", specifier = ">=0.0.23" }]

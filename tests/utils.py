@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from beeref.types.snapshot import IOResult, LoadResult, SaveResult
+from zeeref.types.snapshot import IOResult, LoadResult, SaveResult
 
 
 def queue2list(queue):

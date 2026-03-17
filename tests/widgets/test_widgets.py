@@ -3,9 +3,9 @@ from unittest.mock import patch, MagicMock
 from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtCore import Qt
 
-from beeref.config import logfile_name
-from beeref.widgets import (
-    BeeNotification,
+from zeeref.config import logfile_name
+from zeeref.widgets import (
+    ZeeNotification,
     ChangeOpacityDialog,
     DebugLogDialog,
     ExportImagesFileExistsDialog,
@@ -103,7 +103,7 @@ def test_change_opacity_dialog_reject(view, item):
 
 @patch("PyQt6.QtCore.QTimer.singleShot")
 def test_bee_notification(single_shot_mock, view):
-    widget = BeeNotification(view, "Hello World")
+    widget = ZeeNotification(view, "Hello World")
     assert widget.label.text() == "Hello World"
     single_shot_mock.assert_called_once_with(1000 * 3, widget.deleteLater)
 

@@ -9,7 +9,7 @@ repos:
     hooks:
       - id: ty
         name: ty
-        entry: uv run ty check beeref/
+        entry: uv run ty check zeeref/
         language: system
         pass_filenames: false
         types: [python]

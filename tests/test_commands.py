@@ -2,16 +2,16 @@ from unittest.mock import MagicMock, patch
 
 from PyQt6 import QtCore, QtGui
 
-from beeref import commands
-from beeref.items import BeePixmapItem, BeeTextItem
+from zeeref import commands
+from zeeref.items import ZeePixmapItem, ZeeTextItem
 
 
 def test_insert_items(scene):
     scene.update_selection = MagicMock()
     scene.max_z = 5
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setPos(50, 40)
     command = commands.InsertItems(scene, [item2])
     command.redo()
@@ -29,10 +29,10 @@ def test_insert_items(scene):
 def test_insert_items_with_position(scene):
     scene.update_selection = MagicMock()
 
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setPos(10, 20)
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setPos(50, 40)
     scene.addItem(item2)
 
@@ -58,9 +58,9 @@ def test_insert_items_with_position(scene):
 def test_insert_items_ignore_first_redo(scene):
     scene.update_selection = MagicMock()
     scene.max_z = 5
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     command = commands.InsertItems(scene, [item2], ignore_first_redo=True)
     command.redo()
     assert list(scene.user_items()) == [item1]
@@ -74,9 +74,9 @@ def test_insert_items_ignore_first_redo(scene):
 
 def test_delete_items(scene):
     scene.update_selection = MagicMock()
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     command = commands.DeleteItems(scene, [item2])
@@ -89,9 +89,9 @@ def test_delete_items(scene):
 
 
 def test_move_items_by(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setPos(0, 0)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setPos(30, 40)
     command = commands.MoveItemsBy([item1, item2], QtCore.QPointF(50, 100))
     command.redo()
@@ -108,9 +108,9 @@ def test_move_items_by(qapp):
 
 
 def test_move_items_by_ignore_first_redo(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setPos(0, 0)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setPos(30, 40)
     command = commands.MoveItemsBy(
         [item1, item2], QtCore.QPointF(50, 100), ignore_first_redo=True
@@ -128,9 +128,9 @@ def test_move_items_by_ignore_first_redo(qapp):
 
 
 def test_scale_items_by(view):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setScale(1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setScale(3)
     item2.setPos(100, 100)
     command = commands.ScaleItemsBy([item1, item2], 2, QtCore.QPointF(100, 100))
@@ -151,9 +151,9 @@ def test_scale_items_by(view):
 
 
 def test_scale_items_by_ignore_first_redo(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setScale(1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setScale(3)
     item2.setPos(100, 100)
     command = commands.ScaleItemsBy(
@@ -176,10 +176,10 @@ def test_scale_items_by_ignore_first_redo(qapp):
 
 
 def test_rotate_items_by(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setRotation(0)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setRotation(30)
     item2.setPos(100, 100)
     item2.do_flip()
@@ -201,10 +201,10 @@ def test_rotate_items_by(qapp):
 
 
 def test_rotate_items_by_ignore_first_redo(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setRotation(0)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setRotation(30)
     item2.setPos(100, 100)
     item2.do_flip()
@@ -228,9 +228,9 @@ def test_rotate_items_by_ignore_first_redo(qapp):
 
 
 def test_normalize_items(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setScale(1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setScale(3)
     with patch.object(
         item1, "bounding_rect_unselected", return_value=QtCore.QRectF(0, 0, 100, 80)
@@ -252,10 +252,10 @@ def test_normalize_items(qapp):
 
 
 def test_flip_items_horizontal(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setRotation(0)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setRotation(30)
     item2.setPos(100, 100)
     item2.do_flip()
@@ -279,10 +279,10 @@ def test_flip_items_horizontal(qapp):
 
 
 def test_flip_items_vertical(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setRotation(0)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setRotation(30)
     item2.setPos(100, 100)
     item2.do_flip()
@@ -338,9 +338,9 @@ def test_reset_rotate(view, item):
 
 
 def test_reset_flip(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.do_flip()
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     with patch.object(
         item1, "bounding_rect_unselected", return_value=QtCore.QRectF(0, 0, 100, 80)
     ):
@@ -365,14 +365,14 @@ def test_reset_flip(qapp):
 
 
 def test_reset_crop(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.crop = QtCore.QRectF(10, 20, 30, 50)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.crop = QtCore.QRectF(5, 6, 55, 66)
-    with patch.object(BeePixmapItem, "reset_crop"):
+    with patch.object(ZeePixmapItem, "reset_crop"):
         command = commands.ResetCrop([item1, item2])
         command.redo()
-        assert BeePixmapItem.reset_crop.call_count == 2
+        assert ZeePixmapItem.reset_crop.call_count == 2
         assert item1.pos() == QtCore.QPointF(0, 0)
         assert item2.pos() == QtCore.QPointF(0, 0)
 
@@ -386,7 +386,7 @@ def test_reset_crop(qapp):
 
 
 def test_reset_crop_ignores_non_images(qapp):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     brect = item.boundingRect()
     command = commands.ResetCrop([item])
     command.redo()
@@ -398,12 +398,12 @@ def test_reset_crop_ignores_non_images(qapp):
 
 
 def test_reset_transforms(qapp):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setScale(2)
     item1.do_flip()
-    item2 = BeeTextItem("foo")
+    item2 = ZeeTextItem("foo")
     item2.setRotation(180)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     item3.crop = QtCore.QRectF(10, 20, 30, 40)
     item3.reset_crop = MagicMock()
     with patch.object(
@@ -442,13 +442,13 @@ def test_reset_transforms(qapp):
 
 
 def test_arrange_items(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.do_flip()
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setRotation(90)
     scene.addItem(item2)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
     with patch.object(
         item1, "bounding_rect_unselected", return_value=QtCore.QRectF(0, 0, 100, 80)
@@ -493,7 +493,7 @@ def test_crop_item(item):
 
 
 def test_change_text():
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     command = commands.ChangeText(item, "bar", "foo")
     command.redo()
     assert item._markdown == "bar"
@@ -502,10 +502,10 @@ def test_change_text():
 
 
 def test_change_opacity(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setOpacity(0.5)
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setOpacity(1)
     command = commands.ChangeOpacity([item1, item2], 0.7)
     command.redo()
@@ -517,10 +517,10 @@ def test_change_opacity(scene):
 
 
 def test_change_opacity_ignore_first_redo(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.setOpacity(0.5)
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setOpacity(1)
     command = commands.ChangeOpacity([item1, item2], 0.7, ignore_first_redo=True)
     command.redo()

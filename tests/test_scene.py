@@ -7,8 +7,8 @@ from pytest import approx
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 
-from beeref import commands
-from beeref.items import BeePixmapItem, BeeTextItem
+from zeeref import commands
+from zeeref.items import ZeePixmapItem, ZeeTextItem
 
 
 def test_add_remove_item(scene, item):
@@ -30,13 +30,13 @@ def test_cancel_crop_mode_when_no_crop(scene, item):
 
 
 def test_copy_selection_to_internal_clipboard(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
 
     scene.copy_selection_to_internal_clipboard()
@@ -45,10 +45,10 @@ def test_copy_selection_to_internal_clipboard(scene):
 
 
 def test_paste_from_internal_clipboard(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.setScale(3.3)
     scene.internal_clipboard = [item2]
 
@@ -61,15 +61,15 @@ def test_paste_from_internal_clipboard(scene):
 
 
 def test_raise_to_top(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setZValue(0.06)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setZValue(0.02)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
     item3.setZValue(0.07)
     scene.cancel_crop_mode = MagicMock()
@@ -82,15 +82,15 @@ def test_raise_to_top(scene):
 
 
 def test_lower_to_bottom(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setZValue(-0.06)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setZValue(-0.02)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
     item3.setZValue(-0.07)
     scene.cancel_crop_mode = MagicMock()
@@ -103,10 +103,10 @@ def test_lower_to_bottom(scene):
 
 
 def test_normalize_height(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setScale(3)
@@ -128,10 +128,10 @@ def test_normalize_height(scene):
 
 
 def test_normalize_height_with_rotation(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setRotation(90)
@@ -159,10 +159,10 @@ def test_normalize_height_when_no_items(scene):
 
 
 def test_normalize_width(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setScale(3)
@@ -184,10 +184,10 @@ def test_normalize_width(scene):
 
 
 def test_normalize_width_with_rotation(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setRotation(90)
@@ -215,10 +215,10 @@ def test_normalize_width_when_no_items(scene):
 
 
 def test_normalize_size(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setScale(2)
@@ -240,10 +240,10 @@ def test_normalize_size(scene):
 
 
 def test_normalize_size_with_rotation(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setRotation(90)
@@ -287,14 +287,14 @@ def test_arrange_default(value, expected_func, expected_kwargs, settings, scene)
 
 
 def test_arrange_horizontal(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = "foo.png"
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setPos(10, -100)
     item1.crop = QtCore.QRectF(0, 0, 100, 80)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = "bar.png"
     scene.addItem(item2)
     item2.setSelected(True)
@@ -312,14 +312,14 @@ def test_arrange_horizontal(scene):
 def test_arrange_horizontal_with_gap(scene, settings):
     settings.setValue("Items/arrange_gap", 6)
 
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = "foo.png"
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setPos(10, -100)
     item1.crop = QtCore.QRectF(0, 0, 100, 80)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = "bar.png"
     scene.addItem(item2)
     item2.setSelected(True)
@@ -335,14 +335,14 @@ def test_arrange_horizontal_with_gap(scene, settings):
 
 
 def test_arrange_vertical(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = "foo.png"
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setPos(10, -100)
     item1.crop = QtCore.QRectF(0, 0, 100, 80)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = "bar.png"
     scene.addItem(item2)
     item2.setSelected(True)
@@ -360,14 +360,14 @@ def test_arrange_vertical(scene):
 def test_arrange_vertical_with_gap(scene, settings):
     settings.setValue("Items/arrange_gap", 6)
 
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = "foo.png"
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setPos(10, -100)
     item1.crop = QtCore.QRectF(0, 0, 100, 80)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = "bar.png"
     scene.addItem(item2)
     item2.setSelected(True)
@@ -383,12 +383,12 @@ def test_arrange_vertical_with_gap(scene, settings):
 
 
 def test_arrange_when_rotated(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setPos(10, -100)
     item1.setRotation(90)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setPos(-10, 40)
@@ -416,7 +416,7 @@ def test_arrange_when_no_items(scene):
 
 def test_arrange_optimal(scene):
     for i in range(4):
-        item = BeePixmapItem(QtGui.QImage())
+        item = ZeePixmapItem(QtGui.QImage())
         scene.addItem(item)
         item.setSelected(True)
         item.crop = QtCore.QRectF(0, 0, 100, 80)
@@ -434,7 +434,7 @@ def test_arrange_optimal(scene):
 def test_arrange_optimal_with_gap(scene, settings):
     settings.setValue("Items/arrange_gap", 6)
     for i in range(4):
-        item = BeePixmapItem(QtGui.QImage())
+        item = ZeePixmapItem(QtGui.QImage())
         scene.addItem(item)
         item.setSelected(True)
         item.crop = QtCore.QRectF(0, 0, 100, 80)
@@ -451,7 +451,7 @@ def test_arrange_optimal_with_gap(scene, settings):
 
 def test_arrange_optimal_when_rotated(scene):
     for i in range(4):
-        item = BeePixmapItem(QtGui.QImage())
+        item = ZeePixmapItem(QtGui.QImage())
         scene.addItem(item)
         item.setRotation(90)
         item.setSelected(True)
@@ -475,27 +475,27 @@ def test_arrange_optimal_when_no_items(scene):
 
 
 def test_arrange_square(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = None
     item1.created_at = 2.0
     scene.addItem(item1)
     item1.setSelected(True)
     item1.crop = QtCore.QRectF(0, 0, 100, 80)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = "foo.png"
     scene.addItem(item2)
     item2.setSelected(True)
     item2.crop = QtCore.QRectF(0, 0, 80, 60)
 
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     item3.filename = None
     item3.created_at = 1.0
     scene.addItem(item3)
     item3.setSelected(True)
     item3.crop = QtCore.QRectF(0, 0, 100, 80)
 
-    item4 = BeePixmapItem(QtGui.QImage())
+    item4 = ZeePixmapItem(QtGui.QImage())
     item4.filename = "bar.png"
     scene.addItem(item4)
     item4.setSelected(True)
@@ -513,27 +513,27 @@ def test_arrange_square(scene):
 
 def test_arrange_square_with_gap(scene, settings):
     settings.setValue("Items/arrange_gap", 6)
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = None
     item1.created_at = 2.0
     scene.addItem(item1)
     item1.setSelected(True)
     item1.crop = QtCore.QRectF(0, 0, 100, 80)
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = "foo.png"
     scene.addItem(item2)
     item2.setSelected(True)
     item2.crop = QtCore.QRectF(0, 0, 80, 60)
 
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     item3.filename = None
     item3.created_at = 1.0
     scene.addItem(item3)
     item3.setSelected(True)
     item3.crop = QtCore.QRectF(0, 0, 100, 80)
 
-    item4 = BeePixmapItem(QtGui.QImage())
+    item4 = ZeePixmapItem(QtGui.QImage())
     item4.filename = "bar.png"
     scene.addItem(item4)
     item4.setSelected(True)
@@ -561,7 +561,7 @@ def test_flip_items(scene, item):
     scene.undo_stack = MagicMock(push=MagicMock())
     scene.cancel_crop_mode = MagicMock()
     with patch(
-        "beeref.scene.BeeGraphicsScene.itemsBoundingRect",
+        "zeeref.scene.ZeeGraphicsScene.itemsBoundingRect",
         return_value=QtCore.QRectF(10, 20, 100, 60),
     ):
         scene.flip_items(vertical=True)
@@ -597,7 +597,7 @@ def test_crop_item_multi_select(scene, item):
     scene.addItem(item)
     item.setSelected(True)
     item.enter_crop_mode = MagicMock()
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
 
@@ -615,7 +615,7 @@ def test_crop_item_no_selection(scene, item):
 
 
 def test_crop_item_when_not_image(scene):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     item.setSelected(True)
     item.enter_crop_mode = MagicMock()
 
@@ -627,13 +627,13 @@ def test_sample_color_at_when_pixmap_item(view):
     color = QtGui.QColor(255, 0, 0, 3)
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(color)
-    item = BeePixmapItem(img, "foo.png")
+    item = ZeePixmapItem(img, "foo.png")
     view.scene.addItem(item)
     assert view.scene.sample_color_at(QtCore.QPointF(2, 2)) == color
 
 
 def test_sample_color_at_when_text_item(view):
-    item = BeeTextItem("foo bar baz")
+    item = ZeeTextItem("foo bar baz")
     view.scene.addItem(item)
     assert view.scene.sample_color_at(QtCore.QPointF(2, 2)) is None
 
@@ -643,10 +643,10 @@ def test_sample_color_at_when_no_item(view):
 
 
 def test_select_all_items_when_true(scene):
-    item1 = BeeTextItem("foo")
+    item1 = ZeeTextItem("foo")
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeeTextItem("bar")
+    item2 = ZeeTextItem("bar")
     scene.addItem(item2)
     item2.setSelected(True)
     scene.cancel_crop_mode = MagicMock()
@@ -658,10 +658,10 @@ def test_select_all_items_when_true(scene):
 
 
 def test_deselect_all_items_when_false(scene):
-    item1 = BeeTextItem("foo")
+    item1 = ZeeTextItem("foo")
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeeTextItem("bar")
+    item2 = ZeeTextItem("bar")
     scene.addItem(item2)
     item2.setSelected(True)
     scene.cancel_crop_mode = MagicMock()
@@ -689,19 +689,19 @@ def test_has_single_selection_when_no_selection(scene, item):
 
 
 def test_has_single_selection_when_single_selection(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     assert scene.has_single_selection() is True
 
 
 def test_has_single_selection_when_multi_selection(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     assert scene.has_single_selection() is False
@@ -713,19 +713,19 @@ def test_has_multi_selection_when_no_selection(scene, item):
 
 
 def test_has_multi_selection_when_single_selection(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     assert scene.has_multi_selection() is False
 
 
 def test_has_multi_selection_when_multi_selection(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     assert scene.has_multi_selection() is True
@@ -738,7 +738,7 @@ def test_has_single_image_selection(scene, item):
 
 
 def test_has_single_image_selection_when_item_not_image(scene):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     scene.addItem(item)
     item.setSelected(True)
     assert scene.has_single_image_selection() is False
@@ -753,7 +753,7 @@ def test_has_single_image_selection_when_no_selection(scene, item):
 def test_has_single_image_selection_when_multi_selection(scene, item):
     scene.addItem(item)
     item.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     assert scene.has_single_image_selection() is False
@@ -783,7 +783,7 @@ def test_mouse_press_event_when_left_click_over_item(mouse_mock, view, item):
 
 @patch("PyQt6.QtWidgets.QGraphicsScene.mousePressEvent")
 def test_mouse_press_event_when_left_click_over_item_in_edit_mode(mouse_mock, view):
-    item = BeeTextItem("foo bar")
+    item = ZeeTextItem("foo bar")
     item.exit_edit_mode = MagicMock()
     view.scene.addItem(item)
     view.scene.edit_item = item
@@ -802,7 +802,7 @@ def test_mouse_press_event_when_left_click_over_item_in_edit_mode(mouse_mock, vi
 def test_mouse_press_event_when_left_click_over_diff_item_in_edit_mode(
     mouse_mock, view, item
 ):
-    txtitem = BeeTextItem("foo bar")
+    txtitem = ZeeTextItem("foo bar")
     txtitem.exit_edit_mode = MagicMock()
     view.scene.addItem(txtitem)
     view.scene.edit_item = txtitem
@@ -819,7 +819,7 @@ def test_mouse_press_event_when_left_click_over_diff_item_in_edit_mode(
 
 @patch("PyQt6.QtWidgets.QGraphicsScene.mousePressEvent")
 def test_mouse_press_event_when_left_click_over_no_item_in_edit_mode(mouse_mock, view):
-    item = BeeTextItem("foo bar")
+    item = ZeeTextItem("foo bar")
     item.exit_edit_mode = MagicMock()
     view.scene.addItem(item)
     view.scene.edit_item = item
@@ -859,7 +859,7 @@ def test_mouse_press_event_when_left_click_over_diff_item_in_crop_mode(
     view.scene.addItem(item)
     view.scene.cancel_crop_mode = MagicMock()
     view.scene.crop_item = item
-    other_item = BeePixmapItem(QtGui.QImage())
+    other_item = ZeePixmapItem(QtGui.QImage())
     view.scene.itemAt = MagicMock(return_value=other_item)
     event = MagicMock(
         button=MagicMock(return_value=Qt.MouseButton.LeftButton),
@@ -943,7 +943,7 @@ def test_mouse_doubleclick_event_when_over_item(mouse_mock, view, item):
 @patch("PyQt6.QtWidgets.QGraphicsScene.mousePressEvent")
 @patch("PyQt6.QtWidgets.QGraphicsScene.mouseDoubleClickEvent")
 def test_mouse_doubleclick_event_when_over_editable_item(double_mock, press_mock, view):
-    item = BeeTextItem("foo bar")
+    item = ZeeTextItem("foo bar")
     item.enter_edit_mode = MagicMock()
     event = MagicMock()
     view.scene.active_mode = view.scene.MOVE_MODE
@@ -999,7 +999,7 @@ def test_mouse_doubleclick_event_when_not_over_item(mouse_mock, view):
 
 @patch("PyQt6.QtWidgets.QGraphicsScene.mouseMoveEvent")
 def test_mouse_move_event_when_rubberband_new(mouse_mock, view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.scene.active_mode = view.scene.RUBBERBAND_MODE
     view.scene.addItem = MagicMock()
@@ -1022,7 +1022,7 @@ def test_mouse_move_event_when_rubberband_new(mouse_mock, view, imgfilename3x3):
 
 @patch("PyQt6.QtWidgets.QGraphicsScene.mouseMoveEvent")
 def test_mouse_move_event_when_rubberband_not_new(mouse_mock, view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.scene.active_mode = view.scene.RUBBERBAND_MODE
     view.scene.event_start = QtCore.QPointF(0, 0)
@@ -1045,7 +1045,7 @@ def test_mouse_move_event_when_rubberband_not_new(mouse_mock, view, imgfilename3
 
 @patch("PyQt6.QtWidgets.QGraphicsScene.mouseMoveEvent")
 def test_mouse_move_event_when_no_rubberband(mouse_mock, view, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
     view.scene.active_mode = None
     view.scene.event_start = QtCore.QPointF(0, 0)
@@ -1144,15 +1144,15 @@ def test_mouse_release_event_when_item_action_active(mouse_mock, view, item):
 
 @patch("PyQt6.QtWidgets.QGraphicsScene.mouseReleaseEvent")
 def test_mouse_release_event_when_multiselect_action_active(mouse_mock, view):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     view.scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     view.scene.addItem(item2)
     item2.setSelected(True)
     event = MagicMock(scenePos=MagicMock(return_value=QtCore.QPoint(10, 20)))
     view.scene.active_mode = view.scene.MOVE_MODE
-    view.scene.multi_select_item.active_mode = BeePixmapItem.SCALE_MODE
+    view.scene.multi_select_item.active_mode = ZeePixmapItem.SCALE_MODE
     view.scene.undo_stack = MagicMock(push=MagicMock())
 
     view.scene.mouseReleaseEvent(event)
@@ -1162,10 +1162,10 @@ def test_mouse_release_event_when_multiselect_action_active(mouse_mock, view):
 
 
 def test_selected_items(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     selected = scene.selectedItems()
@@ -1175,10 +1175,10 @@ def test_selected_items(scene):
 
 
 def test_selected_items_user_only(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     selected = scene.selectedItems(user_only=True)
@@ -1188,17 +1188,17 @@ def test_selected_items_user_only(scene):
 
 
 def test_items_by_tpe(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
-    item2 = BeeTextItem("foo")
+    item2 = ZeeTextItem("foo")
     scene.addItem(item2)
     assert list(scene.items_by_type("text")) == [item2]
 
 
 def test_user_items(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item3 = QtWidgets.QGraphicsRectItem()
     scene.addItem(item3)
@@ -1216,15 +1216,15 @@ def test_on_view_scale_change(scene, item):
 
 
 def test_items_bounding_rect_given_items(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setPos(4, -6)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setPos(-33, 22)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
     item3.setSelected(True)
     item3.setPos(1000, 1000)
@@ -1246,15 +1246,15 @@ def test_items_bounding_rect_given_items(scene):
 
 
 def test_items_bounding_rect_two_items_selection_only(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
     item1.setPos(4, -6)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item2.setPos(-33, 22)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
     item3.setSelected(False)
     item3.setPos(1000, 1000)
@@ -1291,7 +1291,7 @@ def test_items_bounding_rect_rotated_item(scene, item):
 
 
 def test_items_bounding_rect_flipped_item(scene):
-    item = BeePixmapItem(QtGui.QImage())
+    item = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item)
     item.do_flip()
     with patch.object(
@@ -1312,7 +1312,7 @@ def test_items_bounding_rect_when_no_items(scene):
 
 def test_get_selection_center(scene):
     with patch(
-        "beeref.scene.BeeGraphicsScene.itemsBoundingRect",
+        "zeeref.scene.ZeeGraphicsScene.itemsBoundingRect",
         return_value=QtCore.QRectF(10, 20, 100, 60),
     ):
         center = scene.get_selection_center()
@@ -1376,7 +1376,7 @@ def test_on_change_when_multi_select_when_no_scale_no_rotate(scene):
 def test_on_change_when_multi_select_when_scale_active(scene):
     scene.addItem(scene.multi_select_item)
     scene.multi_select_item.fit_selection_area = MagicMock()
-    scene.multi_select_item.active_mode = BeePixmapItem.SCALE_MODE
+    scene.multi_select_item.active_mode = ZeePixmapItem.SCALE_MODE
     scene.on_change(None)
     scene.multi_select_item.fit_selection_area.assert_not_called()
 
@@ -1384,14 +1384,14 @@ def test_on_change_when_multi_select_when_scale_active(scene):
 def test_on_change_when_multi_select_when_rotate_active(scene):
     scene.addItem(scene.multi_select_item)
     scene.multi_select_item.fit_selection_area = MagicMock()
-    scene.multi_select_item.active_mode = BeePixmapItem.ROTATE_MODE
+    scene.multi_select_item.active_mode = ZeePixmapItem.ROTATE_MODE
     scene.on_change(None)
     scene.multi_select_item.fit_selection_area.assert_not_called()
 
 
 def test_on_change_when_no_multi_select(scene):
     scene.multi_select_item.fit_selection_area = MagicMock()
-    scene.multi_select_item.active_mode = BeePixmapItem.SCALE_MODE
+    scene.multi_select_item.active_mode = ZeePixmapItem.SCALE_MODE
     scene.on_change(None)
     scene.multi_select_item.fit_selection_area.assert_not_called()
 

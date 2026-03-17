@@ -4,16 +4,16 @@ from unittest.mock import patch, MagicMock
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 
-from beeref.items import BeePixmapItem, item_registry
+from zeeref.items import ZeePixmapItem, item_registry
 
 
 def test_in_item_registry():
-    assert item_registry["pixmap"] == BeePixmapItem
+    assert item_registry["pixmap"] == ZeePixmapItem
 
 
-@patch("beeref.selection.SelectableMixin.init_selectable")
+@patch("zeeref.selection.SelectableMixin.init_selectable")
 def test_init(selectable_mock, qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3), imgfilename3x3)
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3), imgfilename3x3)
     assert item.width == 3
     assert item.height == 3
     assert item.scale() == 1
@@ -62,13 +62,13 @@ def test_set_crop(qapp, item):
 
 
 def test_bounding_rect_unselected(qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(1, 1, 2, 2)
     assert item.bounding_rect_unselected() == QtCore.QRectF(1, 1, 2, 2)
 
 
 def test_bounding_rect_unselected_in_crop_mode(qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(1, 1, 2, 2)
     item.crop_mode = True
     assert item.bounding_rect_unselected() == QtCore.QRectF(-0.5, -0.5, 4, 4)
@@ -174,7 +174,7 @@ def test_get_imgformat_png_when_setting_png(qapp, settings, item):
 
 
 def test_pixmap_to_bytes_png(qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(0, 0, 2, 2)
     data, imgformat = item.pixmap_to_bytes()
     assert imgformat == "png"
@@ -188,7 +188,7 @@ def test_pixmap_to_bytes_png(qapp, imgfilename3x3):
 
 def test_pixmap_to_bytes_jpg(qapp, imgfilename3x3, settings):
     settings.setValue("Items/image_storage_format", "jpg")
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(0, 0, 2, 2)
     data, imgformat = item.pixmap_to_bytes()
     assert imgformat == "jpg"
@@ -201,7 +201,7 @@ def test_pixmap_to_bytes_jpg(qapp, imgfilename3x3, settings):
 
 
 def test_pixmap_to_bytes_apply_crop(qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(0, 0, 2, 2)
     data, imgformat = item.pixmap_to_bytes(apply_crop=True)
     assert imgformat == "png"
@@ -237,7 +237,7 @@ def test_has_selection_outline_when_selected(scene, item):
 def test_has_selection_handles_when_not_selected(scene, item):
     scene.addItem(item)
     item.setSelected(False)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(False)
     item.has_selection_handles() is False
@@ -246,7 +246,7 @@ def test_has_selection_handles_when_not_selected(scene, item):
 def test_has_selection_handles_when_selected_single(scene, item):
     scene.addItem(item)
     item.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(False)
     item.has_selection_handles() is True
@@ -255,14 +255,14 @@ def test_has_selection_handles_when_selected_single(scene, item):
 def test_has_selection_handles_when_selected_multi(scene, item):
     scene.addItem(item)
     item.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
     item.has_selection_handles() is False
 
 
 def test_selection_action_items(qapp):
-    item = BeePixmapItem(QtGui.QImage())
+    item = ZeePixmapItem(QtGui.QImage())
     assert item.selection_action_items() == [item]
 
 
@@ -293,7 +293,7 @@ def test_create_from_minimal_data(qapp, item, imgfilename3x3):
         imgdata = f.read()
     item.pixmap_from_bytes(imgdata)
 
-    new_item = BeePixmapItem.create_from_data(
+    new_item = ZeePixmapItem.create_from_data(
         item=item, data={"filename": "foobar.png"}
     )
     assert new_item is item
@@ -303,7 +303,7 @@ def test_create_from_minimal_data(qapp, item, imgfilename3x3):
 
 
 def test_create_from_data_with_crop(item):
-    new_item = BeePixmapItem.create_from_data(
+    new_item = ZeePixmapItem.create_from_data(
         item=item, data={"filename": "foobar.png", "crop": [10, 20, 30, 40]}
     )
     assert new_item is item
@@ -312,7 +312,7 @@ def test_create_from_data_with_crop(item):
 
 
 def test_create_from_data_with_opacity(item):
-    new_item = BeePixmapItem.create_from_data(
+    new_item = ZeePixmapItem.create_from_data(
         item=item, data={"filename": "foobar.png", "opacity": 0.7}
     )
     assert new_item is item
@@ -321,7 +321,7 @@ def test_create_from_data_with_opacity(item):
 
 
 def test_create_copy(qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3), "foo.png")
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3), "foo.png")
     item.setPos(20, 30)
     item.setRotation(33)
     item.do_flip()
@@ -348,40 +348,40 @@ def test_color_gamut_finds_colors(qapp):
     img.setPixelColor(1, 1, QtGui.QColor(255, 0, 0))
     img.setPixelColor(5, 5, QtGui.QColor(0, 255, 0))
     img.setPixelColor(5, 6, QtGui.QColor(0, 50, 0))
-    item = BeePixmapItem(img, "foo.png")
+    item = ZeePixmapItem(img, "foo.png")
     assert item.color_gamut == {(0, 255): 1, (120, 255): 2}
 
 
 def test_color_gamut_ignores_almost_black(qapp):
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(QtGui.QColor(3, 3, 3))
-    item = BeePixmapItem(img, "foo.png")
+    item = ZeePixmapItem(img, "foo.png")
     assert item.color_gamut == {}
 
 
 def test_color_gamut_ignores_almost_white(qapp):
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(QtGui.QColor(253, 253, 253))
-    item = BeePixmapItem(img, "foo.png")
+    item = ZeePixmapItem(img, "foo.png")
     assert item.color_gamut == {}
 
 
 def test_color_gamut_ignores_almost_transparent(qapp):
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(QtGui.QColor(255, 0, 0, 3))
-    item = BeePixmapItem(img, "foo.png")
+    item = ZeePixmapItem(img, "foo.png")
     assert item.color_gamut == {}
 
 
 def test_copy_to_clipboard(qapp, imgfilename3x3):
     clipboard = QtWidgets.QApplication.clipboard()
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3), "foo.png")
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3), "foo.png")
     item.copy_to_clipboard(clipboard)
     assert clipboard.pixmap().size() == item.pixmap().size()
 
 
 def test_reset_crop(qapp, imgfilename3x3):
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     item.crop = QtCore.QRectF(10, 20, 30, 40)
     item.reset_crop()
     assert item.crop == QtCore.QRectF(0, 0, 3, 3)
@@ -573,7 +573,7 @@ def test_key_press_event_other(key_mock, qapp, item):
     key_mock.assert_called_once_with(event)
 
 
-@patch("beeref.selection.SelectableMixin.hoverMoveEvent")
+@patch("zeeref.selection.SelectableMixin.hoverMoveEvent")
 def test_hover_move_event_when_not_crop_mode(hover_mock, qapp, item):
     item.crop_mode = False
     event = MagicMock()
@@ -582,7 +582,7 @@ def test_hover_move_event_when_not_crop_mode(hover_mock, qapp, item):
     hover_mock.assert_called_once_with(event)
 
 
-@patch("beeref.selection.SelectableMixin.hoverMoveEvent")
+@patch("zeeref.selection.SelectableMixin.hoverMoveEvent")
 def test_hover_move_event_crop_mode_inside_handle(hover_mock, qapp, item):
     item.crop_mode = True
     item.crop_temp = QtCore.QRectF(0, 0, 100, 80)
@@ -594,7 +594,7 @@ def test_hover_move_event_crop_mode_inside_handle(hover_mock, qapp, item):
     hover_mock.assert_not_called()
 
 
-@patch("beeref.selection.SelectableMixin.hoverMoveEvent")
+@patch("zeeref.selection.SelectableMixin.hoverMoveEvent")
 def test_hover_move_event_crop_mode_inside_edge(hover_mock, qapp, item):
     item.crop_mode = True
     item.crop_temp = QtCore.QRectF(0, 0, 100, 80)
@@ -606,7 +606,7 @@ def test_hover_move_event_crop_mode_inside_edge(hover_mock, qapp, item):
     hover_mock.assert_not_called()
 
 
-@patch("beeref.selection.SelectableMixin.hoverMoveEvent")
+@patch("zeeref.selection.SelectableMixin.hoverMoveEvent")
 def test_hover_move_event_crop_mode_outside_handle(hover_mock, qapp, item):
     item.crop_mode = True
     item.crop_temp = QtCore.QRectF(0, 0, 100, 80)
@@ -619,7 +619,7 @@ def test_hover_move_event_crop_mode_outside_handle(hover_mock, qapp, item):
     hover_mock.assert_not_called()
 
 
-@patch("beeref.selection.SelectableMixin.mousePressEvent")
+@patch("zeeref.selection.SelectableMixin.mousePressEvent")
 def test_mouse_press_event_when_not_crop_mode(mouse_mock, qapp, item):
     item.crop_mode = False
     item.crop_mode_move = None
@@ -633,7 +633,7 @@ def test_mouse_press_event_when_not_crop_mode(mouse_mock, qapp, item):
     event.accept.assert_not_called()
 
 
-@patch("beeref.selection.SelectableMixin.mousePressEvent")
+@patch("zeeref.selection.SelectableMixin.mousePressEvent")
 def test_mouse_press_event_crop_mode_inside_handle(mouse_mock, qapp, item):
     item.crop_mode = True
     item.crop_temp = QtCore.QRectF(0, 0, 100, 80)
@@ -650,7 +650,7 @@ def test_mouse_press_event_crop_mode_inside_handle(mouse_mock, qapp, item):
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.selection.SelectableMixin.mousePressEvent")
+@patch("zeeref.selection.SelectableMixin.mousePressEvent")
 def test_mouse_press_event_crop_mode_inside_edge(mouse_mock, qapp, item):
     item.crop_mode = True
     item.crop_temp = QtCore.QRectF(0, 0, 100, 80)
@@ -667,7 +667,7 @@ def test_mouse_press_event_crop_mode_inside_edge(mouse_mock, qapp, item):
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.selection.SelectableMixin.mousePressEvent")
+@patch("zeeref.selection.SelectableMixin.mousePressEvent")
 def test_mouse_press_event_crop_mode_outside_handle_inside_crop(mouse_mock, qapp, item):
     item.crop_mode = True
     item.crop_temp = QtCore.QRectF(0, 0, 100, 80)
@@ -683,7 +683,7 @@ def test_mouse_press_event_crop_mode_outside_handle_inside_crop(mouse_mock, qapp
     event.accept.assert_called_once_with()
 
 
-@patch("beeref.selection.SelectableMixin.mousePressEvent")
+@patch("zeeref.selection.SelectableMixin.mousePressEvent")
 def test_mouse_press_event_crop_mode_outside_handle_outside_crop(
     mouse_mock, qapp, item
 ):
@@ -770,7 +770,7 @@ def test_ensure_point_within_crop_bounds(point, handle, expected, qapp, item):
         [(40, 40), (35, 35), "crop_edge_right", (10, 20, 25, 40)],
     ],
 )
-@patch("beeref.selection.SelectableMixin.mouseMoveEvent")
+@patch("zeeref.selection.SelectableMixin.mouseMoveEvent")
 def test_mouse_move_when_crop_mode_inside_handle(
     mouse_mock, start, pos, handle, expected, qapp, item
 ):
@@ -790,7 +790,7 @@ def test_mouse_move_when_crop_mode_inside_handle(
     mouse_mock.assert_not_called()
 
 
-@patch("beeref.selection.SelectableMixin.mouseMoveEvent")
+@patch("zeeref.selection.SelectableMixin.mouseMoveEvent")
 def test_mouse_move_when_not_crop_mode(mouse_mock, qapp, item):
     event = MagicMock()
     event.pos.return_value = QtCore.QPointF(30, 50)
@@ -800,7 +800,7 @@ def test_mouse_move_when_not_crop_mode(mouse_mock, qapp, item):
     mouse_mock.assert_called_once_with(event)
 
 
-@patch("beeref.selection.SelectableMixin.mouseReleaseEvent")
+@patch("zeeref.selection.SelectableMixin.mouseReleaseEvent")
 def test_mouse_release_event_when_crop_mode(mouse_mock, qapp, item):
     event = MagicMock()
     item.crop_mode = True
@@ -815,7 +815,7 @@ def test_mouse_release_event_when_crop_mode(mouse_mock, qapp, item):
     mouse_mock.assert_not_called()
 
 
-@patch("beeref.selection.SelectableMixin.mouseReleaseEvent")
+@patch("zeeref.selection.SelectableMixin.mouseReleaseEvent")
 def test_mouse_release_event_when_not_crop_mode(mouse_mock, qapp, item):
     event = MagicMock()
     item.crop_mode = False
@@ -830,7 +830,7 @@ def test_sample_color_at_returns_color(qapp, scene):
     color = QtGui.QColor(255, 0, 0, 3)
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(color)
-    item = BeePixmapItem(img, "foo.png")
+    item = ZeePixmapItem(img, "foo.png")
     scene.addItem(item)
     assert item.sample_color_at(QtCore.QPointF(2, 2)) == color
 
@@ -839,7 +839,7 @@ def test_sample_color_at_returns_none_when_fully_transparent(qapp, scene):
     color = QtGui.QColor(255, 0, 0, 0)
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(color)
-    item = BeePixmapItem(img, "foo.png")
+    item = ZeePixmapItem(img, "foo.png")
     scene.addItem(item)
     assert item.sample_color_at(QtCore.QPointF(2, 2)) is None
 
@@ -848,6 +848,6 @@ def test_sample_color_at_returns_none_when_transparent(qapp, scene):
     color = QtGui.QColor(255, 0, 0, 0)
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(color)
-    item = BeePixmapItem(img, "foo.png")
+    item = ZeePixmapItem(img, "foo.png")
     scene.addItem(item)
     assert item.sample_color_at(QtCore.QPointF(2, 2)) is None

@@ -28,7 +28,7 @@ jobs:
           pip install -e .
       - name: Run Pyinstaller
         run: |
-          pyinstaller BeeRef.spec
+          pyinstaller ZeeRef.spec
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

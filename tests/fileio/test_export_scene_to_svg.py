@@ -6,18 +6,18 @@ import pytest
 
 from PyQt6 import QtGui, QtCore
 
-from beeref.items import BeePixmapItem, BeeTextItem
-from beeref.fileio.errors import BeeFileIOError
-from beeref.fileio.export import SceneToSVGExporter
-from beeref.types.snapshot import IOResult
+from zeeref.items import ZeePixmapItem, ZeeTextItem
+from zeeref.fileio.errors import ZeeFileIOError
+from zeeref.fileio.export import SceneToSVGExporter
+from zeeref.types.snapshot import IOResult
 
 
 def test_scene_to_svg_exporter_get_user_input(scene):
-    item1 = BeePixmapItem(QtGui.QImage(100, 100, QtGui.QImage.Format.Format_RGB32))
+    item1 = ZeePixmapItem(QtGui.QImage(100, 100, QtGui.QImage.Format.Format_RGB32))
     item1.setPos(QtCore.QPointF(0, 0))
     scene.addItem(item1)
 
-    item2 = BeePixmapItem(QtGui.QImage(100, 100, QtGui.QImage.Format.Format_RGB32))
+    item2 = ZeePixmapItem(QtGui.QImage(100, 100, QtGui.QImage.Format.Format_RGB32))
     item1.setPos(QtCore.QPointF(200, 0))
     scene.addItem(item2)
 
@@ -29,11 +29,11 @@ def test_scene_to_svg_exporter_get_user_input(scene):
 
 
 def test_scene_to_svg_exporter_render_pixmap_items(scene):
-    item1 = BeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
+    item1 = ZeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
     item1.setPos(QtCore.QPointF(20, 30))
     scene.addItem(item1)
 
-    item2 = BeePixmapItem(QtGui.QImage(70, 77, QtGui.QImage.Format.Format_RGB32))
+    item2 = ZeePixmapItem(QtGui.QImage(70, 77, QtGui.QImage.Format.Format_RGB32))
     item2.setPos(QtCore.QPointF(50, 50))
     item2.setZValue(-1)
     scene.addItem(item2)
@@ -73,7 +73,7 @@ def test_scene_to_svg_exporter_render_pixmap_items(scene):
 
 
 def test_scene_to_svg_exporter_render_pixmap_with_crop(scene):
-    item = BeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
+    item = ZeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
     item.setPos(QtCore.QPointF(20, 30))
     item.crop = QtCore.QRectF(20, 25, 30, 33)
     scene.addItem(item)
@@ -94,7 +94,7 @@ def test_scene_to_svg_exporter_render_pixmap_with_crop(scene):
 
 
 def test_scene_to_svg_exporter_render_pixmap_with_rotation(scene):
-    item = BeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
+    item = ZeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
     item.setPos(QtCore.QPointF(20, 30))
     item.setRotation(90)
     scene.addItem(item)
@@ -113,7 +113,7 @@ def test_scene_to_svg_exporter_render_pixmap_with_rotation(scene):
 
 
 def test_scene_to_svg_exporter_render_pixmap_with_opacity(scene):
-    item = BeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
+    item = ZeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
     item.setPos(QtCore.QPointF(20, 30))
     item.setOpacity(0.75)
     scene.addItem(item)
@@ -130,7 +130,7 @@ def test_scene_to_svg_exporter_render_pixmap_with_opacity(scene):
 
 
 def test_scene_to_svg_exporter_render_pixmap_with_flip(scene):
-    item = BeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
+    item = ZeePixmapItem(QtGui.QImage(100, 110, QtGui.QImage.Format.Format_RGB32))
     item.setPos(QtCore.QPointF(20, 30))
     item.do_flip()
     scene.addItem(item)
@@ -152,7 +152,7 @@ def test_scene_to_svg_exporter_render_pixmap_with_flip(scene):
 
 
 def test_scene_to_svg_exporter_render_text(scene):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     item.setPos(QtCore.QPointF(20, 30))
     scene.addItem(item)
     exporter = SceneToSVGExporter(scene)
@@ -177,18 +177,18 @@ def test_scene_to_svg_exporter_export_when_file_not_writeable(scene, tmp_path):
     with open(filename, "w") as f:
         f.write("foo")
     os.chmod(filename, stat.S_IREAD)
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     scene.addItem(item)
     exporter = SceneToSVGExporter(scene)
     exporter.size = QtCore.QSize(100, 120)
 
-    with pytest.raises(BeeFileIOError) as e:
+    with pytest.raises(ZeeFileIOError) as e:
         exporter.export(filename)
         assert e.filename == filename
 
 
 def test_scene_to_svg_exporter_render_with_worker(scene):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     item.setPos(QtCore.QPointF(20, 30))
     scene.addItem(item)
     exporter = SceneToSVGExporter(scene)
@@ -202,7 +202,7 @@ def test_scene_to_svg_exporter_render_with_worker(scene):
 
 
 def test_scene_to_svg_exporter_render_with_worker_canceled(scene):
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     item.setPos(QtCore.QPointF(20, 30))
     scene.addItem(item)
     exporter = SceneToSVGExporter(scene)
@@ -216,7 +216,7 @@ def test_scene_to_svg_exporter_render_with_worker_canceled(scene):
 
 def test_scene_to_svg_exporter_export_writes_svg(scene, tmp_path):
     filename = tmp_path / "foo.svg"
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     scene.addItem(item)
     exporter = SceneToSVGExporter(scene)
     exporter.size = QtCore.QSize(100, 120)
@@ -228,7 +228,7 @@ def test_scene_to_svg_exporter_export_writes_svg(scene, tmp_path):
 
 def test_scene_to_svg_exporter_export_with_worker(scene, tmp_path):
     filename = tmp_path / "foo.svg"
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     scene.addItem(item)
     exporter = SceneToSVGExporter(scene)
     exporter.size = QtCore.QSize(100, 120)
@@ -246,7 +246,7 @@ def test_scene_to_svg_exporter_export_with_worker(scene, tmp_path):
 
 def test_scene_to_svg_exporter_export_with_worker_canceled(scene, tmp_path):
     filename = tmp_path / "foo.svg"
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     scene.addItem(item)
     exporter = SceneToSVGExporter(scene)
     exporter.size = QtCore.QSize(100, 120)
@@ -268,7 +268,7 @@ def test_scene_to_svg_exporter_export_when_file_not_writeable_with_worker(
     with open(filename, "w") as f:
         f.write("foo")
     os.chmod(filename, stat.S_IREAD)
-    item = BeeTextItem("foo")
+    item = ZeeTextItem("foo")
     scene.addItem(item)
     exporter = SceneToSVGExporter(scene)
     exporter.size = QtCore.QSize(100, 120)

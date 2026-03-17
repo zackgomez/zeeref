@@ -1,24 +1,24 @@
 from PyQt6 import QtGui
 
-from beeref.items import sort_by_filename, BeePixmapItem, BeeTextItem
+from zeeref.items import sort_by_filename, ZeePixmapItem, ZeeTextItem
 
 
 def test_sort_by_filename(view):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = None
     item1.created_at = 3.0
 
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = "foo.png"
 
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     item3.filename = None
     item3.created_at = 2.0
 
-    item4 = BeePixmapItem(QtGui.QImage())
+    item4 = ZeePixmapItem(QtGui.QImage())
     item4.filename = "bar.png"
 
-    item5 = BeePixmapItem(QtGui.QImage())
+    item5 = ZeePixmapItem(QtGui.QImage())
     item5.filename = None
     item5.created_at = 1.0
 
@@ -29,24 +29,24 @@ def test_sort_by_filename(view):
 
 
 def test_sort_by_filename_when_only_by_filename(view):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = "foo.png"
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = "bar.png"
     assert sort_by_filename([item1, item2]) == [item2, item1]
 
 
 def test_sort_by_filename_when_only_by_created_at(view):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     item1.filename = None
     item1.created_at = 2.0
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     item2.filename = None
     item2.created_at = 1.0
     assert sort_by_filename([item1, item2]) == [item2, item1]
 
 
 def test_sort_by_filename_deals_with_text_items(view):
-    item1 = BeeTextItem("Foo")
-    item2 = BeeTextItem("Bar")
+    item1 = ZeeTextItem("Foo")
+    item2 = ZeeTextItem("Bar")
     assert len(sort_by_filename([item1, item2])) == 2

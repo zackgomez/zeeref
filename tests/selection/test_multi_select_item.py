@@ -3,11 +3,11 @@ from unittest.mock import patch, MagicMock
 from PyQt6 import QtCore, QtGui
 from PyQt6.QtCore import Qt
 
-from beeref.items import BeePixmapItem
-from beeref.selection import MultiSelectItem
+from zeeref.items import ZeePixmapItem
+from zeeref.selection import MultiSelectItem
 
 
-@patch("beeref.selection.SelectableMixin.init_selectable")
+@patch("zeeref.selection.SelectableMixin.init_selectable")
 def test_init(selectable_mock):
     item = MultiSelectItem()
     assert hasattr(item, "save_id") is False
@@ -34,13 +34,13 @@ def test_has_selection_handles():
 
 
 def test_selection_action_items(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
     item3.setSelected(False)
     action_items = set(scene.multi_select_item.selection_action_items())
@@ -48,13 +48,13 @@ def test_selection_action_items(scene):
 
 
 def test_lower_behind_selection_when_selection(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(True)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(True)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
     item3.setSelected(False)
 
@@ -68,13 +68,13 @@ def test_lower_behind_selection_when_selection(scene):
 
 
 def test_lower_behind_selection_when_no_selection(scene):
-    item1 = BeePixmapItem(QtGui.QImage())
+    item1 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item1)
     item1.setSelected(False)
-    item2 = BeePixmapItem(QtGui.QImage())
+    item2 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item2)
     item2.setSelected(False)
-    item3 = BeePixmapItem(QtGui.QImage())
+    item3 = ZeePixmapItem(QtGui.QImage())
     scene.addItem(item3)
     item3.setSelected(False)
 
@@ -116,7 +116,7 @@ def test_mouse_press_event_when_ctrl_leftclick(mouse_mock):
     mouse_mock.assert_not_called()
 
 
-@patch("beeref.selection.SelectableMixin.mousePressEvent")
+@patch("zeeref.selection.SelectableMixin.mousePressEvent")
 def test_mouse_press_event_when_leftclick(mouse_mock):
     item = MultiSelectItem()
     item.fit_selection_area(QtCore.QRectF(0, 0, 100, 80))

@@ -2,16 +2,16 @@ from unittest.mock import patch, MagicMock
 
 from PyQt6 import QtCore, QtWidgets
 
-from beeref.items import BeeErrorItem, item_registry
+from zeeref.items import ZeeErrorItem, item_registry
 
 
 def test_in_items_registry():
-    assert item_registry["error"] == BeeErrorItem
+    assert item_registry["error"] == ZeeErrorItem
 
 
-@patch("beeref.selection.SelectableMixin.init_selectable")
+@patch("zeeref.selection.SelectableMixin.init_selectable")
 def test_init(selectable_mock, qapp):
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     assert item.save_id  # UUID4 hex assigned on init
     assert item.width
     assert item.height
@@ -24,7 +24,7 @@ def test_init(selectable_mock, qapp):
 
 @patch("PyQt6.QtWidgets.QGraphicsTextItem.paint")
 def test_paint(paint_mock, qapp):
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     item.paint_selectable = MagicMock()
     painter = MagicMock()
     option = MagicMock()
@@ -36,7 +36,7 @@ def test_paint(paint_mock, qapp):
 
 
 def test_update_from_data(qapp):
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     item.update_from_data(
         save_id=3,
         x=11,
@@ -55,7 +55,7 @@ def test_update_from_data(qapp):
 
 
 def test_update_from_data_keeps_unset_values(qapp):
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     item.setScale(3)
     item.update_from_data(rotation=45)
     assert item.scale() == 3
@@ -63,13 +63,13 @@ def test_update_from_data_keeps_unset_values(qapp):
 
 
 def test_create_from_data(qapp):
-    item = BeeErrorItem.create_from_data(data={"text": "hello world"})
+    item = ZeeErrorItem.create_from_data(data={"text": "hello world"})
     item.toPlainText() == "hello world"
     assert item.save_id  # UUID4 hex assigned on init
 
 
 def test_create_copy(qapp):
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     item.setPos(20, 30)
     item.setRotation(33)
     item.setZValue(0.5)
@@ -86,28 +86,28 @@ def test_create_copy(qapp):
 
 def test_item_to_clipboard(qapp):
     clipboard = QtWidgets.QApplication.clipboard()
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     item.copy_to_clipboard(clipboard)
     assert clipboard.text() == "foo bar"
 
 
 def test_flip(qapp):
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     item.do_flip()
     assert item.flip() == 1
 
 
-@patch("beeref.items.BeeErrorItem.boundingRect")
+@patch("zeeref.items.ZeeErrorItem.boundingRect")
 def test_contains_when_inside_bounds(brect_mock, qapp):
     brect_mock.return_value = QtCore.QRectF(20, 30, 50, 50)
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     item.contains(QtCore.QPointF(33, 45)) is True
     brect_mock.assert_called_once_with()
 
 
-@patch("beeref.items.BeeErrorItem.boundingRect")
+@patch("zeeref.items.ZeeErrorItem.boundingRect")
 def test_contains_when_outside_bounds(brect_mock, qapp):
     brect_mock.return_value = QtCore.QRectF(20, 30, 50, 50)
-    item = BeeErrorItem("foo bar")
+    item = ZeeErrorItem("foo bar")
     item.contains(QtCore.QPointF(19, 29)) is False
     brect_mock.assert_called_once_with()

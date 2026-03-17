@@ -2,7 +2,7 @@
 
 ## Context
 
-BeeRef currently loads all image blobs eagerly on file open — a 50-image file must decode all 50 JPEGs + generate all mip chains before the user sees anything. This replaces that with: (1) instant metadata-only open with placeholder items, (2) viewport-driven async blob loading in the background.
+ZeeRef currently loads all image blobs eagerly on file open — a 50-image file must decode all 50 JPEGs + generate all mip chains before the user sees anything. This replaces that with: (1) instant metadata-only open with placeholder items, (2) viewport-driven async blob loading in the background.
 
 ## Threading Model
 
@@ -31,19 +31,19 @@ ThreadedIO          Main Thread              ImageLoader
 
 ## Files to modify
 
-1. `beeref/fileio/sql.py` — New `read_metadata()` method
-2. `beeref/items.py` — Placeholder state, paint, load transition
-3. `beeref/fileio/__init__.py` — `load_bee_metadata()`, `ImageLoader` thread
-4. `beeref/view.py` — Viewport observer, load triggering, action disabling, cleanup
-5. `beeref/scene.py` — Minor tweak for undo-delete re-registration
+1. `zeeref/fileio/sql.py` — New `read_metadata()` method
+2. `zeeref/items.py` — Placeholder state, paint, load transition
+3. `zeeref/fileio/__init__.py` — `load_bee_metadata()`, `ImageLoader` thread
+4. `zeeref/view.py` — Viewport observer, load triggering, action disabling, cleanup
+5. `zeeref/scene.py` — Minor tweak for undo-delete re-registration
 
 ## Implementation
 
 ### 1. `sql.py` — Metadata-only read
 
-New `read_metadata()`: queries `SELECT ... FROM items` (no sqlar JOIN). For pixmap items, creates placeholders via `BeePixmapItem.create_placeholder(width, height)`. Stashes filename on `scene._bee_filename` for the image loader to open its own connection. No `msleep(10)` — metadata is fast.
+New `read_metadata()`: queries `SELECT ... FROM items` (no sqlar JOIN). For pixmap items, creates placeholders via `ZeePixmapItem.create_placeholder(width, height)`. Stashes filename on `scene._bee_filename` for the image loader to open its own connection. No `msleep(10)` — metadata is fast.
 
-### 2. `items.py` — BeePixmapItem placeholder support
+### 2. `items.py` — ZeePixmapItem placeholder support
 
 **`create_placeholder(width, height)` classmethod**: Uses `__new__` + explicit `QGraphicsPixmapItem.__init__` with null pixmap. Sets `_placeholder = True`, `_placeholder_width/height`, `_crop` directly. Initializes `_mip_chain = []`, `_grayscale = False`, etc.
 
@@ -100,7 +100,7 @@ In `addItem()`: if item has `_placeholder = True` and view has `_image_loader`, 
 ## Verification
 
 1. `uv run --extra test python -m pytest -x -q` — all tests pass
-2. `uv run beeref` -> open a .bee file -> should open instantly with gray placeholders
+2. `uv run zeeref` -> open a .zref file -> should open instantly with gray placeholders
 3. Images load as they enter viewport (visible pop-in)
 4. Pan around — images ahead of viewport preload (50% margin)
 5. Select a placeholder -> crop/flip/rotate/opacity actions grayed out

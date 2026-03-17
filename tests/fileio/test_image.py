@@ -7,7 +7,7 @@ import pytest
 
 from PyQt6 import QtCore, QtGui
 
-from beeref.fileio.image import load_pil_image, load_image
+from zeeref.fileio.image import load_pil_image, load_image
 
 
 def test_load_pil_image_without_path(qapp):

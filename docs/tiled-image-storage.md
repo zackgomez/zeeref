@@ -2,7 +2,7 @@
 
 ## Context
 
-BeeRef stores each image as a single blob in `sqlar`. This doesn't scale for very large images (30k x 30k) — the entire blob must be decoded to display any portion. Tiling breaks images into a grid of small chunks with pre-computed mip levels, so only visible tiles at the appropriate zoom level need to be loaded.
+ZeeRef stores each image as a single blob in `sqlar`. This doesn't scale for very large images (30k x 30k) — the entire blob must be decoded to display any portion. Tiling breaks images into a grid of small chunks with pre-computed mip levels, so only visible tiles at the appropriate zoom level need to be loaded.
 
 This design unifies small and large images under one storage scheme: every image is tiles, small ones are just one tile.
 
@@ -137,7 +137,7 @@ Small images: one iteration, one tile. Large images: full pyramid.
 ## What this replaces
 
 - `sqlar` table → `tiles` table
-- In-memory mip chain (`_mip_chain` on BeePixmapItem) → tiles loaded on demand from DB
+- In-memory mip chain (`_mip_chain` on ZeePixmapItem) → tiles loaded on demand from DB
 - `_generate_mips()` at load time → mips pre-stored at import/save time
 - Single-blob `pixmap_from_bytes` → tile-based loading
 

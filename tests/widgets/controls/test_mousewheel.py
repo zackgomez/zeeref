@@ -3,14 +3,14 @@ from unittest.mock import patch, MagicMock
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import Qt
 
-from beeref.config.controls import MouseWheelConfig
-from beeref.widgets.controls.mousewheel import (
+from zeeref.config.controls import MouseWheelConfig
+from zeeref.widgets.controls.mousewheel import (
     MouseWheelDelegate,
     MouseWheelModifiersEditor,
     MouseWheelModel,
     MouseWheelProxy,
 )
-from beeref.utils import ActionList
+from zeeref.utils import ActionList
 
 
 def test_mousewheel_editor_inits_modifiers_when_not_configured(view):
@@ -18,7 +18,7 @@ def test_mousewheel_editor_inits_modifiers_when_not_configured(view):
         id="foo1", group="foo", text="Foo", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -35,7 +35,7 @@ def test_mousewheel_editor_inits_modifiers_when_configured(view):
         id="foo1", group="foo", text="Foo", modifiers=["Alt", "Ctrl"], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -55,7 +55,7 @@ def test_mousewheel_editor_set_modifiers_no_modifier(view):
         id="foo1", group="foo", text="Foo", modifiers=["Alt", "Ctrl"], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -75,7 +75,7 @@ def test_mousewheel_editor_on_modifiers_changed_no_modifiers_checked(view):
         id="foo1", group="foo", text="Foo", modifiers=["Alt", "Ctrl"], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -95,7 +95,7 @@ def test_mousewheel_editor_on_modifiers_changed_when_a_modifier_checked(view):
         id="foo1", group="foo", text="Foo", modifiers=["No Modifier"], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -113,7 +113,7 @@ def test_mousewheel_editor_on_modifiers_changed_everything_unchecked(view):
         id="foo1", group="foo", text="Foo", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -133,7 +133,7 @@ def test_mousewheel_editor_get_modifiers(view):
         id="foo1", group="foo", text="Foo", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -149,7 +149,7 @@ def test_mousewheel_editor_get_modifiers_when_no_modifiers(view):
         id="foo1", group="foo", text="Foo", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -167,7 +167,7 @@ def test_mousewheel_editor_get_modifiers_when_no_modifiers_cleaned_false(view):
         id="foo1", group="foo", text="Foo", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -187,7 +187,7 @@ def test_mousewheel_editor_set_modifiers(view):
         id="foo1", group="foo", text="Foo", modifiers=[], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -207,7 +207,7 @@ def test_mousewheel_editor_get_temp_action(view):
         id="foo1", group="foo", text="Foo", modifiers=["Alt"], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -223,7 +223,7 @@ def test_mousewheel_editor_reset_inputs(view):
         id="foo1", group="foo", text="Foo", modifiers=["Alt"], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -235,7 +235,7 @@ def test_mousewheel_editor_reset_inputs(view):
     assert editor.get_modifiers() == ["Alt"]
 
 
-@patch("beeref.widgets.controls.mousewheel.MouseWheelModifiersEditor.accept")
+@patch("zeeref.widgets.controls.mousewheel.MouseWheelModifiersEditor.accept")
 def test_mousewheel_editor_on_save_no_conflicts(accept_mock, view):
     a1 = MouseWheelConfig(
         id="foo1", group="foo", text="Foo", modifiers=["Alt"], invertible=True
@@ -245,7 +245,7 @@ def test_mousewheel_editor_on_save_no_conflicts(accept_mock, view):
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a1, a2]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -259,7 +259,7 @@ def test_mousewheel_editor_on_save_no_conflicts(accept_mock, view):
     accept_mock.assert_called_once_with()
 
 
-@patch("beeref.widgets.controls.mousewheel.MouseWheelModifiersEditor.accept")
+@patch("zeeref.widgets.controls.mousewheel.MouseWheelModifiersEditor.accept")
 def test_mousewheel_editor_on_save_reenter_existing_shortcut(accept_mock, view):
     a1 = MouseWheelConfig(
         id="foo1", group="foo", text="Foo", modifiers=["Alt"], invertible=True
@@ -269,7 +269,7 @@ def test_mousewheel_editor_on_save_reenter_existing_shortcut(accept_mock, view):
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a1, a2]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -286,7 +286,7 @@ def test_mousewheel_editor_on_save_reenter_existing_shortcut(accept_mock, view):
     "PyQt6.QtWidgets.QMessageBox.question",
     return_value=QtWidgets.QMessageBox.StandardButton.No,
 )
-@patch("beeref.widgets.controls.mousewheel.MouseWheelModifiersEditor.accept")
+@patch("zeeref.widgets.controls.mousewheel.MouseWheelModifiersEditor.accept")
 def test_mousewheel_editor_on_save_conflicts_cancel(accept_mock, msg_mock, view):
     a1 = MouseWheelConfig(
         id="foo1", group="foo", text="Foo", modifiers=["Alt"], invertible=True
@@ -296,7 +296,7 @@ def test_mousewheel_editor_on_save_conflicts_cancel(accept_mock, msg_mock, view)
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a1, a2]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -314,7 +314,7 @@ def test_mousewheel_editor_on_save_conflicts_cancel(accept_mock, msg_mock, view)
     "PyQt6.QtWidgets.QMessageBox.question",
     return_value=QtWidgets.QMessageBox.StandardButton.Yes,
 )
-@patch("beeref.widgets.controls.mousewheel.MouseWheelModifiersEditor.accept")
+@patch("zeeref.widgets.controls.mousewheel.MouseWheelModifiersEditor.accept")
 def test_mousewheel_editor_on_save_conflicts_confirm(accept_mock, msg_mock, view):
     a1 = MouseWheelConfig(
         id="foo1", group="foo", text="Foo", modifiers=["Alt"], invertible=True
@@ -324,7 +324,7 @@ def test_mousewheel_editor_on_save_conflicts_confirm(accept_mock, msg_mock, view
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a1, a2]),
     ):
         editor = MouseWheelModifiersEditor(
@@ -352,7 +352,7 @@ def test_mousewheel_delegate_setmodeldata(view):
         id="foo1", group="foo", text="Foo", modifiers=["Alt"], invertible=True
     )
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         delegate = MouseWheelDelegate()
@@ -383,7 +383,7 @@ def test_mousewheel_model_rowcount():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a1, a2]),
     ):
         model = MouseWheelModel()
@@ -422,7 +422,7 @@ def test_flags_inverted_column_when_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -442,7 +442,7 @@ def test_flags_inverted_column_when_not_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -459,7 +459,7 @@ def test_mousewheel_model_data_gets_text():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -479,7 +479,7 @@ def test_mousewheel_model_data_gets_changed_when_not_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -499,7 +499,7 @@ def test_mousewheel_model_data_gets_changed_when_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -520,7 +520,7 @@ def test_mousewheel_model_data_gets_modifiers():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -540,7 +540,7 @@ def test_mousewheel_model_data_gets_inverted_when_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -560,7 +560,7 @@ def test_mousewheel_model_data_gets_inverted_when_not_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -580,7 +580,7 @@ def test_mousewheel_model_data_tooltip_changed_when_not_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -599,7 +599,7 @@ def test_mousewheel_model_data_tooltip_changed_when_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -620,7 +620,7 @@ def test_mousewheel_model_data_tooltip_modifiers_changed_from_not_configured():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -641,7 +641,7 @@ def test_mousewheel_model_data_tooltip_modifiers_when_changed():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -662,7 +662,7 @@ def test_mousewheel_model_data_tooltip_inverted_when_changed_and_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -683,7 +683,7 @@ def test_mousewheel_model_data_tooltip_inverted_changed_and_not_invertible():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -704,7 +704,7 @@ def test_mousewheel_model_data_checkstaterole_invertible_invertcol_inverted():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -725,7 +725,7 @@ def test_mousewheel_model_data_checkstaterole_invertible_invcol_not_inverted():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -745,7 +745,7 @@ def test_mousewheel_model_data_checkstaterole_other_column():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -765,7 +765,7 @@ def test_mousewheel_model_setdate_saves_inverted():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -786,7 +786,7 @@ def test_mousewheel_model_setdata_saves_controls():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([action]),
     ):
         model = MouseWheelModel()
@@ -811,7 +811,7 @@ def test_mousewheel_model_setdata_saves_controls_and_removes_from_other():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a1, a2]),
     ):
         model = MouseWheelModel()
@@ -841,7 +841,7 @@ def test_mousewheel_proxy_data_unfiltered():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a2, a1, a3]),
     ):
         proxy = MouseWheelProxy()
@@ -863,7 +863,7 @@ def test_mousewheel_proxy_data_filtered():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a2, a1, a3]),
     ):
         proxy = MouseWheelProxy()
@@ -885,7 +885,7 @@ def test_mousewheel_proxy_setdata_saves_correct_filtered_index():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a2, a1, a3]),
     ):
         proxy = MouseWheelProxy()
@@ -907,7 +907,7 @@ def test_mousewheel_proxy_setdata_remove_from_other():
     )
 
     with patch(
-        "beeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
+        "zeeref.config.controls.KeyboardSettings.MOUSEWHEEL_ACTIONS",
         ActionList([a2, a1]),
     ):
         proxy = MouseWheelProxy()

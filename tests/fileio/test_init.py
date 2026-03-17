@@ -4,32 +4,32 @@ from unittest.mock import MagicMock, patch
 
 from PyQt6 import QtCore, QtGui
 
-from beeref import fileio
-from beeref import commands
-from beeref.types.snapshot import IOResult
-from beeref.items import BeePixmapItem
+from zeeref import fileio
+from zeeref import commands
+from zeeref.types.snapshot import IOResult
+from zeeref.items import ZeePixmapItem
 from ..utils import queue2list
 
 
 def test_save_bee_via_swp(scene, imgfilename3x3):
-    from beeref.fileio.scratch import create_scratch_file
+    from zeeref.fileio.scratch import create_scratch_file
 
     scene._scratch_file = create_scratch_file(None)
-    item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
+    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
     scene.addItem(item)
     snapshots = scene.snapshot_for_save()
     swp_path = scene._scratch_file
     assert swp_path is not None
     with tempfile.TemporaryDirectory() as dirname:
-        fname = Path(dirname) / "test.bee"
+        fname = Path(dirname) / "test.zref"
         fileio.save_bee(fname, snapshots, swp_path)
         assert fname.exists()
 
 
-@patch("beeref.fileio.sql.SQLiteIO.read")
+@patch("zeeref.fileio.sql.SQLiteIO.read")
 def test_read_bee(read_mock):
     with tempfile.TemporaryDirectory() as dirname:
-        fname = Path(dirname) / "test.bee"
+        fname = Path(dirname) / "test.zref"
         fname.touch()
         fileio.load_bee(fname, MagicMock())
         read_mock.assert_called_once()

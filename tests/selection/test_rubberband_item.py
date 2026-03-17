@@ -1,6 +1,6 @@
 from PyQt6 import QtCore
 
-from beeref.selection import RubberbandItem
+from zeeref.selection import RubberbandItem
 
 
 def test_fit_topleft_to_bottomright():

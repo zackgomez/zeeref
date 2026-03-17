@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ZeeRef
+Comment=Reference image board
+Exec=zeeref %f
+Icon=zeeref
+MimeType=application/x-zeeref;
+Categories=Graphics;
