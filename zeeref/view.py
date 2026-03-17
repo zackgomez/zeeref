@@ -123,7 +123,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         # Load files given via command line
         if commandline_args.filenames:
             fn = Path(commandline_args.filenames[0])
-            if fn.suffix == ".zref":
+            if fn.suffix in (".zref", ".bee"):
                 self.open_from_file(fn)
             else:
                 self.do_insert_images(commandline_args.filenames)

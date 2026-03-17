@@ -77,6 +77,10 @@ class ZeeRefMainWindow(QtWidgets.QMainWindow):
             event.ignore()
             return
         logger.info("Exiting...")
+        try:
+            self.view.scene.selectionChanged.disconnect(self.view.on_selection_changed)
+        except (TypeError, RuntimeError):
+            pass  # Already disconnected or scene deleted
         geom = self.saveGeometry()
         self.view.settings.setValue("MainWindow/geometry", geom)
         if self.view.scene._scratch_file:

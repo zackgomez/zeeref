@@ -50,7 +50,7 @@ logger = getLogger(__name__)
 def is_bee_file(path: Path) -> bool:
     """Check whether the file at the given path is a bee file."""
 
-    return path.suffix == ".zref"
+    return path.suffix in (".zref", ".bee")
 
 
 def handle_sqlite_errors[T: Callable[..., Any]](func: T) -> T:
