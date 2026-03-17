@@ -11,6 +11,12 @@ from beeref.fileio.export import ImagesToDirectoryExporter
 from beeref.types.snapshot import IOResult
 
 
+@pytest.fixture
+def readonly_dir(tmp_path):
+    yield tmp_path
+    tmp_path.chmod(stat.S_IRWXU)
+
+
 def _export_filename(item):
     """Helper to get the expected export filename for an item."""
     return f"{item.save_id[:8]}.png"
@@ -273,7 +279,7 @@ def test_images_to_directory_exporter_export_with_worker_when_file_exists(
 
 def test_images_to_directory_exporter_export_when_dir_not_writeable(
     view,
-    tmp_path,
+    readonly_dir,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -281,17 +287,17 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable(
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    os.chmod(tmp_path, stat.S_IREAD)
-    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
+    os.chmod(readonly_dir, stat.S_IREAD)
+    exporter = ImagesToDirectoryExporter(view.scene, readonly_dir)
 
     with pytest.raises(BeeFileIOError) as e:
         exporter.export()
-        assert e.filename == tmp_path
+        assert e.filename == readonly_dir
 
 
 def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
     view,
-    tmp_path,
+    readonly_dir,
     imgdata3x3,
     imgfilename3x3,
 ):
@@ -299,8 +305,8 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    os.chmod(tmp_path, stat.S_IREAD)
-    exporter = ImagesToDirectoryExporter(view.scene, tmp_path)
+    os.chmod(readonly_dir, stat.S_IREAD)
+    exporter = ImagesToDirectoryExporter(view.scene, readonly_dir)
     worker = MagicMock(canceled=False)
 
     exporter.export(worker)
@@ -308,7 +314,7 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
     worker.finished.emit.assert_called_once()
     result = worker.finished.emit.call_args.args[0]
     assert isinstance(result, IOResult)
-    assert result.filename == tmp_path
+    assert result.filename == readonly_dir
     assert len(result.errors) == 1
 
 
@@ -322,7 +328,7 @@ def test_images_to_directory_exporter_export_when_img_not_writeable(
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    imgfilename = os.path.join(tmp_path, _export_filename(item))
+    imgfilename = tmp_path / _export_filename(item)
     with open(imgfilename, "w") as f:
         assert f.write("foo")
     os.chmod(imgfilename, stat.S_IREAD)
@@ -332,7 +338,7 @@ def test_images_to_directory_exporter_export_when_img_not_writeable(
 
     with pytest.raises(BeeFileIOError) as e:
         exporter.export()
-        assert e.filename == tmp_path
+        assert e.filename == readonly_dir
 
 
 def test_images_to_directory_exporter_export_when_img_not_writeable_w_worker(
@@ -345,7 +351,7 @@ def test_images_to_directory_exporter_export_when_img_not_writeable_w_worker(
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
     view.scene.addItem(item)
 
-    imgfilename = os.path.join(tmp_path, _export_filename(item))
+    imgfilename = tmp_path / _export_filename(item)
     with open(imgfilename, "w") as f:
         assert f.write("foo")
     os.chmod(imgfilename, stat.S_IREAD)
@@ -359,5 +365,5 @@ def test_images_to_directory_exporter_export_when_img_not_writeable_w_worker(
     worker.finished.emit.assert_called_once()
     result = worker.finished.emit.call_args.args[0]
     assert isinstance(result, IOResult)
-    assert result.filename == str(imgfilename)
+    assert result.filename == imgfilename
     assert len(result.errors) == 1
