@@ -6,6 +6,7 @@ import pytest
 from PyQt6 import QtGui
 
 from beeref.items import BeePixmapItem
+from beeref.scene import BeeGraphicsScene
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.export import ImagesToDirectoryExporter
 from beeref.types.snapshot import IOResult
@@ -278,17 +279,15 @@ def test_images_to_directory_exporter_export_with_worker_when_file_exists(
 
 
 def test_images_to_directory_exporter_export_when_dir_not_writeable(
-    view,
     readonly_dir,
-    imgdata3x3,
     imgfilename3x3,
 ):
-
+    scene = BeeGraphicsScene(QtGui.QUndoStack())
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
-    view.scene.addItem(item)
+    scene.addItem(item)
 
     os.chmod(readonly_dir, stat.S_IREAD)
-    exporter = ImagesToDirectoryExporter(view.scene, readonly_dir)
+    exporter = ImagesToDirectoryExporter(scene, readonly_dir)
 
     with pytest.raises(BeeFileIOError) as e:
         exporter.export()
@@ -296,17 +295,15 @@ def test_images_to_directory_exporter_export_when_dir_not_writeable(
 
 
 def test_images_to_directory_exporter_export_when_dir_not_writeable_w_worker(
-    view,
     readonly_dir,
-    imgdata3x3,
     imgfilename3x3,
 ):
-
+    scene = BeeGraphicsScene(QtGui.QUndoStack())
     item = BeePixmapItem(QtGui.QImage(imgfilename3x3))
-    view.scene.addItem(item)
+    scene.addItem(item)
 
     os.chmod(readonly_dir, stat.S_IREAD)
-    exporter = ImagesToDirectoryExporter(view.scene, readonly_dir)
+    exporter = ImagesToDirectoryExporter(scene, readonly_dir)
     worker = MagicMock(canceled=False)
 
     exporter.export(worker)
