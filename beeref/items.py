@@ -28,6 +28,7 @@ import time
 import uuid
 from typing import Any, cast
 
+import mistune
 from PIL import Image
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
@@ -896,8 +897,6 @@ class BeeTextItem(BeeItemMixin, QtWidgets.QGraphicsTextItem):
 
     def _render_markdown(self) -> None:
         """Render stored markdown to HTML for display."""
-        import mistune
-
         text_color = "rgb(%d,%d,%d)" % COLORS["Scene:Text"]
         css = self.STYLESHEET % text_color
         html = mistune.html(self._markdown)

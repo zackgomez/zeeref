@@ -30,6 +30,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from beeref import constants
 from beeref.assets import BeeAssets
 from beeref.config import CommandlineArgs, BeeSettings, logfile_name
+from beeref.fileio.scratch import delete_scratch_file
 from beeref.utils import create_palette_from_dict
 from beeref.view import BeeGraphicsView
 
@@ -72,8 +73,6 @@ class BeeRefMainWindow(QtWidgets.QMainWindow):
         assert event is not None
         geom = self.saveGeometry()
         self.view.settings.setValue("MainWindow/geometry", geom)
-        from beeref.fileio.scratch import delete_scratch_file
-
         if self.view.scene._scratch_file:
             delete_scratch_file(self.view.scene._scratch_file)
             self.view.scene._scratch_file = None

@@ -36,6 +36,7 @@ from beeref.fileio.scratch import (
 )
 from beeref.fileio.sql import SQLiteIO, is_bee_file
 from beeref.fileio.snapshot import IOResult, ItemSnapshot, LoadResult, SaveResult
+from beeref.items import BeePixmapItem
 
 if TYPE_CHECKING:
     from beeref.scene import BeeGraphicsScene
@@ -177,8 +178,6 @@ def load_images(
     worker: ThreadedIO,
 ) -> None:
     """Add images to existing scene."""
-    from beeref.items import BeePixmapItem
-
     errors = []
     items = []
     worker.begin_processing.emit(len(filenames))

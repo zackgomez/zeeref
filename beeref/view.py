@@ -35,7 +35,7 @@ from beeref import fileio
 from beeref.fileio.errors import IMG_LOADING_ERROR_MSG
 from beeref.fileio.export import exporter_registry, ImagesToDirectoryExporter
 from beeref import widgets
-from beeref.items import BeePixmapItem, BeeTextItem
+from beeref.items import BeePixmapItem, BeeTextItem, create_item_from_snapshot
 from beeref.main_controls import MainControlsMixin
 from beeref.scene import BeeGraphicsScene
 from beeref.utils import get_file_extension_from_format, qcolor_to_hex
@@ -463,8 +463,6 @@ class BeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.scene.add_queued_items()
 
     def on_loading_finished(self, result: fileio.IOResult) -> None:
-        from beeref.items import create_item_from_snapshot
-
         if result.errors:
             QtWidgets.QMessageBox.warning(
                 self,
