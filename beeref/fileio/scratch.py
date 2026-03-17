@@ -41,6 +41,20 @@ def derive_untitled_swp_path() -> str:
     return os.path.join(recovery_dir, f"untitled_{suffix}.bee.swp")
 
 
+def copy_with_progress(src_path: str, dst_path: str, worker=None) -> None:
+    """Copy a file with optional progress reporting via worker signals."""
+    total = os.path.getsize(src_path)
+    if worker:
+        worker.begin_processing.emit(100)
+    with open(src_path, "rb") as src, open(dst_path, "wb") as dst:
+        copied = 0
+        while chunk := src.read(1024 * 1024):
+            dst.write(chunk)
+            copied += len(chunk)
+            if worker:
+                worker.progress.emit(int(copied / total * 100))
+
+
 def create_scratch_file(original: str | None, worker=None) -> str:
     """Create a scratch file in the recovery dir.
 
@@ -50,16 +64,7 @@ def create_scratch_file(original: str | None, worker=None) -> str:
     """
     if original:
         swp = derive_swp_path(original)
-        total = os.path.getsize(original)
-        if worker:
-            worker.begin_processing.emit(100)
-        with open(original, "rb") as src, open(swp, "wb") as dst:
-            copied = 0
-            while chunk := src.read(1024 * 1024):
-                dst.write(chunk)
-                copied += len(chunk)
-                if worker:
-                    worker.progress.emit(int(copied / total * 100))
+        copy_with_progress(original, swp, worker=worker)
         logger.info(f"Created scratch file: {swp}")
     else:
         import sqlite3

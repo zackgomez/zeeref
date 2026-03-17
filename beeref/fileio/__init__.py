@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import tempfile
 from typing import TYPE_CHECKING
 
@@ -27,6 +26,7 @@ from beeref import commands
 from beeref.fileio.errors import BeeFileIOError
 from beeref.fileio.image import load_image
 from beeref.fileio.scratch import (
+    copy_with_progress,
     create_scratch_file,
     delete_scratch_file,
     derive_swp_path,
@@ -109,7 +109,7 @@ def save_bee(
         tf = tempfile.NamedTemporaryFile(dir=target_dir, suffix=".bee", delete=False)
         temp_path = tf.name
         tf.close()
-        shutil.copyfile(swp_path, temp_path)
+        copy_with_progress(swp_path, temp_path, worker=worker)
 
         # 3. Compact the copy
         live_ids = {snap.save_id for snap in snapshots}
