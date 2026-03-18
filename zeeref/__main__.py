@@ -55,12 +55,18 @@ class ZeeRefApplication(QtWidgets.QApplication):
 
 
 class ZeeRefMainWindow(QtWidgets.QMainWindow):
+    RESIZE_BORDER = 6
+
     def __init__(self, app):
         super().__init__()
         app.setOrganizationName(constants.APPNAME)
         app.setApplicationName(constants.APPNAME)
         self.setWindowIcon(ZeeAssets().logo)
         self.setWindowFlag(QtCore.Qt.WindowType.FramelessWindowHint)
+        self.setMouseTracking(True)
+        self._resize_edge: str | None = None
+        self._resize_origin: QtCore.QPoint = QtCore.QPoint()
+        self._resize_geo: QtCore.QRect = QtCore.QRect()
         self.view = ZeeGraphicsView(app, self)
         default_window_size = QtCore.QSize(500, 300)
         geom = self.view.settings.value("MainWindow/geometry")
@@ -71,6 +77,91 @@ class ZeeRefMainWindow(QtWidgets.QMainWindow):
                 self.resize(default_window_size)
         self.setCentralWidget(self.view)
         self.show()
+
+    def _edge_at(self, pos: QtCore.QPoint) -> str | None:
+        b = self.RESIZE_BORDER
+        r = self.rect()
+        left = pos.x() < b
+        right = pos.x() > r.width() - b
+        top = pos.y() < b
+        bottom = pos.y() > r.height() - b
+        if top and left:
+            return "topleft"
+        if top and right:
+            return "topright"
+        if bottom and left:
+            return "bottomleft"
+        if bottom and right:
+            return "bottomright"
+        if left:
+            return "left"
+        if right:
+            return "right"
+        if top:
+            return "top"
+        if bottom:
+            return "bottom"
+        return None
+
+    _EDGE_CURSORS: dict[str, QtCore.Qt.CursorShape] = {
+        "left": QtCore.Qt.CursorShape.SizeHorCursor,
+        "right": QtCore.Qt.CursorShape.SizeHorCursor,
+        "top": QtCore.Qt.CursorShape.SizeVerCursor,
+        "bottom": QtCore.Qt.CursorShape.SizeVerCursor,
+        "topleft": QtCore.Qt.CursorShape.SizeFDiagCursor,
+        "bottomright": QtCore.Qt.CursorShape.SizeFDiagCursor,
+        "topright": QtCore.Qt.CursorShape.SizeBDiagCursor,
+        "bottomleft": QtCore.Qt.CursorShape.SizeBDiagCursor,
+    }
+
+    def mousePressEvent(self, event: Optional[QtGui.QMouseEvent]) -> None:
+        assert event is not None
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            edge = self._edge_at(event.pos())
+            if edge:
+                self._resize_edge = edge
+                self._resize_origin = event.globalPosition().toPoint()
+                self._resize_geo = self.geometry()
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: Optional[QtGui.QMouseEvent]) -> None:
+        assert event is not None
+        if self._resize_edge:
+            delta = event.globalPosition().toPoint() - self._resize_origin
+            geo = QtCore.QRect(self._resize_geo)
+            e = self._resize_edge
+            if "right" in e:
+                geo.setRight(geo.right() + delta.x())
+            if "left" in e:
+                geo.setLeft(geo.left() + delta.x())
+            if "bottom" in e:
+                geo.setBottom(geo.bottom() + delta.y())
+            if "top" in e:
+                geo.setTop(geo.top() + delta.y())
+            if (
+                geo.width() >= self.minimumWidth()
+                and geo.height() >= self.minimumHeight()
+            ):
+                self.setGeometry(geo)
+            event.accept()
+            return
+        # Update cursor when hovering near edges
+        edge = self._edge_at(event.pos())
+        if edge:
+            self.setCursor(self._EDGE_CURSORS[edge])
+        else:
+            self.unsetCursor()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: Optional[QtGui.QMouseEvent]) -> None:
+        assert event is not None
+        if self._resize_edge:
+            self._resize_edge = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
     def closeEvent(self, event: Optional[QtGui.QCloseEvent]) -> None:
         assert event is not None
