@@ -4,6 +4,6 @@
   <rect x="24" y="24" width="208" height="208" rx="12"
         transform="rotate(60 128 128)"
         fill="#555555"/>
-  <text x="128" y="195" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="210"
-        text-anchor="middle" fill="#404040" stroke="#aaaaaa" stroke-width="4">Z</text>
+  <text x="135" y="225" font-family="Georgia, 'Times New Roman', serif" font-weight="900" font-style="italic" font-size="300"
+        text-anchor="middle" fill="#404040" stroke="#53a7a5" stroke-width="4">Z</text>
 </svg>
