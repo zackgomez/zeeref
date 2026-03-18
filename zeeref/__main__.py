@@ -134,6 +134,8 @@ def main():
 
     os.environ["QT_DEBUG_PLUGINS"] = "1"
     app = ZeeRefApplication(sys.argv)
+    if sys.platform == "win32":
+        app.setStyle("Fusion")
     palette = create_palette_from_dict(constants.COLORS)
     app.setPalette(palette)
     bee = ZeeRefMainWindow(app)  # NOQA:F841
