@@ -32,7 +32,8 @@ jobs:
       - name: Build Windows installer
         if: runner.os == 'Windows'
         run: |
-          iscc installer.iss
+          $version = python -c "import re; print(re.search(r'VERSION\s*=\s*\`\"(.+?)\`\"', open('zeeref/constants.py').read()).group(1))"
+          iscc /DAppVersion=$version installer.iss
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

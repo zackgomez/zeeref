@@ -14,7 +14,9 @@
 #define ConstantsFile "zeeref\constants.py"
 #define VersionLine Local[0] = Copy(GetStringFileInfo(AddBackslash(SourcePath) + "dist\" + AppExeName, "ProductVersion"), 1)
 ; Fallback: set version manually if the above doesn't work with single-file exe
-#define AppVersion "0.3.4-dev"
+#ifndef AppVersion
+  #define AppVersion "dev"
+#endif
 #define AppPublisher "Zack Gomez"
 #define AppURL "https://github.com/zackgomez/zeeref"
 
