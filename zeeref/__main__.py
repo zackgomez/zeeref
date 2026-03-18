@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 from typing import Optional, cast
 
+import PyQt6.sip
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from zeeref import constants
@@ -87,6 +88,46 @@ class ZeeRefMainWindow(QtWidgets.QMainWindow):
             delete_scratch_file(self.view.scene._scratch_file)
             self.view.scene._scratch_file = None
         event.accept()
+
+    if sys.platform == "win32":
+
+        def nativeEvent(
+            self, event_type: QtCore.QByteArray, message: PyQt6.sip.voidptr | None
+        ) -> object:
+            import ctypes.wintypes
+
+            BORDER = 6
+            if event_type == b"windows_generic_MSG" and message is not None:
+                msg = ctypes.wintypes.MSG.from_address(int(message))
+                if msg.message == 0x0084:  # WM_NCHITTEST
+                    x = msg.lParam & 0xFFFF
+                    y = (msg.lParam >> 16) & 0xFFFF
+                    if x >= 0x8000:
+                        x -= 0x10000
+                    if y >= 0x8000:
+                        y -= 0x10000
+                    geo = self.frameGeometry()
+                    left = abs(x - geo.left()) < BORDER
+                    right = abs(x - geo.right()) < BORDER
+                    top = abs(y - geo.top()) < BORDER
+                    bottom = abs(y - geo.bottom()) < BORDER
+                    if top and left:
+                        return True, 13  # HTTOPLEFT
+                    if top and right:
+                        return True, 14  # HTTOPRIGHT
+                    if bottom and left:
+                        return True, 16  # HTBOTTOMLEFT
+                    if bottom and right:
+                        return True, 17  # HTBOTTOMRIGHT
+                    if left:
+                        return True, 10  # HTLEFT
+                    if right:
+                        return True, 11  # HTRIGHT
+                    if top:
+                        return True, 12  # HTTOP
+                    if bottom:
+                        return True, 15  # HTBOTTOM
+            return super().nativeEvent(event_type, message)
 
     def __del__(self):
         del self.view
