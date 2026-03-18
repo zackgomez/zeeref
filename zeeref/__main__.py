@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional, cast
 
 from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6.QtCore import Qt, QEvent
 
 if TYPE_CHECKING:
     pass
@@ -55,12 +56,16 @@ class ZeeRefApplication(QtWidgets.QApplication):
 
 
 class ZeeRefMainWindow(QtWidgets.QMainWindow):
+    RESIZE_BORDER = 6
+
     def __init__(self, app):
         super().__init__()
         app.setOrganizationName(constants.APPNAME)
         app.setApplicationName(constants.APPNAME)
         self.setWindowIcon(ZeeAssets().logo)
-        self.setWindowFlag(QtCore.Qt.WindowType.FramelessWindowHint)
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+        self._resize_edges = Qt.Edge(0)
         self.view = ZeeGraphicsView(app, self)
         default_window_size = QtCore.QSize(500, 300)
         geom = self.view.settings.value("MainWindow/geometry")
@@ -71,6 +76,49 @@ class ZeeRefMainWindow(QtWidgets.QMainWindow):
                 self.resize(default_window_size)
         self.setCentralWidget(self.view)
         self.show()
+
+    def _edges_at(self, pos: QtCore.QPoint) -> Qt.Edge:
+        b = self.RESIZE_BORDER
+        edges = Qt.Edge(0)
+        if pos.x() < b:
+            edges |= Qt.Edge.LeftEdge
+        if pos.x() > self.width() - b:
+            edges |= Qt.Edge.RightEdge
+        if pos.y() < b:
+            edges |= Qt.Edge.TopEdge
+        if pos.y() > self.height() - b:
+            edges |= Qt.Edge.BottomEdge
+        return edges
+
+    _EDGE_CURSORS: dict[Qt.Edge, Qt.CursorShape] = {
+        Qt.Edge.LeftEdge: Qt.CursorShape.SizeHorCursor,
+        Qt.Edge.RightEdge: Qt.CursorShape.SizeHorCursor,
+        Qt.Edge.TopEdge: Qt.CursorShape.SizeVerCursor,
+        Qt.Edge.BottomEdge: Qt.CursorShape.SizeVerCursor,
+        Qt.Edge.LeftEdge | Qt.Edge.TopEdge: Qt.CursorShape.SizeFDiagCursor,
+        Qt.Edge.RightEdge | Qt.Edge.BottomEdge: Qt.CursorShape.SizeFDiagCursor,
+        Qt.Edge.RightEdge | Qt.Edge.TopEdge: Qt.CursorShape.SizeBDiagCursor,
+        Qt.Edge.LeftEdge | Qt.Edge.BottomEdge: Qt.CursorShape.SizeBDiagCursor,
+    }
+
+    def event(self, ev: Optional[QtCore.QEvent]) -> bool:
+        assert ev is not None
+        t = ev.type()
+        if t == QEvent.Type.HoverMove:
+            self._resize_edges = self._edges_at(ev.position().toPoint())  # type: ignore[union-attr]
+            cursor = self._EDGE_CURSORS.get(self._resize_edges)
+            if cursor:
+                self.setCursor(cursor)
+            else:
+                self.unsetCursor()
+        elif t == QEvent.Type.MouseButtonPress and self._resize_edges:
+            wh = self.windowHandle()
+            if wh:
+                wh.startSystemResize(self._resize_edges)
+        elif t in (QEvent.Type.HoverLeave, QEvent.Type.MouseButtonRelease):
+            self._resize_edges = Qt.Edge(0)
+            self.unsetCursor()
+        return super().event(ev)
 
     def closeEvent(self, event: Optional[QtGui.QCloseEvent]) -> None:
         assert event is not None
