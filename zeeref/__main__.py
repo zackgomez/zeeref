@@ -23,10 +23,12 @@ import platform
 import signal
 import sys
 from pathlib import Path
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
-import PyQt6.sip
 from PyQt6 import QtCore, QtGui, QtWidgets
+
+if TYPE_CHECKING:
+    import PyQt6.sip
 
 from zeeref import constants
 from zeeref.assets import ZeeAssets
