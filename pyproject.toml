@@ -37,7 +37,7 @@ test = [
     "pytest-cov==5.0.0",
 ]
 build = [
-    "pyinstaller==6.6.0",
+    "pyinstaller>=6.19.0",
 ]
 dev = [
     # -r test.txt
@@ -47,7 +47,7 @@ dev = [
     "pytest-qt==4.4.0",
     "pytest-cov==5.0.0",
     # -r build.txt
-    "pyinstaller==6.6.0",
+    "pyinstaller>=6.19.0",
     # Dev-only
     "ruff>=0.4.0",
     "pybadges==3.0.1",
@@ -64,6 +64,7 @@ Issues = "https://github.com/zackgomez/zeeref/issues"
 [dependency-groups]
 dev = [
     "ty>=0.0.23",
+    "pyinstaller>=6.19.0",
 ]
 
 [tool.ty.rules]

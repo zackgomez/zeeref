@@ -1,14 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
+import re
 from os.path import join
 import sys
 
-from zeeref import constants
 
+# Parse constants from source to avoid needing zeeref installed
+_constants_text = open(join('zeeref', 'constants.py')).read()
+APPNAME = re.search(r'APPNAME\s*=\s*"(.+?)"', _constants_text).group(1)
+VERSION = re.search(r'VERSION\s*=\s*"(.+?)"', _constants_text).group(1)
 
 block_cipher = None
-appname = f'{constants.APPNAME}-{constants.VERSION}'
+appname = f'{APPNAME}-{VERSION}'
 
 if sys.platform.startswith('win'):
     icon = 'logo.ico'
@@ -59,10 +63,10 @@ exe = EXE(
 if sys.platform == 'darwin':
     app = BUNDLE(
         exe,
-        name=f'{constants.APPNAME}.app',
+        name=f'{APPNAME}.app',
         icon=join('zeeref', 'assets', icon),
         bundle_identifier='org.zeeref.app',
-        version=f'{constants.VERSION}',
+        version=f'{VERSION}',
         info_plist={
             'CFBundleDocumentTypes': [
                 {
