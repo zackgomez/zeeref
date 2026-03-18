@@ -1,15 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
-import re
+import tomllib
 from os.path import join
 import sys
 
 
-# Parse constants from source to avoid needing zeeref installed
-_constants_text = open(join('zeeref', 'constants.py')).read()
-APPNAME = re.search(r'APPNAME\s*=\s*"(.+?)"', _constants_text).group(1)
-VERSION = re.search(r'VERSION\s*=\s*"(.+?)"', _constants_text).group(1)
+# Read version from pyproject.toml (single source of truth)
+with open('pyproject.toml', 'rb') as f:
+    _pyproject = tomllib.load(f)
+APPNAME = _pyproject['project']['name']
+VERSION = _pyproject['project']['version']
 
 block_cipher = None
 appname = f'{APPNAME}-{VERSION}'

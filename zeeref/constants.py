@@ -15,7 +15,12 @@
 
 APPNAME = "ZeeRef"
 APPNAME_FULL = f"{APPNAME} Reference Image Viewer"
-VERSION = "0.3.4-dev"
+try:
+    from importlib.metadata import version
+
+    VERSION = version("zeeref")
+except Exception:
+    VERSION = "dev"
 WEBSITE = "https://github.com/zackgomez/zeeref"
 COPYRIGHT = "Copyright © 2025-2026 Zack Gomez, 2021-2024 Rebecca Breu"
 
