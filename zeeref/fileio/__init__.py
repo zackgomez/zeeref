@@ -14,7 +14,7 @@
 # along with ZeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
 from zeeref.fileio.errors import ZeeFileIOError
-from zeeref.fileio.io import drain_bee, load_bee, load_images, save_bee
+from zeeref.fileio.io import drain_zref, load_zref, load_images, save_zref
 from zeeref.fileio.scratch import (
     create_scratch_file,
     delete_scratch_file,
@@ -22,7 +22,7 @@ from zeeref.fileio.scratch import (
     list_recovery_files,
 )
 from zeeref.types.snapshot import IOResult, LoadResult, SaveResult
-from zeeref.fileio.sql import is_bee_file
+from zeeref.fileio.sql import is_zref_file
 from zeeref.fileio.thread import ThreadedIO
 
 __all__ = [
@@ -34,10 +34,10 @@ __all__ = [
     "create_scratch_file",
     "delete_scratch_file",
     "derive_swp_path",
-    "drain_bee",
-    "is_bee_file",
+    "drain_zref",
+    "is_zref_file",
     "list_recovery_files",
-    "load_bee",
+    "load_zref",
     "load_images",
-    "save_bee",
+    "save_zref",
 ]

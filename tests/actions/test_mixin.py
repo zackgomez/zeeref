@@ -186,7 +186,7 @@ def test_create_actions_with_group(qapp):
     widget.build_menu_and_actions()
     assert len(widget.actions()) == 1
     qaction = widget.actions()[0]
-    assert widget.bee_actiongroups["bar"] == [qaction]
+    assert widget.zee_actiongroups["bar"] == [qaction]
 
 
 @patch("zeeref.actions.mixin.menu_structure", [{"menu": "Foo", "items": ["foo"]}])

@@ -25,7 +25,7 @@ def test_inits_menu(qapp):
     assert isinstance(view.context_menu, QtWidgets.QMenu)
     assert len(view.actions()) > 0
     assert view.actions()
-    assert view.bee_actiongroups
+    assert view.zee_actiongroups
 
 
 @patch("zeeref.view.ZeeGraphicsView.open_from_file")

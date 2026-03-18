@@ -11,7 +11,7 @@ from zeeref.items import ZeePixmapItem
 from ..utils import queue2list
 
 
-def test_save_bee_via_swp(scene, imgfilename3x3):
+def test_save_zref_via_swp(scene, imgfilename3x3):
     from zeeref.fileio.scratch import create_scratch_file
 
     scene._scratch_file = create_scratch_file(None)
@@ -22,16 +22,16 @@ def test_save_bee_via_swp(scene, imgfilename3x3):
     assert swp_path is not None
     with tempfile.TemporaryDirectory() as dirname:
         fname = Path(dirname) / "test.zref"
-        fileio.save_bee(fname, snapshots, swp_path)
+        fileio.save_zref(fname, snapshots, swp_path)
         assert fname.exists()
 
 
 @patch("zeeref.fileio.sql.SQLiteIO.read")
-def test_read_bee(read_mock):
+def test_load_zref(read_mock):
     with tempfile.TemporaryDirectory() as dirname:
         fname = Path(dirname) / "test.zref"
         fname.touch()
-        fileio.load_bee(fname, MagicMock())
+        fileio.load_zref(fname, MagicMock())
         read_mock.assert_called_once()
 
 

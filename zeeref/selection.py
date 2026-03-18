@@ -72,7 +72,7 @@ def with_anchor(func: Any) -> Any:
 
 
 class BaseItemMixin(_BaseItemBase):
-    def bee_scene(self) -> ZeeGraphicsScene | None:
+    def zee_scene(self) -> ZeeGraphicsScene | None:
         """Return the scene cast to ZeeGraphicsScene, or None."""
         scene = self.scene()
         if scene is None:
@@ -81,13 +81,13 @@ class BaseItemMixin(_BaseItemBase):
 
     def require_scene(self) -> ZeeGraphicsScene:
         """Return the scene. Asserts the item is in a scene."""
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         assert scene is not None, f"{self} is not in a scene"
         return scene
 
-    def bee_view(self) -> ZeeGraphicsView | None:
+    def zee_view(self) -> ZeeGraphicsView | None:
         """Return the first view cast to ZeeGraphicsView, or None."""
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         if scene is None:
             return None
         views = scene.views()
@@ -97,7 +97,7 @@ class BaseItemMixin(_BaseItemBase):
 
     def require_view(self) -> ZeeGraphicsView:
         """Return the first view. Asserts a view exists."""
-        view = self.bee_view()
+        view = self.zee_view()
         assert view is not None, f"{self} has no view"
         return view
 
@@ -113,13 +113,13 @@ class BaseItemMixin(_BaseItemBase):
     def setZValue(self, z: float) -> None:
         logger.debug(f"Setting z-value for {self} to {z}")
         super().setZValue(z)
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         if scene:
             scene.max_z = max(scene.max_z, z)
             scene.min_z = min(scene.min_z, z)
 
     def bring_to_front(self) -> None:
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         if scene:
             self.setZValue(scene.max_z + scene.Z_STEP)
 
@@ -164,14 +164,14 @@ class BaseItemMixin(_BaseItemBase):
     def set_cursor(self, cursor: Qt.CursorShape | QtGui.QCursor) -> None:
         # Can't use setCursor on the item itself because of bug
         # https://bugreports.qt.io/browse/QTBUG-4190
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         if scene:
             scene.cursor_changed.emit(cursor)
 
     def unset_cursor(self) -> None:
         # Can't use unsetCursor on the item itself because of bug
         # https://bugreports.qt.io/browse/QTBUG-4190
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         if scene:
             scene.cursor_cleared.emit()
 
@@ -234,7 +234,7 @@ class SelectableMixin(BaseItemMixin):
         screen so we need to adjust the values according to the scale
         factor sof the view and the item."""
 
-        view = self.bee_view()
+        view = self.zee_view()
         if view:
             scale = view.get_scale()
             self._view_scale = scale
@@ -505,7 +505,7 @@ class SelectableMixin(BaseItemMixin):
     def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent | None) -> None:
         assert event is not None
         self.event_start = event.scenePos()
-        view = self.bee_view()
+        view = self.zee_view()
         if view:
             view.reset_previous_transform(toggle_item=self)
         if not self.isSelected():
@@ -669,7 +669,7 @@ class SelectableMixin(BaseItemMixin):
     def mouseMoveEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent | None) -> None:
         assert event is not None
         if (event.scenePos() - self.event_start).manhattanLength() > 5:
-            view = self.bee_view()
+            view = self.zee_view()
             if view:
                 view.reset_previous_transform()
 
@@ -786,7 +786,7 @@ class MultiSelectItem(SelectableMixin, QtWidgets.QGraphicsRectItem):
 
     def selection_action_items(self) -> list[Any]:
         """The items affected by selection actions like scaling and rotating."""
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         if scene:
             return list(scene.selectedItems())
         return []
@@ -794,7 +794,7 @@ class MultiSelectItem(SelectableMixin, QtWidgets.QGraphicsRectItem):
     def lower_behind_selection(self) -> None:
         items = self.selection_action_items()
         if items:
-            scene = self.bee_scene()
+            scene = self.zee_scene()
             if scene:
                 min_z = min(item.zValue() for item in items)
                 self.setZValue(min_z - scene.Z_STEP)

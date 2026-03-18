@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def load_bee(
+def load_zref(
     filename: Path, scene: ZeeGraphicsScene, worker: ThreadedIO | None = None
 ) -> None:
     """Load ZeeRef native file via scratch copy."""
@@ -68,7 +68,7 @@ def load_bee(
         )
 
 
-def save_bee(
+def save_zref(
     filename: Path,
     snapshots: list[ItemSnapshot],
     swp_path: Path,
@@ -128,7 +128,7 @@ def save_bee(
         )
 
 
-def drain_bee(
+def drain_zref(
     filename: Path,
     snapshots: list[ItemSnapshot],
     worker: ThreadedIO | None = None,

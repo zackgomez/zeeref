@@ -46,8 +46,8 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-def is_bee_file(path: Path) -> bool:
-    """Check whether the file at the given path is a bee file."""
+def is_zref_file(path: Path) -> bool:
+    """Check whether the file at the given path is a zref file."""
 
     return path.suffix in (".zref", ".bee")
 
@@ -114,7 +114,7 @@ class SQLiteIO:
                 self._migrate()
             except Exception:
                 # Updating a file failed; try creating it from scratch instead
-                logger.exception("Error migrating bee file")
+                logger.exception("Error migrating zref file")
                 self.create_new = True
                 self._establish_connection()
 
@@ -122,7 +122,7 @@ class SQLiteIO:
         """Migrate database if necessary."""
 
         version = self.fetchone("PRAGMA user_version")[0]
-        logger.debug(f"Found bee file version: {version}")
+        logger.debug(f"Found zref file version: {version}")
         if version >= USER_VERSION:
             logger.debug("Version ok; no migrations necessary")
             return

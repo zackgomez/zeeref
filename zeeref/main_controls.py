@@ -123,7 +123,7 @@ class MainControlsMixin(_MainControlsBase):
                 url = mimedata.urls()[0]
                 if url.isLocalFile():
                     local_path = Path(url.toLocalFile())
-                    if fileio.is_bee_file(local_path):
+                    if fileio.is_zref_file(local_path):
                         target.open_from_file(local_path)
                         return
             target.do_insert_images(mimedata.urls(), pos)

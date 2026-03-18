@@ -210,7 +210,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self._drain_dirty = False
         snapshots = self.scene.snapshot_for_save()
         self.worker = fileio.ThreadedIO(
-            fileio.drain_bee,
+            fileio.drain_zref,
             self.scene._scratch_file,
             snapshots,
         )
@@ -469,7 +469,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
                 "Problem loading file",
                 (
                     "<p>Problem loading file %s</p>"
-                    "<p>Not accessible or not a proper bee file</p>"
+                    "<p>Not accessible or not a proper zref file</p>"
                 )
                 % result.filename,
             )
@@ -491,7 +491,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
     def open_from_file(self, filename: Path) -> None:
         logger.info(f"Opening file {filename}")
         self.clear_scene()
-        self.worker = fileio.ThreadedIO(fileio.load_bee, filename, self.scene)
+        self.worker = fileio.ThreadedIO(fileio.load_zref, filename, self.scene)
         self.worker.finished.connect(self.on_loading_finished)
         self.progress = widgets.ZeeProgressDialog(
             f"Loading {filename}", worker=self.worker, parent=self
@@ -542,14 +542,14 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
                 self.scene._scratch_file = new_swp
 
     def do_save(self, filename: Path) -> None:
-        if not fileio.is_bee_file(filename):
+        if not fileio.is_zref_file(filename):
             filename = filename.with_suffix(".zref")
         assert self.scene._scratch_file is not None
         # Snapshot scene state on the main thread before handing to
         # the background thread — no Qt objects cross the boundary
         snapshots = self.scene.snapshot_for_save()
         self.worker = fileio.ThreadedIO(
-            fileio.save_bee,
+            fileio.save_zref,
             filename,
             snapshots,
             self.scene._scratch_file,

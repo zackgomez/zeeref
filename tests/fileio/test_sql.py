@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 from PyQt6 import QtCore, QtGui
 import pytest
 
-from zeeref.fileio import schema, is_bee_file
+from zeeref.fileio import schema, is_zref_file
 from zeeref.fileio.errors import ZeeFileIOError
 from zeeref.types.snapshot import ItemSnapshot, PixmapItemSnapshot
 from zeeref.fileio.sql import SQLiteIO
@@ -56,8 +56,8 @@ TILE_INNER_JOIN = (
         (Path("foo") / "bar", False),
     ],
 )
-def test_is_bee_file(filename, expected):
-    assert is_bee_file(filename) is expected
+def test_is_zref_file(filename, expected):
+    assert is_zref_file(filename) is expected
 
 
 def test_sqliteio_migrate_does_nothing_when_version_ok(tmpfile):

@@ -131,7 +131,7 @@ class ZeeItemMixin(SelectableMixin):
         return self.isSelected()
 
     def has_selection_handles(self) -> bool:
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         return self.isSelected() and scene is not None and scene.has_single_selection()
 
     def selection_action_items(self) -> list[Any]:
@@ -154,7 +154,7 @@ class ZeeItemMixin(SelectableMixin):
         )
 
     def on_selected_change(self, value: Any) -> None:
-        scene = self.bee_scene()
+        scene = self.zee_scene()
         if (
             value
             and scene
@@ -1025,11 +1025,11 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
 @register_item
 class ZeeErrorItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
     """Class for displaying error messages when an item can't be loaded
-    from a bee file.
+    from a zref file.
 
     This item will be displayed instead of the original item. It won't
-    save to bee files. The original item will be preserved in the bee
-    file, unless this item gets deleted by the user, or a new bee file
+    save to zref files. The original item will be preserved in the zref
+    file, unless this item gets deleted by the user, or a new zref file
     is saved.
     """
 

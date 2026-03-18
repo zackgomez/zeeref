@@ -418,9 +418,9 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
         if item:
             if not item.isSelected():
                 item.setSelected(True)
-            bee_item = cast(Any, item)
-            if bee_item.is_editable:
-                bee_item.enter_edit_mode()
+            zee_item = cast(Any, item)
+            if zee_item.is_editable:
+                zee_item.enter_edit_mode()
                 self.mousePressEvent(event)
             else:
                 view = cast("ZeeGraphicsView", self.views()[0])

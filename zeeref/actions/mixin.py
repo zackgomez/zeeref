@@ -36,19 +36,19 @@ else:
 class ActionsMixin(_ActionsMixinBase):
     settings: ZeeSettings
     on_action_open_recent_file: Any
-    bee_actiongroups: defaultdict[str, list[QtGui.QAction]]
+    zee_actiongroups: defaultdict[str, list[QtGui.QAction]]
     context_menu: QtWidgets.QMenu
     _post_create_functions: list[tuple[Any, Any]]
     _recent_files_submenu: QtWidgets.QMenu
 
     def actiongroup_set_enabled(self, group: str, value: bool) -> None:
-        for action in self.bee_actiongroups[group]:
+        for action in self.zee_actiongroups[group]:
             action.setEnabled(value)
 
     def build_menu_and_actions(self) -> None:
         """Creates a new menu or rebuilds the given menu."""
         self.context_menu = QtWidgets.QMenu(self)
-        self.bee_actiongroups = defaultdict(list)
+        self.zee_actiongroups = defaultdict(list)
         self._post_create_functions = []
         self._create_actions()
         self._create_menu(self.context_menu, menu_structure)
@@ -93,7 +93,7 @@ class ActionsMixin(_ActionsMixinBase):
             self.addAction(qaction)
             qaction.setEnabled(action.enabled)
             if action.group:
-                self.bee_actiongroups[action.group].append(qaction)
+                self.zee_actiongroups[action.group].append(qaction)
                 qaction.setEnabled(False)
             action.qaction = qaction
 
