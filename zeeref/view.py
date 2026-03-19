@@ -34,6 +34,8 @@ from zeeref import constants
 from zeeref import fileio
 from zeeref.fileio.errors import IMG_LOADING_ERROR_MSG
 from zeeref.fileio.export import exporter_registry, ImagesToDirectoryExporter
+from PIL import Image
+from zeeref.fileio.io import ImageLoader
 from zeeref import widgets
 from zeeref.items import ZeePixmapItem, ZeeTextItem, create_item_from_snapshot
 from zeeref.main_controls import MainControlsMixin
@@ -91,6 +93,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.filename = None
         self.worker: fileio.ThreadedIO | None = None
         self._drain_dirty: bool = False
+        self._image_loader: ImageLoader | None = None
         self.previous_transform: dict[str, Any] | None = None
         self.active_mode: int | None = None
         self.event_start: QtCore.QPointF = QtCore.QPointF()
@@ -186,6 +189,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             self.welcome_overlay.hide()
             self.actiongroup_set_enabled("active_when_items_in_scene", True)
         self.recalc_scene_rect()
+        self._check_viewport_and_load()
 
     def on_can_redo_changed(self, can_redo: bool) -> None:
         self.actiongroup_set_enabled("active_when_can_redo", can_redo)
@@ -198,6 +202,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
     def on_undo_index_changed(self, index: int) -> None:
         self._drain_dirty = True
+        self._check_viewport_and_load()
 
     def drain_tick(self) -> None:
         """Periodic drain: write scene state to the .swp file."""
@@ -247,6 +252,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
     def clear_scene(self) -> None:
         logger.debug("Clearing scene...")
+        self._stop_image_loader()
         self.cancel_active_modes()
         self._drain_dirty = False
         if self.scene._scratch_file:
@@ -480,6 +486,73 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             item = create_item_from_snapshot(snap)
             self.scene.addItem(item)
         self.on_action_fit_scene()
+        self._start_image_loader()
+
+    def _has_placeholders(self) -> bool:
+        return any(
+            isinstance(item, ZeePixmapItem) and item._placeholder
+            for item in self.scene.user_items()
+        )
+
+    def _start_image_loader(self) -> None:
+        """Start the ImageLoader if there are placeholders."""
+        if not self._has_placeholders():
+            return
+        assert self.scene._scratch_file is not None
+        self._image_loader = ImageLoader(self.scene._scratch_file)
+        self._image_loader.image_loaded.connect(self._on_blob_loaded)
+        self._image_loader.start()
+        self._check_viewport_and_load()
+
+    def _stop_image_loader(self) -> None:
+        """Stop the ImageLoader if running."""
+        if self._image_loader is not None:
+            self._image_loader.stop()
+            self._image_loader = None
+
+    def _restart_image_loader(self) -> None:
+        """Restart the ImageLoader with the current .swp path.
+
+        Called after Save As renames the .swp file.
+        """
+        self._stop_image_loader()
+        if self._has_placeholders():
+            assert self.scene._scratch_file is not None
+            self._image_loader = ImageLoader(self.scene._scratch_file)
+            self._image_loader.image_loaded.connect(self._on_blob_loaded)
+            self._image_loader.start()
+            self._check_viewport_and_load()
+
+    def _check_viewport_and_load(self) -> None:
+        """Request loading for placeholder items visible in the viewport."""
+        if not self._image_loader:
+            return
+        vp = self.viewport()
+        assert vp is not None
+        viewport_rect = self.mapToScene(vp.rect()).boundingRect()
+        margin_w = viewport_rect.width() * 0.1
+        margin_h = viewport_rect.height() * 0.1
+        viewport_rect.adjust(-margin_w, -margin_h, margin_w, margin_h)
+        for item in self.scene.items(viewport_rect):
+            if isinstance(item, ZeePixmapItem) and item._placeholder:
+                self._image_loader.request_load(item.image_id)
+
+    def _on_blob_loaded(
+        self,
+        image_id: str,
+        pil_img: Image.Image,
+        mip_pils: list[tuple[Image.Image, float]],
+    ) -> None:
+        """Handle a loaded image from the ImageLoader."""
+        for item in self.scene.user_items():
+            if (
+                isinstance(item, ZeePixmapItem)
+                and item._placeholder
+                and item.image_id == image_id
+            ):
+                item.load_pixmap_from_pil(pil_img, mip_pils)
+        if not self._has_placeholders():
+            self._stop_image_loader()
 
     def on_action_open_recent_file(self, filename: str) -> None:
         confirm = self.get_confirmation_unsaved_changes(
@@ -491,7 +564,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
     def open_from_file(self, filename: Path) -> None:
         logger.info(f"Opening file {filename}")
         self.clear_scene()
-        self.worker = fileio.ThreadedIO(fileio.load_zref, filename, self.scene)
+        self.worker = fileio.ThreadedIO(fileio.load_zref_metadata, filename, self.scene)
         self.worker.finished.connect(self.on_loading_finished)
         self.progress = widgets.ZeeProgressDialog(
             f"Loading {filename}", worker=self.worker, parent=self
@@ -540,6 +613,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             if self.scene._scratch_file != new_swp:
                 os.rename(self.scene._scratch_file, new_swp)
                 self.scene._scratch_file = new_swp
+                self._restart_image_loader()
 
     def do_save(self, filename: Path) -> None:
         if not fileio.is_zref_file(filename):
@@ -881,6 +955,11 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         super().scale(*args, **kwargs)
         self.scene.on_view_scale_change()
         self.recalc_scene_rect()
+        self._check_viewport_and_load()
+
+    def scrollContentsBy(self, dx: int, dy: int) -> None:
+        super().scrollContentsBy(dx, dy)
+        self._check_viewport_and_load()
 
     def get_scale(self) -> float:
         return self.transform().m11()
@@ -1048,6 +1127,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         super().resizeEvent(event)
         self.recalc_scene_rect()
         self.welcome_overlay.resize(self.size())
+        self._check_viewport_and_load()
 
     def keyPressEvent(self, event: QtGui.QKeyEvent | None) -> None:
         assert event is not None

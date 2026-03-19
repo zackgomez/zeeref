@@ -19,11 +19,14 @@ from __future__ import annotations
 
 import logging
 import os
+import queue
 import tempfile
 from collections.abc import Sequence
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from PIL import Image
 from PyQt6 import QtCore
 
 from zeeref import commands
@@ -58,6 +61,33 @@ def load_zref(
     io = SQLiteIO(swp, readonly=True, worker=worker)
     io.filename = filename
     snapshots = io.read()
+    if worker:
+        worker.finished.emit(
+            LoadResult(
+                filename=filename,
+                snapshots=snapshots,
+                scratch_file=swp,
+            )
+        )
+
+
+def load_zref_metadata(
+    filename: Path, scene: ZeeGraphicsScene, worker: ThreadedIO | None = None
+) -> None:
+    """Load ZeeRef native file — metadata only, no blob data."""
+    logger.info(f"Loading metadata from file {filename}...")
+    try:
+        swp = create_scratch_file(filename, worker=worker)
+    except Exception as e:
+        logger.exception(f"Failed to create scratch file for {filename}")
+        if worker:
+            worker.finished.emit(LoadResult(filename=filename, errors=[str(e)]))
+            return
+        raise ZeeFileIOError(msg=str(e), filename=filename) from e
+    scene._scratch_file = swp
+    io = SQLiteIO(swp, readonly=True, worker=worker)
+    io.filename = filename
+    snapshots = io.read_metadata()
     if worker:
         worker.finished.emit(
             LoadResult(
@@ -186,3 +216,82 @@ def load_images(
 
     scene.undo_stack.push(commands.InsertItems(scene, items, ignore_first_redo=True))
     worker.finished.emit(IOResult(filename=None, errors=errors))
+
+
+_SENTINEL = None
+
+
+class ImageLoader(QtCore.QThread):
+    """Background thread that loads image blobs from the .swp file.
+
+    Opens its own read-only SQLite connection. Receives image_id requests
+    via a thread-safe queue, fetches the tile blob, decodes with Pillow,
+    generates mip chain as PIL images, and emits image_loaded back to
+    the main thread.
+    """
+
+    MIP_MIN_DIM = ZeePixmapItem.MIP_MIN_DIM
+
+    image_loaded = QtCore.pyqtSignal(str, object, object)
+
+    def __init__(self, swp_path: Path) -> None:
+        super().__init__()
+        self._swp_path = swp_path
+        self._queue: queue.Queue[str | None] = queue.Queue()
+        self._requested: set[str] = set()
+        self._stop = False
+
+    def request_load(self, image_id: str) -> None:
+        """Request an image to be loaded. Thread-safe, deduplicating."""
+        if image_id not in self._requested:
+            self._requested.add(image_id)
+            self._queue.put(image_id)
+
+    def stop(self) -> None:
+        self._stop = True
+        self._queue.put(_SENTINEL)
+        self.wait()
+
+    def run(self) -> None:
+        io = SQLiteIO(self._swp_path, readonly=True)
+        while not self._stop:
+            image_id = self._queue.get()
+            if image_id is _SENTINEL or self._stop:
+                break
+            try:
+                row = io.fetchone(
+                    "SELECT data FROM tiles "
+                    "WHERE image_id=? AND level=0 AND col=0 AND row=0",
+                    (image_id,),
+                )
+                if row is None:
+                    logger.warning(f"No tile found for image_id={image_id}")
+                    continue
+                pil_img = Image.open(BytesIO(row[0]))
+                pil_img.load()
+                mip_pils = self._generate_mip_pils(pil_img)
+                self.image_loaded.emit(image_id, pil_img, mip_pils)
+            except Exception:
+                logger.exception(f"Failed to load image_id={image_id}")
+        io._close_connection()
+
+    def _generate_mip_pils(
+        self, pil_img: Image.Image
+    ) -> list[tuple[Image.Image, float]]:
+        """Generate mip chain as PIL images (not QPixmaps — those must
+        be created on the main thread)."""
+        w, h = pil_img.size
+        if min(w, h) < self.MIP_MIN_DIM * 2:
+            return []
+        mips: list[tuple[Image.Image, float]] = []
+        level = 1
+        while True:
+            new_w = w >> level
+            new_h = h >> level
+            if min(new_w, new_h) < self.MIP_MIN_DIM:
+                break
+            mip = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            scale = 1 / (1 << level)
+            mips.append((mip, scale))
+            level += 1
+        return mips

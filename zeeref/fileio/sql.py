@@ -187,6 +187,75 @@ class SQLiteIO:
                 self.ex(schema)
 
     @handle_sqlite_errors
+    def read_metadata(self) -> list[ItemSnapshot]:
+        """Read item metadata without blob data (no tile JOIN)."""
+        rows = self.fetchall(
+            "SELECT items.id, type, x, y, z, scale, rotation, flip, "
+            "items.data, items.created_at, items.image_id, "
+            "images.width, images.height "
+            "FROM items "
+            "LEFT JOIN images ON items.image_id = images.id"
+        )
+        if self.worker:
+            self.worker.begin_processing.emit(len(rows))
+
+        snapshots: list[ItemSnapshot] = []
+        for i, row in enumerate(rows):
+            save_id: str = row[0]
+            item_type: str = row[1]
+            x: float = row[2]
+            y: float = row[3]
+            z: float = row[4]
+            scale: float = row[5]
+            rotation: float = row[6]
+            flip: float = row[7]
+            data: dict[str, Any] = json.loads(row[8])
+            created_at: float = row[9] or 0.0
+
+            if item_type == "pixmap":
+                snapshots.append(
+                    PixmapItemSnapshot(
+                        save_id=save_id,
+                        type=item_type,
+                        x=x,
+                        y=y,
+                        z=z,
+                        scale=scale,
+                        rotation=rotation,
+                        flip=flip,
+                        data=data,
+                        created_at=created_at,
+                        image_id=row[10] or "",
+                        width=row[11] or 0,
+                        height=row[12] or 0,
+                        export_filename="",
+                        pixmap_bytes=None,
+                    )
+                )
+            else:
+                snapshots.append(
+                    ItemSnapshot(
+                        save_id=save_id,
+                        type=item_type,
+                        x=x,
+                        y=y,
+                        z=z,
+                        scale=scale,
+                        rotation=rotation,
+                        flip=flip,
+                        data=data,
+                        created_at=created_at,
+                    )
+                )
+
+            if self.worker:
+                logger.trace(f"Emit progress: {i}")
+                self.worker.progress.emit(i)
+                if self.worker.canceled:
+                    return snapshots
+        return snapshots
+
+    @handle_sqlite_errors
     def read(self) -> list[ItemSnapshot]:
         rows = self.fetchall(
             "SELECT items.id, type, x, y, z, scale, rotation, flip, "

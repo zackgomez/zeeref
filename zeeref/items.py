@@ -194,13 +194,16 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.save_id: str = uuid.uuid4().hex
         self.created_at: float = time.time()
         self.filename = filename
-        self.reset_crop()
         self._mip_chain: list[tuple[QtGui.QPixmap, float]] = []
-        self._generate_mips()
-        logger.debug(f"Initialized {self}")
         self.is_image = True
         self.crop_mode: bool = False
         self._blob_saved: bool = False
+        self._placeholder: bool = False
+        pm = self.pixmap()
+        self._image_width: int = pm.width()
+        self._image_height: int = pm.height()
+        self.reset_crop()
+        self._generate_mips()
         self.image_id: str = uuid.uuid4().hex
         self.init_selectable()
         self.settings = ZeeSettings()
@@ -211,7 +214,12 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         pixmap_format = None
         if not self._blob_saved:
             pixmap_bytes, pixmap_format = self.pixmap_to_bytes()
-        pm = self.pixmap()
+        if self._placeholder:
+            export_filename = self.get_filename_for_export("png")
+        else:
+            export_filename = self.get_filename_for_export(
+                self.get_imgformat(self.pixmap().toImage())
+            )
         return PixmapItemSnapshot(
             save_id=self.save_id,
             type=self.TYPE,
@@ -224,11 +232,9 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             data=self.get_extra_save_data(),
             created_at=self.created_at,
             image_id=self.image_id,
-            width=pm.width(),
-            height=pm.height(),
-            export_filename=self.get_filename_for_export(
-                self.get_imgformat(pm.toImage())
-            ),
+            width=self._image_width,
+            height=self._image_height,
+            export_filename=export_filename,
             pixmap_bytes=pixmap_bytes,
             pixmap_format=pixmap_format,
         )
@@ -247,7 +253,10 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
     def from_snapshot(cls, snap: PixmapItemSnapshot) -> ZeePixmapItem:
         """Create a ZeePixmapItem from a loaded snapshot.
 
-        Raises ValueError if the pixmap bytes can't be decoded.
+        When pixmap_bytes is None, creates a placeholder item with the
+        correct bounding rect but no decoded image data.
+
+        Raises ValueError if pixmap_bytes are present but can't be decoded.
         """
         item = cls(QtGui.QImage())
         if snap.pixmap_bytes:
@@ -256,6 +265,12 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             if pixmap.isNull():
                 raise ValueError(f"Failed to decode image: {snap.data.get('filename')}")
             item.setPixmap(pixmap)
+        else:
+            # Placeholder: no pixmap data, use width/height from metadata
+            item._placeholder = True
+            item._image_width = snap.width
+            item._image_height = snap.height
+            item._crop = QtCore.QRectF(0, 0, snap.width, snap.height)
         item.save_id = snap.save_id
         item.created_at = snap.created_at
         item.image_id = snap.image_id
@@ -273,8 +288,8 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         return item
 
     def __str__(self) -> str:
-        size = self.pixmap().size()
-        return f'Image "{self.filename}" {size.width()} x {size.height()}'
+        suffix = " (placeholder)" if self._placeholder else ""
+        return f'Image "{self.filename}" {self._image_width} x {self._image_height}{suffix}'
 
     @property
     def crop(self) -> QtCore.QRectF:
@@ -288,6 +303,8 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.update()
 
     def sample_color_at(self, pos: QtCore.QPointF) -> QtGui.QColor | None:
+        if self._placeholder:
+            return None
         ipos = self.mapFromScene(pos)
         img = self.pixmap().toImage()
 
@@ -414,8 +431,32 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
 
     def setPixmap(self, pixmap: QtGui.QPixmap) -> None:
         super().setPixmap(pixmap)
+        self._image_width = pixmap.width()
+        self._image_height = pixmap.height()
         self.reset_crop()
         self._generate_mips()
+
+    def load_pixmap_from_pil(
+        self,
+        pil_img: Image.Image,
+        mip_pils: list[tuple[Image.Image, float]],
+    ) -> None:
+        """Transition from placeholder to loaded image.
+
+        Called on the main thread when the ImageLoader delivers a decoded
+        image. Bypasses setPixmap() to avoid reset_crop / _generate_mips
+        — crop is already set from metadata, and mips come pre-built.
+        """
+        saved_crop = QtCore.QRectF(self.crop)
+        pixmap = self._pil_to_qpixmap(pil_img)
+        super().setPixmap(pixmap)
+        self._image_width = pixmap.width()
+        self._image_height = pixmap.height()
+        self._mip_chain = [(self._pil_to_qpixmap(m), s) for m, s in mip_pils]
+        self.crop = saved_crop
+        self._placeholder = False
+        self.prepareGeometryChange()
+        self.update()
 
     def pixmap_from_bytes(self, data: bytes) -> None:
         """Set image pimap from a bytestring."""
@@ -439,7 +480,9 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
     @cached_property
     def color_gamut(self) -> defaultdict[tuple[int, int], int]:
         logger.debug(f"Calculating color gamut for {self}")
-        gamut = defaultdict(int)
+        gamut: defaultdict[tuple[int, int], int] = defaultdict(int)
+        if self._placeholder:
+            return gamut
         img = self.pixmap().toImage()
         # Don't evaluate every pixel for larger images:
         step = max(1, int(max(img.width(), img.height()) / 1000))
@@ -474,9 +517,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         clipboard.setPixmap(self.pixmap())
 
     def reset_crop(self) -> None:
-        self.crop = QtCore.QRectF(
-            0, 0, self.pixmap().size().width(), self.pixmap().size().height()
-        )
+        self.crop = QtCore.QRectF(0, 0, self._image_width, self._image_height)
 
     @property
     def crop_handle_size(self) -> float:
@@ -636,6 +677,11 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             mip_scale = ms
         return pm, mip_scale
 
+    def has_selection_handles(self) -> bool:
+        if self._placeholder:
+            return False
+        return super().has_selection_handles()
+
     def paint(
         self,
         painter: QtGui.QPainter | None,
@@ -643,6 +689,22 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         widget: QtWidgets.QWidget | None = None,
     ) -> None:
         assert painter is not None
+
+        if self._placeholder:
+            rect = self.crop
+            fill = QtGui.QColor(128, 128, 128, 50)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QtGui.QBrush(fill))
+            painter.drawRect(rect)
+            pen = QtGui.QPen(QtGui.QColor(128, 128, 128, 128))
+            pen.setWidthF(1.0)
+            pen.setCosmetic(True)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(rect)
+            self.paint_selectable(painter, option, widget)
+            return
+
         effective_scale = abs(painter.combinedTransform().m11())
 
         if effective_scale < 2:

@@ -14,7 +14,13 @@
 # along with ZeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
 from zeeref.fileio.errors import ZeeFileIOError
-from zeeref.fileio.io import drain_zref, load_zref, load_images, save_zref
+from zeeref.fileio.io import (
+    drain_zref,
+    load_zref,
+    load_zref_metadata,
+    load_images,
+    save_zref,
+)
 from zeeref.fileio.scratch import (
     create_scratch_file,
     delete_scratch_file,
@@ -38,6 +44,7 @@ __all__ = [
     "is_zref_file",
     "list_recovery_files",
     "load_zref",
+    "load_zref_metadata",
     "load_images",
     "save_zref",
 ]
