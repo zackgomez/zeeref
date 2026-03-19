@@ -447,6 +447,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         image. Bypasses setPixmap() to avoid reset_crop / _generate_mips
         — crop is already set from metadata, and mips come pre-built.
         """
+        logger.debug(f"Loading pixmap for {self}")
         saved_crop = QtCore.QRectF(self.crop)
         pixmap = self._pil_to_qpixmap(pil_img)
         super().setPixmap(pixmap)
@@ -455,6 +456,18 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self._mip_chain = [(self._pil_to_qpixmap(m), s) for m, s in mip_pils]
         self.crop = saved_crop
         self._placeholder = False
+        self.prepareGeometryChange()
+        self.update()
+
+    def unload_pixmap(self) -> None:
+        """Revert from loaded image to placeholder, freeing memory.
+
+        Preserves _image_width/_image_height and crop.
+        """
+        logger.debug(f"Unloading pixmap for {self}")
+        self._placeholder = True
+        self._mip_chain = []
+        super().setPixmap(QtGui.QPixmap())
         self.prepareGeometryChange()
         self.update()
 

@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import collections
 from functools import partial
 import os
 import os.path
@@ -94,6 +95,10 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.worker: fileio.ThreadedIO | None = None
         self._drain_dirty: bool = False
         self._image_loader: ImageLoader | None = None
+        self._image_lru: collections.OrderedDict[str, list[ZeePixmapItem]] = (
+            collections.OrderedDict()
+        )
+        self._image_lru_capacity: int = 20
         self.previous_transform: dict[str, Any] | None = None
         self.active_mode: int | None = None
         self.event_start: QtCore.QPointF = QtCore.QPointF()
@@ -509,6 +514,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         if self._image_loader is not None:
             self._image_loader.stop()
             self._image_loader = None
+        self._image_lru.clear()
 
     def _restart_image_loader(self) -> None:
         """Restart the ImageLoader with the current .swp path.
@@ -516,15 +522,14 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         Called after Save As renames the .swp file.
         """
         self._stop_image_loader()
-        if self._has_placeholders():
-            assert self.scene._scratch_file is not None
-            self._image_loader = ImageLoader(self.scene._scratch_file)
-            self._image_loader.image_loaded.connect(self._on_blob_loaded)
-            self._image_loader.start()
-            self._check_viewport_and_load()
+        assert self.scene._scratch_file is not None
+        self._image_loader = ImageLoader(self.scene._scratch_file)
+        self._image_loader.image_loaded.connect(self._on_blob_loaded)
+        self._image_loader.start()
+        self._check_viewport_and_load()
 
     def _check_viewport_and_load(self) -> None:
-        """Request loading for placeholder items visible in the viewport."""
+        """Load visible placeholders and unload offscreen images via LRU."""
         if not self._image_loader:
             return
         vp = self.viewport()
@@ -533,9 +538,28 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         margin_w = viewport_rect.width() * 0.1
         margin_h = viewport_rect.height() * 0.1
         viewport_rect.adjust(-margin_w, -margin_h, margin_w, margin_h)
+
+        # BSP query: find visible items, request loads, bump LRU
+        visible_image_ids: set[str] = set()
         for item in self.scene.items(viewport_rect):
-            if isinstance(item, ZeePixmapItem) and item._placeholder:
+            if not isinstance(item, ZeePixmapItem):
+                continue
+            if item._placeholder:
                 self._image_loader.request_load(item.image_id)
+            elif item.image_id in self._image_lru:
+                visible_image_ids.add(item.image_id)
+                self._image_lru.move_to_end(item.image_id)
+
+        # Evict oldest entries over capacity
+        while len(self._image_lru) > self._image_lru_capacity:
+            evict_id, items = self._image_lru.popitem(last=False)
+            if evict_id in visible_image_ids:
+                # Don't evict something currently visible; put it back at end
+                self._image_lru[evict_id] = items
+                self._image_lru.move_to_end(evict_id)
+                break
+            for item in items:
+                item.unload_pixmap()
 
     def _on_blob_loaded(
         self,
@@ -544,6 +568,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         mip_pils: list[tuple[Image.Image, float]],
     ) -> None:
         """Handle a loaded image from the ImageLoader."""
+        items: list[ZeePixmapItem] = []
         for item in self.scene.user_items():
             if (
                 isinstance(item, ZeePixmapItem)
@@ -551,8 +576,10 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
                 and item.image_id == image_id
             ):
                 item.load_pixmap_from_pil(pil_img, mip_pils)
-        if not self._has_placeholders():
-            self._stop_image_loader()
+                items.append(item)
+        if items:
+            self._image_lru[image_id] = items
+            self._image_lru.move_to_end(image_id)
 
     def on_action_open_recent_file(self, filename: str) -> None:
         confirm = self.get_confirmation_unsaved_changes(

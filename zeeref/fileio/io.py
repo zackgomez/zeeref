@@ -271,8 +271,10 @@ class ImageLoader(QtCore.QThread):
                 pil_img.load()
                 mip_pils = self._generate_mip_pils(pil_img)
                 self.image_loaded.emit(image_id, pil_img, mip_pils)
+                self._requested.discard(image_id)
             except Exception:
                 logger.exception(f"Failed to load image_id={image_id}")
+                self._requested.discard(image_id)
         io._close_connection()
 
     def _generate_mip_pils(
