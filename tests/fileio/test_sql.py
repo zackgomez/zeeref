@@ -517,28 +517,6 @@ def test_sqliteio_write_removes_nonexisting_pixmap_item(tmpfile, scene, imgfilen
     assert io.fetchone("SELECT COUNT(*) from images") == (0,)
 
 
-def test_sqliteio_write_update_recovers_from_borked_file(scene, tmpfile):
-    item = ZeePixmapItem(QtGui.QImage(), filename="bee.png")
-    scene.addItem(item)
-
-    with open(tmpfile, "w") as f:
-        f.write("foobar")
-
-    io = SQLiteIO(tmpfile, create_new=False)
-    io.write(scene.snapshot_for_save())
-    result = io.fetchone("SELECT COUNT(*) FROM items")
-    assert result[0] == 1
-
-
-def test_sqliteio_write_update_recovers_from_nonexisting_file(scene, tmpfile):
-    item = ZeePixmapItem(QtGui.QImage(), filename="bee.png")
-    scene.addItem(item)
-    io = SQLiteIO(tmpfile, create_new=False)
-    io.write(scene.snapshot_for_save())
-    result = io.fetchone("SELECT COUNT(*) FROM items")
-    assert result[0] == 1
-
-
 def test_sqliteio_write_updates_progress(tmpfile, scene):
     worker = MagicMock(canceled=False)
     io = SQLiteIO(tmpfile, create_new=True, worker=worker)

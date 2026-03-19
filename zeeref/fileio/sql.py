@@ -84,7 +84,6 @@ class SQLiteIO:
         self.filename: Path = filename
         self.readonly: bool = readonly
         self.worker: ThreadedIO | None = worker
-        self.retry: bool = False
 
     def __del__(self) -> None:
         self._close_connection()
@@ -329,18 +328,8 @@ class SQLiteIO:
     def write(self, snapshots: list[ItemSnapshot], compact: bool = False) -> list[str]:
         if self.readonly:
             raise sqlite3.OperationalError("Attempt to write to a readonly database")
-        try:
-            self.create_schema_on_new()
-            return self.write_data(snapshots, compact=compact)
-        except Exception:
-            if self.retry:
-                raise
-            else:
-                self.retry = True
-                logger.exception(f"Updating to existing file {self.filename} failed")
-                self.create_new = True
-                self._close_connection()
-                return self.write(snapshots, compact=compact)
+        self.create_schema_on_new()
+        return self.write_data(snapshots, compact=compact)
 
     def write_data(
         self, snapshots: list[ItemSnapshot], compact: bool = False
