@@ -221,31 +221,31 @@ def load_images(
 _SENTINEL = None
 
 
-class ImageLoader(QtCore.QThread):
-    """Background thread that loads image blobs from the .swp file.
+TileKey = tuple[str, int, int, int]  # (image_id, level, col, row)
 
-    Opens its own read-only SQLite connection. Receives image_id requests
-    via a thread-safe queue, fetches the tile blob, decodes with Pillow,
-    generates mip chain as PIL images, and emits image_loaded back to
-    the main thread.
+
+class ImageLoader(QtCore.QThread):
+    """Background thread that loads tile blobs from the .swp file.
+
+    Opens its own read-only SQLite connection. Receives tile key requests
+    via a thread-safe queue, fetches the blob, decodes with Pillow,
+    and emits tile_blob_loaded back to the main thread.
     """
 
-    MIP_MIN_DIM = ZeePixmapItem.MIP_MIN_DIM
-
-    image_loaded = QtCore.pyqtSignal(str, object, object)
+    tile_blob_loaded = QtCore.pyqtSignal(str, int, int, int, object)
 
     def __init__(self, swp_path: Path) -> None:
         super().__init__()
         self._swp_path = swp_path
-        self._queue: queue.Queue[str | None] = queue.Queue()
-        self._requested: set[str] = set()
+        self._queue: queue.Queue[TileKey | None] = queue.Queue()
+        self._requested: set[TileKey] = set()
         self._stop = False
 
-    def request_load(self, image_id: str) -> None:
-        """Request an image to be loaded. Thread-safe, deduplicating."""
-        if image_id not in self._requested:
-            self._requested.add(image_id)
-            self._queue.put(image_id)
+    def request_load(self, key: TileKey) -> None:
+        """Request a tile to be loaded. Thread-safe, deduplicating."""
+        if key not in self._requested:
+            self._requested.add(key)
+            self._queue.put(key)
 
     def stop(self) -> None:
         self._stop = True
@@ -255,45 +255,24 @@ class ImageLoader(QtCore.QThread):
     def run(self) -> None:
         io = SQLiteIO(self._swp_path, readonly=True)
         while not self._stop:
-            image_id = self._queue.get()
-            if image_id is _SENTINEL or self._stop:
+            key = self._queue.get()
+            if key is _SENTINEL or self._stop:
                 break
+            image_id, level, col, row = key
             try:
-                row = io.fetchone(
+                row_data = io.fetchone(
                     "SELECT data FROM tiles "
-                    "WHERE image_id=? AND level=0 AND col=0 AND row=0",
-                    (image_id,),
+                    "WHERE image_id=? AND level=? AND col=? AND row=?",
+                    (image_id, level, col, row),
                 )
-                if row is None:
-                    logger.warning(f"No tile found for image_id={image_id}")
+                if row_data is None:
+                    logger.warning(f"No tile found for {key}")
                     continue
-                pil_img = Image.open(BytesIO(row[0]))
+                pil_img = Image.open(BytesIO(row_data[0]))
                 pil_img.load()
-                mip_pils = self._generate_mip_pils(pil_img)
-                self.image_loaded.emit(image_id, pil_img, mip_pils)
-                self._requested.discard(image_id)
+                self.tile_blob_loaded.emit(image_id, level, col, row, pil_img)
+                self._requested.discard(key)
             except Exception:
-                logger.exception(f"Failed to load image_id={image_id}")
-                self._requested.discard(image_id)
+                logger.exception(f"Failed to load tile {key}")
+                self._requested.discard(key)
         io._close_connection()
-
-    def _generate_mip_pils(
-        self, pil_img: Image.Image
-    ) -> list[tuple[Image.Image, float]]:
-        """Generate mip chain as PIL images (not QPixmaps — those must
-        be created on the main thread)."""
-        w, h = pil_img.size
-        if min(w, h) < self.MIP_MIN_DIM * 2:
-            return []
-        mips: list[tuple[Image.Image, float]] = []
-        level = 1
-        while True:
-            new_w = w >> level
-            new_h = h >> level
-            if min(new_w, new_h) < self.MIP_MIN_DIM:
-                break
-            mip = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-            scale = 1 / (1 << level)
-            mips.append((mip, scale))
-            level += 1
-        return mips

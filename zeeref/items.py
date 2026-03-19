@@ -436,24 +436,18 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.reset_crop()
         self._generate_mips()
 
-    def load_pixmap_from_pil(
-        self,
-        pil_img: Image.Image,
-        mip_pils: list[tuple[Image.Image, float]],
-    ) -> None:
+    def load_pixmap(self, pixmap: QtGui.QPixmap) -> None:
         """Transition from placeholder to loaded image.
 
-        Called on the main thread when the ImageLoader delivers a decoded
-        image. Bypasses setPixmap() to avoid reset_crop / _generate_mips
-        — crop is already set from metadata, and mips come pre-built.
+        Called on the main thread when the TileCache delivers a QPixmap.
+        Bypasses setPixmap() to avoid reset_crop / _generate_mips.
         """
         logger.debug(f"Loading pixmap for {self}")
         saved_crop = QtCore.QRectF(self.crop)
-        pixmap = self._pil_to_qpixmap(pil_img)
         super().setPixmap(pixmap)
         self._image_width = pixmap.width()
         self._image_height = pixmap.height()
-        self._mip_chain = [(self._pil_to_qpixmap(m), s) for m, s in mip_pils]
+        self._mip_chain = []
         self.crop = saved_crop
         self._placeholder = False
         self.prepareGeometryChange()

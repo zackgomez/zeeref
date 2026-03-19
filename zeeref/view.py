@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import collections
 from functools import partial
 import os
 import os.path
@@ -35,8 +34,7 @@ from zeeref import constants
 from zeeref import fileio
 from zeeref.fileio.errors import IMG_LOADING_ERROR_MSG
 from zeeref.fileio.export import exporter_registry, ImagesToDirectoryExporter
-from PIL import Image
-from zeeref.fileio.io import ImageLoader
+from zeeref.fileio.tilecache import TileCache
 from zeeref import widgets
 from zeeref.items import ZeePixmapItem, ZeeTextItem, create_item_from_snapshot
 from zeeref.main_controls import MainControlsMixin
@@ -94,11 +92,8 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.filename = None
         self.worker: fileio.ThreadedIO | None = None
         self._drain_dirty: bool = False
-        self._image_loader: ImageLoader | None = None
-        self._image_lru: collections.OrderedDict[str, list[ZeePixmapItem]] = (
-            collections.OrderedDict()
-        )
-        self._image_lru_capacity: int = 20
+        self._tile_cache: TileCache | None = None
+        self._tile_items: dict[tuple[str, int, int, int], list[ZeePixmapItem]] = {}
         self.previous_transform: dict[str, Any] | None = None
         self.active_mode: int | None = None
         self.event_start: QtCore.QPointF = QtCore.QPointF()
@@ -491,46 +486,53 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             item = create_item_from_snapshot(snap)
             self.scene.addItem(item)
         self.on_action_fit_scene()
-        self._start_image_loader()
+        self._start_tile_cache()
 
-    def _has_placeholders(self) -> bool:
-        return any(
+    def _start_tile_cache(self) -> None:
+        """Start the TileCache if there are placeholders in the scene."""
+        has_placeholders = any(
             isinstance(item, ZeePixmapItem) and item._placeholder
             for item in self.scene.user_items()
         )
-
-    def _start_image_loader(self) -> None:
-        """Start the ImageLoader if there are placeholders."""
-        if not self._has_placeholders():
+        if not has_placeholders:
             return
         assert self.scene._scratch_file is not None
-        self._image_loader = ImageLoader(self.scene._scratch_file)
-        self._image_loader.image_loaded.connect(self._on_blob_loaded)
-        self._image_loader.start()
+        self._tile_cache = TileCache(self.scene._scratch_file)
+        self._tile_cache.tile_loaded.connect(self._on_tile_loaded)
+        self._tile_cache.tile_unloaded.connect(self._on_tile_unloaded)
+        # Build initial tile_items mapping
+        self._tile_items = {}
+        for item in self.scene.user_items():
+            if isinstance(item, ZeePixmapItem) and item._placeholder:
+                key = (item.image_id, 0, 0, 0)
+                self._tile_items.setdefault(key, []).append(item)
         self._check_viewport_and_load()
 
     def _stop_image_loader(self) -> None:
-        """Stop the ImageLoader if running."""
-        if self._image_loader is not None:
-            self._image_loader.stop()
-            self._image_loader = None
-        self._image_lru.clear()
+        """Stop the TileCache if running."""
+        if self._tile_cache is not None:
+            self._tile_cache.stop()
+            self._tile_cache = None
+        self._tile_items = {}
 
     def _restart_image_loader(self) -> None:
-        """Restart the ImageLoader with the current .swp path.
+        """Restart the TileCache with the current .swp path.
 
         Called after Save As renames the .swp file.
         """
+        # Preserve tile_items mapping — items still exist, just need new loader
+        old_tile_items = self._tile_items
         self._stop_image_loader()
         assert self.scene._scratch_file is not None
-        self._image_loader = ImageLoader(self.scene._scratch_file)
-        self._image_loader.image_loaded.connect(self._on_blob_loaded)
-        self._image_loader.start()
+        self._tile_cache = TileCache(self.scene._scratch_file)
+        self._tile_cache.tile_loaded.connect(self._on_tile_loaded)
+        self._tile_cache.tile_unloaded.connect(self._on_tile_unloaded)
+        self._tile_items = old_tile_items
         self._check_viewport_and_load()
 
     def _check_viewport_and_load(self) -> None:
-        """Load visible placeholders and unload offscreen images via LRU."""
-        if not self._image_loader:
+        """Declare visible tiles to the TileCache."""
+        if not self._tile_cache:
             return
         vp = self.viewport()
         assert vp is not None
@@ -539,47 +541,38 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         margin_h = viewport_rect.height() * 0.1
         viewport_rect.adjust(-margin_w, -margin_h, margin_w, margin_h)
 
-        # BSP query: find visible items, request loads, bump LRU
-        visible_image_ids: set[str] = set()
+        needed: set[tuple[str, int, int, int]] = set()
         for item in self.scene.items(viewport_rect):
-            if not isinstance(item, ZeePixmapItem):
-                continue
-            if item._placeholder:
-                self._image_loader.request_load(item.image_id)
-            elif item.image_id in self._image_lru:
-                visible_image_ids.add(item.image_id)
-                self._image_lru.move_to_end(item.image_id)
+            if isinstance(item, ZeePixmapItem):
+                key = (item.image_id, 0, 0, 0)
+                needed.add(key)
+        self._tile_cache.mark_visible(needed)
 
-        # Evict oldest entries over capacity
-        while len(self._image_lru) > self._image_lru_capacity:
-            evict_id, items = self._image_lru.popitem(last=False)
-            if evict_id in visible_image_ids:
-                # Don't evict something currently visible; put it back at end
-                self._image_lru[evict_id] = items
-                self._image_lru.move_to_end(evict_id)
-                break
-            for item in items:
-                item.unload_pixmap()
-
-    def _on_blob_loaded(
+    def _on_tile_loaded(
         self,
         image_id: str,
-        pil_img: Image.Image,
-        mip_pils: list[tuple[Image.Image, float]],
+        level: int,
+        col: int,
+        row: int,
+        pixmap: object,
     ) -> None:
-        """Handle a loaded image from the ImageLoader."""
-        items: list[ZeePixmapItem] = []
-        for item in self.scene.user_items():
-            if (
-                isinstance(item, ZeePixmapItem)
-                and item._placeholder
-                and item.image_id == image_id
-            ):
-                item.load_pixmap_from_pil(pil_img, mip_pils)
-                items.append(item)
-        if items:
-            self._image_lru[image_id] = items
-            self._image_lru.move_to_end(image_id)
+        """Handle a loaded tile from the TileCache."""
+        assert isinstance(pixmap, QtGui.QPixmap)
+        key = (image_id, level, col, row)
+        for item in self._tile_items.get(key, []):
+            item.load_pixmap(pixmap)
+
+    def _on_tile_unloaded(
+        self,
+        image_id: str,
+        level: int,
+        col: int,
+        row: int,
+    ) -> None:
+        """Handle a tile eviction from the TileCache."""
+        key = (image_id, level, col, row)
+        for item in self._tile_items.get(key, []):
+            item.unload_pixmap()
 
     def on_action_open_recent_file(self, filename: str) -> None:
         confirm = self.get_confirmation_unsaved_changes(
