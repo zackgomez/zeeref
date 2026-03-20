@@ -17,15 +17,15 @@
 
 Items subscribe by image_id and manage their own tile requests via
 update_visible_tiles(). TileCache handles LRU, PIL->QPixmap conversion,
-and dispatches load/unload callbacks to subscribers.
+and dispatches load/unload events to TileCacheListener subscribers.
 """
 
 from __future__ import annotations
 
 import collections
 import logging
-from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from PIL import Image
 from PyQt6 import QtCore, QtGui
@@ -35,7 +35,13 @@ from zeeref.types.tile import TileKey
 
 logger = logging.getLogger(__name__)
 
-TileCallback = Callable[[str, int, int, int, QtGui.QPixmap | None], None]
+
+class TileCacheListener(Protocol):
+    """Interface for objects that receive tile load/unload events."""
+
+    def on_tile_loaded(self, key: TileKey, pixmap: QtGui.QPixmap) -> None: ...
+
+    def on_tile_unloaded(self, key: TileKey) -> None: ...
 
 
 def _pil_to_qpixmap(pil_img: Image.Image) -> QtGui.QPixmap:
@@ -56,9 +62,8 @@ def _pil_to_qpixmap(pil_img: Image.Image) -> QtGui.QPixmap:
 class TileCache(QtCore.QObject):
     """LRU tile cache backed by an ImageLoader.
 
-    Items subscribe by image_id to receive tile load/unload callbacks.
-    Callback signature: (image_id, level, col, row, pixmap_or_none)
-    where pixmap is a QPixmap on load, None on unload.
+    Items subscribe by image_id via TileCacheListener to receive
+    on_tile_loaded / on_tile_unloaded events.
     """
 
     def __init__(self, swp_path: Path, capacity: int = 10) -> None:
@@ -69,24 +74,24 @@ class TileCache(QtCore.QObject):
         self._capacity = capacity
         self._visible: set[TileKey] = set()
         self._in_frame: bool = False
-        self._subscribers: dict[str, list[TileCallback]] = {}
+        self._subscribers: dict[str, list[TileCacheListener]] = {}
         self._loader = ImageLoader(swp_path)
         self._loader.tile_blob_loaded.connect(self._on_tile_blob_loaded)
         self._loader.start()
 
-    def subscribe(self, image_id: str, callback: TileCallback) -> None:
-        """Register for tile load/unload events for an image_id."""
-        self._subscribers.setdefault(image_id, []).append(callback)
+    def subscribe(self, image_id: str, listener: TileCacheListener) -> None:
+        """Register for tile events for an image_id."""
+        self._subscribers.setdefault(image_id, []).append(listener)
 
-    def unsubscribe(self, image_id: str, callback: TileCallback) -> None:
+    def unsubscribe(self, image_id: str, listener: TileCacheListener) -> None:
         """Deregister from tile events for an image_id."""
-        cbs = self._subscribers.get(image_id)
-        if cbs:
+        listeners = self._subscribers.get(image_id)
+        if listeners:
             try:
-                cbs.remove(callback)
+                listeners.remove(listener)
             except ValueError:
                 pass
-            if not cbs:
+            if not listeners:
                 del self._subscribers[image_id]
 
     def begin_frame(self) -> None:
@@ -115,16 +120,13 @@ class TileCache(QtCore.QObject):
         self._lru.clear()
         self._subscribers.clear()
 
-    def _notify(
-        self,
-        image_id: str,
-        level: int,
-        col: int,
-        row: int,
-        pixmap: QtGui.QPixmap | None,
-    ) -> None:
-        for cb in self._subscribers.get(image_id, []):
-            cb(image_id, level, col, row, pixmap)
+    def _notify_loaded(self, key: TileKey, pixmap: QtGui.QPixmap) -> None:
+        for listener in self._subscribers.get(key.image_id, []):
+            listener.on_tile_loaded(key, pixmap)
+
+    def _notify_unloaded(self, key: TileKey) -> None:
+        for listener in self._subscribers.get(key.image_id, []):
+            listener.on_tile_unloaded(key)
 
     def _on_tile_blob_loaded(
         self,
@@ -141,7 +143,7 @@ class TileCache(QtCore.QObject):
         self._lru[key] = pixmap
         self._lru.move_to_end(key)
         logger.debug(f"Tile loaded: {key}")
-        self._notify(image_id, level, col, row, pixmap)
+        self._notify_loaded(key, pixmap)
         self._evict()
 
     def _evict(self) -> None:
@@ -153,7 +155,7 @@ class TileCache(QtCore.QObject):
                 self._lru.move_to_end(key)
                 break
             logger.debug(f"Tile evicted: {key}")
-            self._notify(key.image_id, key.level, key.col, key.row, None)
+            self._notify_unloaded(key)
 
 
 _instance: TileCache | None = None
