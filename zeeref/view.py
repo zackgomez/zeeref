@@ -848,7 +848,8 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
                 if u.isLocalFile() and not fileio.is_zref_file(Path(u.toLocalFile()))
             ]
             if image_urls:
-                self.do_insert_images(image_urls)
+                viewport_pos = self.mapFromGlobal(self.cursor().pos())
+                self.do_insert_images(image_urls, viewport_pos)
                 return
 
         img = clipboard.image()
