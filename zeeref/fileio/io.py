@@ -32,7 +32,6 @@ from PIL import Image
 from PyQt6 import QtCore
 
 from zeeref.fileio.errors import ZeeFileIOError
-from zeeref.fileio.image import load_image
 from zeeref.fileio.scratch import copy_with_progress, create_scratch_file
 from zeeref.types.snapshot import (
     IOResult,
@@ -188,11 +187,13 @@ def load_images(
 ) -> None:
     """Add images to existing scene.
 
-    Each image is written to the .swp as a tile, then a snapshot is
-    queued for the main thread to create the item from.
+    Each image is loaded via PIL, tiled into the .swp, then a snapshot
+    is queued for the main thread to create the item from.
     """
+    from zeeref.fileio.image import load_pil_from_source
+    from zeeref.fileio.tiling import encode_tile, generate_tiles, pick_format
+
     errors = []
-    snapshots: list[PixmapItemSnapshot] = []
     worker.begin_processing.emit(len(filenames))
     assert scene._scratch_file is not None
     io = SQLiteIO(scene._scratch_file)
@@ -202,33 +203,27 @@ def load_images(
         load_path: Path | QtCore.QUrl = (
             Path(raw_filename) if isinstance(raw_filename, str) else raw_filename
         )
-        img, filename = load_image(load_path)
+        pil_img, filename = load_pil_from_source(load_path)
         worker.progress.emit(i)
-        if img.isNull():
+        if pil_img is None:
             logger.info(f"Could not load file {filename}")
             errors.append(filename)
             continue
 
-        # Write tile to .swp
         image_id = uuid.uuid4().hex
-        w, h = img.width(), img.height()
-        barray = QtCore.QByteArray()
-        buf = QtCore.QBuffer(barray)
-        buf.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
-        fmt = "png" if img.hasAlphaChannel() or (w < 500 and h < 500) else "jpeg"
-        img.save(buf, fmt.upper(), quality=90)
-        tile_bytes = barray.data()
+        w, h = pil_img.size
+        fmt = pick_format(pil_img)
 
         io.ex(
-            "INSERT OR IGNORE INTO images (id, width, height, format) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO images (id, width, height, format) VALUES (?, ?, ?, ?)",
             (image_id, w, h, fmt),
         )
-        io.ex(
-            "INSERT INTO tiles (image_id, level, col, row, data) "
-            "VALUES (?, 0, 0, 0, ?)",
-            (image_id, tile_bytes),
-        )
+        for tile_pil, level, col, row in generate_tiles(pil_img):
+            io.ex(
+                "INSERT INTO tiles (image_id, level, col, row, data) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (image_id, level, col, row, encode_tile(tile_pil, fmt)),
+            )
         io.connection.commit()
 
         snap = PixmapItemSnapshot(
@@ -247,7 +242,6 @@ def load_images(
             height=h,
         )
         scene.add_item_later(snap, selected=True)
-        snapshots.append(snap)
         if worker.canceled:
             break
         worker.msleep(10)

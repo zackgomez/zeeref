@@ -20,7 +20,7 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib import request
 
-from PyQt6 import QtCore, QtGui
+from PyQt6 import QtCore
 
 from PIL import Image, ImageCms, ImageOps
 
@@ -29,22 +29,6 @@ Image.MAX_IMAGE_PIXELS = None  # Qt's allocation limit handles this
 logger = logging.getLogger(__name__)
 
 SRGB_PROFILE = ImageCms.createProfile("sRGB")
-
-
-def _pil_to_qimage(pil_img: Image.Image) -> QtGui.QImage:
-    """Convert a PIL Image to a QImage."""
-    if pil_img.mode == "RGBA":
-        fmt = QtGui.QImage.Format.Format_RGBA8888
-        channels = 4
-    else:
-        pil_img = pil_img.convert("RGB")
-        fmt = QtGui.QImage.Format.Format_RGB888
-        channels = 3
-
-    data = pil_img.tobytes()
-    stride = channels * pil_img.width
-    qimg = QtGui.QImage(data, pil_img.width, pil_img.height, stride, fmt)
-    return qimg.copy()  # detach from buffer
 
 
 def _ensure_srgb(pil_img: Image.Image) -> Image.Image:
@@ -77,36 +61,35 @@ def _ensure_srgb(pil_img: Image.Image) -> Image.Image:
     return pil_img
 
 
-def load_pil_image(path: Path) -> QtGui.QImage:
+def load_pil(path: Path) -> Image.Image | None:
     """Load image via Pillow with EXIF rotation and color management.
-    Returns a QImage (null if loading fails)."""
+    Returns a PIL Image, or None if loading fails."""
     try:
         pil_img = Image.open(path)
         pil_img = ImageOps.exif_transpose(pil_img)
         pil_img = _ensure_srgb(pil_img)
-        return _pil_to_qimage(pil_img)
+        pil_img.load()
+        return pil_img
     except Exception:
         logger.debug(f"Failed to load image: {path}")
-        return QtGui.QImage()
+        return None
 
 
-def load_image(path: Path | QtCore.QUrl) -> tuple[QtGui.QImage, str]:
+def load_pil_from_source(path: Path | QtCore.QUrl) -> tuple[Image.Image | None, str]:
+    """Load a PIL image from a local path or URL. Returns (pil_img, filename)."""
     if isinstance(path, Path):
-        return (load_pil_image(path), str(path))
+        return (load_pil(path), str(path))
     if path.isLocalFile():
         local = Path(path.toLocalFile())
-        return (load_pil_image(local), str(local))
+        return (load_pil(local), str(local))
 
     url = path.toEncoded().data().decode()
-    img = QtGui.QImage()
     try:
         imgdata = request.urlopen(url).read()
     except URLError as e:
         logger.debug(f"Downloading image failed: {e.reason}")
-    else:
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_file = Path(tmp) / "img"
-            tmp_file.write_bytes(imgdata)
-            logger.debug(f"Temporarily saved in: {tmp_file}")
-            img = load_pil_image(tmp_file)
-    return (img, url)
+        return (None, url)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_file = Path(tmp) / "img"
+        tmp_file.write_bytes(imgdata)
+        return (load_pil(tmp_file), url)
