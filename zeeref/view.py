@@ -34,7 +34,7 @@ from zeeref import constants
 from zeeref import fileio
 from zeeref.fileio.errors import IMG_LOADING_ERROR_MSG
 from zeeref.fileio.export import exporter_registry, ImagesToDirectoryExporter
-from zeeref.fileio.tilecache import TileCache, set_tile_cache
+from zeeref.fileio.tilecache import TileCache, get_tile_cache, set_tile_cache
 from zeeref import widgets
 from zeeref.items import ZeePixmapItem, ZeeTextItem, create_item_from_snapshot
 from zeeref.main_controls import MainControlsMixin
@@ -222,14 +222,9 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.worker.start()
 
     def on_drain_finished(self, result: fileio.IOResult) -> None:
-        """Handle drain completion — mark newly-saved blobs."""
+        """Handle drain completion."""
         if result.errors:
             logger.warning("Drain failed: %s", result.errors)
-            return
-        assert isinstance(result, fileio.SaveResult)
-        for item in self.scene.user_items():
-            if isinstance(item, ZeePixmapItem) and item.save_id in result.newly_saved:
-                item._blob_saved = True
 
     def on_context_menu(self, point: QtCore.QPoint) -> None:
         global_point = self.mapToGlobal(point)
@@ -528,8 +523,6 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         margin_h = viewport_rect.height() * 0.1
         viewport_rect.adjust(-margin_w, -margin_h, margin_w, margin_h)
 
-        from zeeref.fileio.tilecache import get_tile_cache
-
         cache = get_tile_cache()
         cache.begin_frame()
         for item in self.scene.items(viewport_rect):
@@ -586,10 +579,6 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         old_filename = self.filename
         self.filename = result.filename
         self.undo_stack.setClean()
-        # Mark newly-saved items so their blobs aren't re-encoded on next drain
-        for item in self.scene.user_items():
-            if isinstance(item, ZeePixmapItem) and item.save_id in result.newly_saved:
-                item._blob_saved = True
         # Rename .swp if target changed (Save-As or first save of untitled)
         if old_filename != result.filename and self.scene._scratch_file:
             new_swp = fileio.derive_swp_path(result.filename)
@@ -756,7 +745,11 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             QtWidgets.QMessageBox.warning(
                 self, "Problem loading images", msg + IMG_LOADING_ERROR_MSG + errornames
             )
-        self.scene.add_queued_items()
+        items = self.scene.add_queued_items()
+        if items:
+            self.undo_stack.push(
+                commands.InsertItems(self.scene, items, ignore_first_redo=True)
+            )
         self.scene.arrange_default()
         self.undo_stack.endMacro()
         if new_scene:

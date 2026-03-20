@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 from PyQt6 import QtCore, QtGui
 
 from zeeref import fileio
-from zeeref import commands
-from zeeref.types.snapshot import IOResult
+from zeeref.fileio.scratch import create_scratch_file
+from zeeref.types.snapshot import IOResult, PixmapItemSnapshot
 from zeeref.items import ZeePixmapItem
 from ..utils import queue2list
 
@@ -36,7 +36,7 @@ def test_load_zref(read_mock):
 
 
 def test_load_images_loads(scene, imgfilename3x3):
-    scene.undo_stack = MagicMock()
+    scene._scratch_file = create_scratch_file(None)
     worker = MagicMock(canceled=False)
     fileio.load_images([imgfilename3x3], QtCore.QPointF(5, 6), scene, worker)
     worker.begin_processing.emit.assert_called_once_with(1)
@@ -44,18 +44,15 @@ def test_load_images_loads(scene, imgfilename3x3):
     worker.finished.emit.assert_called_once_with(IOResult(filename=None, errors=[]))
     itemdata = queue2list(scene.items_to_add)
     assert len(itemdata) == 1
-    item = itemdata[0][0]["item"]
-    args = scene.undo_stack.push.call_args_list[0][0]
-    cmd = args[0]
-    assert isinstance(cmd, commands.InsertItems)
-    assert cmd.items == [item]
-    assert cmd.scene == scene
-    assert cmd.ignore_first_redo is True
-    assert item.pos() == QtCore.QPointF(3.5, 4.5)
+    snap, selected = itemdata[0]
+    assert isinstance(snap, PixmapItemSnapshot)
+    assert selected is True
+    assert snap.x == 5 - snap.width / 2
+    assert snap.y == 6 - snap.height / 2
 
 
 def test_load_images_canceled(scene, imgfilename3x3):
-    scene.undo_stack = MagicMock()
+    scene._scratch_file = create_scratch_file(None)
     worker = MagicMock(canceled=True)
     fileio.load_images(
         [imgfilename3x3, imgfilename3x3], QtCore.QPointF(5, 6), scene, worker
@@ -65,18 +62,15 @@ def test_load_images_canceled(scene, imgfilename3x3):
     worker.finished.emit.assert_called_once_with(IOResult(filename=None, errors=[]))
     itemdata = queue2list(scene.items_to_add)
     assert len(itemdata) == 1
-    item = itemdata[0][0]["item"]
-    args = scene.undo_stack.push.call_args_list[0][0]
-    cmd = args[0]
-    assert isinstance(cmd, commands.InsertItems)
-    assert cmd.items == [item]
-    assert cmd.scene == scene
-    assert cmd.ignore_first_redo is True
-    assert item.pos() == QtCore.QPointF(3.5, 4.5)
+    snap, selected = itemdata[0]
+    assert isinstance(snap, PixmapItemSnapshot)
+    assert selected is True
+    assert snap.x == 5 - snap.width / 2
+    assert snap.y == 6 - snap.height / 2
 
 
 def test_load_images_error(scene, imgfilename3x3):
-    scene.undo_stack = MagicMock()
+    scene._scratch_file = create_scratch_file(None)
     worker = MagicMock(canceled=False)
     fileio.load_images(["foo.jpg", imgfilename3x3], QtCore.QPointF(5, 6), scene, worker)
     worker.begin_processing.emit.assert_called_once_with(2)
@@ -87,11 +81,8 @@ def test_load_images_error(scene, imgfilename3x3):
     )
     itemdata = queue2list(scene.items_to_add)
     assert len(itemdata) == 1
-    item = itemdata[0][0]["item"]
-    args = scene.undo_stack.push.call_args_list[0][0]
-    cmd = args[0]
-    assert isinstance(cmd, commands.InsertItems)
-    assert cmd.items == [item]
-    assert cmd.scene == scene
-    assert cmd.ignore_first_redo is True
-    assert item.pos() == QtCore.QPointF(3.5, 4.5)
+    snap, selected = itemdata[0]
+    assert isinstance(snap, PixmapItemSnapshot)
+    assert selected is True
+    assert snap.x == 5 - snap.width / 2
+    assert snap.y == 6 - snap.height / 2

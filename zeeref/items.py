@@ -36,6 +36,7 @@ from PyQt6.QtCore import Qt
 from zeeref import commands
 from zeeref.config import ZeeSettings
 from zeeref.constants import COLORS
+from zeeref.fileio.tilecache import get_tile_cache
 from zeeref.types.tile import TileKey
 from zeeref.types.snapshot import ErrorItemSnapshot, ItemSnapshot, PixmapItemSnapshot
 from zeeref.selection import SelectableMixin
@@ -198,7 +199,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self._mip_chain: list[tuple[QtGui.QPixmap, float]] = []
         self.is_image = True
         self.crop_mode: bool = False
-        self._blob_saved: bool = False
         self._placeholder: bool = False
         self._subscribed: bool = False
         pm = self.pixmap()
@@ -211,17 +211,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.settings = ZeeSettings()
 
     def snapshot(self) -> PixmapItemSnapshot:
-        """Create an immutable snapshot including image data if unsaved."""
-        pixmap_bytes = None
-        pixmap_format = None
-        if not self._blob_saved:
-            pixmap_bytes, pixmap_format = self.pixmap_to_bytes()
-        if self._placeholder:
-            export_filename = self.get_filename_for_export("png")
-        else:
-            export_filename = self.get_filename_for_export(
-                self.get_imgformat(self.pixmap().toImage())
-            )
+        """Create an immutable snapshot. Tile data lives in the .swp."""
         return PixmapItemSnapshot(
             save_id=self.save_id,
             type=self.TYPE,
@@ -236,9 +226,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             image_id=self.image_id,
             width=self._image_width,
             height=self._image_height,
-            export_filename=export_filename,
-            pixmap_bytes=pixmap_bytes,
-            pixmap_format=pixmap_format,
         )
 
     @classmethod
@@ -253,26 +240,15 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
 
     @classmethod
     def from_snapshot(cls, snap: PixmapItemSnapshot) -> ZeePixmapItem:
-        """Create a ZeePixmapItem from a loaded snapshot.
+        """Create a placeholder ZeePixmapItem from a loaded snapshot.
 
-        When pixmap_bytes is None, creates a placeholder item with the
-        correct bounding rect but no decoded image data.
-
-        Raises ValueError if pixmap_bytes are present but can't be decoded.
+        Tile data is loaded on demand via the TileCache.
         """
         item = cls(QtGui.QImage())
-        if snap.pixmap_bytes:
-            pixmap = QtGui.QPixmap()
-            pixmap.loadFromData(snap.pixmap_bytes)
-            if pixmap.isNull():
-                raise ValueError(f"Failed to decode image: {snap.data.get('filename')}")
-            item.setPixmap(pixmap)
-        else:
-            # Placeholder: no pixmap data, use width/height from metadata
-            item._placeholder = True
-            item._image_width = snap.width
-            item._image_height = snap.height
-            item._crop = QtCore.QRectF(0, 0, snap.width, snap.height)
+        item._placeholder = True
+        item._image_width = snap.width
+        item._image_height = snap.height
+        item._crop = QtCore.QRectF(0, 0, snap.width, snap.height)
         item.save_id = snap.save_id
         item.created_at = snap.created_at
         item.image_id = snap.image_id
@@ -286,7 +262,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         item.setRotation(snap.rotation)
         if snap.flip != item.flip():
             item.do_flip()
-        item._blob_saved = True
         return item
 
     def __str__(self) -> str:
@@ -470,16 +445,12 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
     def _ensure_subscribed(self) -> None:
         """Lazily subscribe to tile cache on first visibility check."""
         if not self._subscribed:
-            from zeeref.fileio.tilecache import get_tile_cache
-
             get_tile_cache().subscribe(self.image_id, self._on_tile_event)
             self._subscribed = True
 
     def unsubscribe_tile_cache(self) -> None:
         """Unsubscribe from tile cache. Called on removal from scene."""
         if self._subscribed:
-            from zeeref.fileio.tilecache import get_tile_cache
-
             get_tile_cache().unsubscribe(self.image_id, self._on_tile_event)
             self._subscribed = False
 
@@ -488,8 +459,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
 
         Called by the view for each visible item during viewport checks.
         """
-        from zeeref.fileio.tilecache import get_tile_cache
-
         self._ensure_subscribed()
         key = TileKey(self.image_id, 0, 0, 0)
         get_tile_cache().request({key})

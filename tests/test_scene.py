@@ -1397,8 +1397,21 @@ def test_on_change_when_no_multi_select(scene):
 
 
 def test_add_queued_items_unselected(scene):
-    data = {"type": "text", "z": 0.33, "data": {"text": "foo"}}
-    scene.add_item_later(data, selected=False)
+    from zeeref.types.snapshot import ItemSnapshot
+
+    snap = ItemSnapshot(
+        save_id="abc",
+        type="text",
+        x=0,
+        y=0,
+        z=0.33,
+        scale=1,
+        rotation=0,
+        flip=1,
+        data={"text": "foo"},
+        created_at=0,
+    )
+    scene.add_item_later(snap, selected=False)
     scene.add_queued_items()
     assert len(scene.items()) == 1
     item = scene.items()[0]
@@ -1408,9 +1421,22 @@ def test_add_queued_items_unselected(scene):
 
 
 def test_add_queued_items_selected(scene):
+    from zeeref.types.snapshot import ItemSnapshot
+
     scene.max_z = 0.6
-    data = {"type": "text", "z": 0.33, "data": {"text": "foo"}}
-    scene.add_item_later(data, selected=True)
+    snap = ItemSnapshot(
+        save_id="abc",
+        type="text",
+        x=0,
+        y=0,
+        z=0.33,
+        scale=1,
+        rotation=0,
+        flip=1,
+        data={"text": "foo"},
+        created_at=0,
+    )
+    scene.add_item_later(snap, selected=True)
     scene.add_queued_items()
     assert len(scene.items()) == 1
     item = scene.items()[0]
@@ -1424,8 +1450,21 @@ def test_add_queued_items_when_no_items(scene):
 
 
 def test_add_queued_items_ignores_unknown_type(scene):
-    data = {"type": "foo", "z": 0.33, "data": {"bar": "baz"}}
-    scene.add_item_later(data, selected=False)
+    from zeeref.types.snapshot import ItemSnapshot
+
+    snap = ItemSnapshot(
+        save_id="abc",
+        type="foo",
+        x=0,
+        y=0,
+        z=0.33,
+        scale=1,
+        rotation=0,
+        flip=1,
+        data={"bar": "baz"},
+        created_at=0,
+    )
+    scene.add_item_later(snap, selected=False)
     scene.add_queued_items()
     assert len(scene.items()) == 1
     item = scene.items()[0]

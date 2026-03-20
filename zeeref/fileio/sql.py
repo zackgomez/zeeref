@@ -227,8 +227,6 @@ class SQLiteIO:
                         image_id=row[10] or "",
                         width=row[11] or 0,
                         height=row[12] or 0,
-                        export_filename="",
-                        pixmap_bytes=None,
                     )
                 )
             else:
@@ -256,6 +254,12 @@ class SQLiteIO:
 
     @handle_sqlite_errors
     def read(self) -> list[ItemSnapshot]:
+        """Read all items. Equivalent to read_metadata (blobs loaded via TileCache)."""
+        return self.read_metadata()
+
+    @handle_sqlite_errors
+    def _read_legacy(self) -> list[ItemSnapshot]:
+        """Legacy read with blob JOIN — kept for reference."""
         rows = self.fetchall(
             "SELECT items.id, type, x, y, z, scale, rotation, flip, "
             "items.data, tiles.data, items.created_at, items.image_id, "
@@ -297,8 +301,6 @@ class SQLiteIO:
                         image_id=row[11] or "",
                         width=row[12] or 0,
                         height=row[13] or 0,
-                        export_filename="",
-                        pixmap_bytes=row[9],
                     )
                 )
             else:
@@ -325,21 +327,18 @@ class SQLiteIO:
         return snapshots
 
     @handle_sqlite_errors
-    def write(self, snapshots: list[ItemSnapshot], compact: bool = False) -> list[str]:
+    def write(self, snapshots: list[ItemSnapshot], compact: bool = False) -> None:
         if self.readonly:
             raise sqlite3.OperationalError("Attempt to write to a readonly database")
         self.create_schema_on_new()
-        return self.write_data(snapshots, compact=compact)
+        self.write_data(snapshots, compact=compact)
 
-    def write_data(
-        self, snapshots: list[ItemSnapshot], compact: bool = False
-    ) -> list[str]:
+    def write_data(self, snapshots: list[ItemSnapshot], compact: bool = False) -> None:
         existing_ids = {row[0] for row in self.fetchall("SELECT id from ITEMS")}
         to_delete = set(existing_ids)
 
         if self.worker:
             self.worker.begin_processing.emit(len(snapshots))
-        newly_saved: list[str] = []
         for i, snap in enumerate(snapshots):
             if isinstance(snap, ErrorItemSnapshot):
                 to_delete.discard(snap.save_id)
@@ -350,7 +349,6 @@ class SQLiteIO:
                 to_delete.discard(snap.save_id)
             else:
                 self._insert_snapshot(snap)
-                newly_saved.append(snap.save_id)
             if self.worker:
                 self.worker.progress.emit(i)
                 if self.worker.canceled:
@@ -359,7 +357,6 @@ class SQLiteIO:
             self.delete_items(to_delete)
             self.ex("VACUUM")
         self.connection.commit()
-        return newly_saved
 
     def delete_items(self, to_delete: set[str]) -> None:
         items = [(pk,) for pk in to_delete]
@@ -372,23 +369,19 @@ class SQLiteIO:
         self.connection.commit()
 
     def _insert_snapshot(self, snap: ItemSnapshot) -> None:
-        """Insert a new item from a snapshot."""
+        """Insert a new item from a snapshot.
+
+        Images/tiles are written to the .swp before the item is created,
+        so we only need to insert the images metadata row here.
+        """
         image_id = snap.image_id if isinstance(snap, PixmapItemSnapshot) else None
 
-        # Insert images/tiles before items (FK constraint)
         if isinstance(snap, PixmapItemSnapshot):
-            fmt = snap.pixmap_format or "png"
             self.ex(
                 "INSERT OR IGNORE INTO images (id, width, height, format) "
                 "VALUES (?, ?, ?, ?)",
-                (snap.image_id, snap.width, snap.height, fmt),
+                (snap.image_id, snap.width, snap.height, "png"),
             )
-            if snap.pixmap_bytes:
-                self.ex(
-                    "INSERT OR REPLACE INTO tiles (image_id, level, col, row, data) "
-                    "VALUES (?, 0, 0, 0, ?)",
-                    (snap.image_id, snap.pixmap_bytes),
-                )
 
         self.ex(
             "INSERT INTO items (id, type, x, y, z, scale, rotation, flip, "

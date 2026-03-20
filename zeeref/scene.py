@@ -34,8 +34,7 @@ from zeeref.items import (
     ZeeItemMixin,
     ZeePixmapItem,
     ZeeTextItem,
-    item_registry,
-    ZeeErrorItem,
+    create_item_from_snapshot,
     sort_by_filename,
 )
 from zeeref.selection import MultiSelectItem, RubberbandItem
@@ -64,7 +63,7 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
         self.Z_STEP: float = 0.001
         self.selectionChanged.connect(self.on_selection_change)
         self.changed.connect(self.on_change)
-        self.items_to_add: Queue[tuple[dict[str, Any], bool]] = Queue()
+        self.items_to_add: Queue[tuple[ItemSnapshot, bool]] = Queue()
         self.edit_item: ZeeTextItem | None = None
         self.crop_item: ZeePixmapItem | None = None
         self.internal_clipboard: list[ZeeItemMixin] = []
@@ -575,33 +574,20 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
                 self.itemsBoundingRect(selection_only=True)
             )
 
-    def add_item_later(self, itemdata: dict[str, Any], selected: bool = False) -> None:
-        """Keep an item for adding later via ``add_queued_items``
+    def add_item_later(self, snap: ItemSnapshot, selected: bool = False) -> None:
+        """Queue a snapshot for adding on the main thread."""
+        self.items_to_add.put((snap, selected))
 
-        :param dict itemdata: Defines the item's data
-        :param bool selected: Whether the item is initialised as selected
-        """
-
-        self.items_to_add.put((itemdata, selected))
-
-    def add_queued_items(self) -> None:
-        """Adds items added via ``add_item_later``"""
-
+    def add_queued_items(self) -> list[Any]:
+        """Create items from queued snapshots. Returns created items."""
+        created = []
         while not self.items_to_add.empty():
-            data, selected = self.items_to_add.get()
-            typ = data.pop("type")
-            cls = item_registry.get(typ)
-            if not cls:
-                # Just in case we add new item types in future versions
-                logger.warning(f"Encountered item of unknown type: {typ}")
-                cls = ZeeErrorItem
-                data["data"] = {"text": f"Item of unknown type: {typ}"}
-            item = cast(Any, cls).create_from_data(**data)
-            # Set the values common to all item types:
-            item.update_from_data(**data)
+            snap, selected = self.items_to_add.get()
+            item = create_item_from_snapshot(snap)
             self.addItem(item)
-            # Force recalculation of min/max z values:
             item.setZValue(item.zValue())
             if selected:
                 item.setSelected(True)
                 item.bring_to_front()
+            created.append(item)
+        return created

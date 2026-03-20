@@ -40,14 +40,11 @@ class ItemSnapshot:
 
 @dataclass(frozen=True)
 class PixmapItemSnapshot(ItemSnapshot):
-    """Snapshot for pixmap items, including image dimensions and blob data."""
+    """Snapshot for pixmap items. Tile data lives in the .swp, not here."""
 
     image_id: str
     width: int
     height: int
-    export_filename: str
-    pixmap_bytes: bytes | None = None  # None if blob already in DB
-    pixmap_format: str | None = None
 
 
 @dataclass(frozen=True)
@@ -76,5 +73,3 @@ class LoadResult(IOResult):
 @dataclass
 class SaveResult(IOResult):
     """Result from saving a bee file."""
-
-    newly_saved: list[str] = field(default_factory=list)

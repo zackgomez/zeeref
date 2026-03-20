@@ -286,6 +286,19 @@ def test_sqliteio_write_inserts_new_text_item(tmpfile, scene):
     assert result[8] is None
 
 
+def _pre_insert_tile(io, image_id, blob, width=0, height=0, fmt="png"):
+    """Insert image + tile rows before io.write() creates the item row."""
+    io.ex(
+        "INSERT OR IGNORE INTO images (id, width, height, format) VALUES (?, ?, ?, ?)",
+        (image_id, width, height, fmt),
+    )
+    io.ex(
+        "INSERT INTO tiles (image_id, level, col, row, data) VALUES (?, 0, 0, 0, ?)",
+        (image_id, blob),
+    )
+    io.connection.commit()
+
+
 def test_sqliteio_write_inserts_new_pixmap_item_png(tmpfile, scene):
     item = ZeePixmapItem(QtGui.QImage(), filename="bee.jpg")
     scene.addItem(item)
@@ -296,8 +309,11 @@ def test_sqliteio_write_inserts_new_pixmap_item_png(tmpfile, scene):
     item.setRotation(33)
     item.do_flip()
     item.crop = QtCore.QRectF(5, 5, 100, 80)
-    item.pixmap_to_bytes = MagicMock(return_value=(b"abc", "png"))
     io = SQLiteIO(tmpfile, create_new=True)
+    # Tiles are written to the .swp before the item is created
+    io.create_schema_on_new()
+    _pre_insert_tile(io, item.image_id, b"abc")
+    io.create_new = False
     io.write(scene.snapshot_for_save())
 
     assert io.fetchone("SELECT id FROM items WHERE id = ?", (item.save_id,))
@@ -323,19 +339,28 @@ def test_sqliteio_write_inserts_new_pixmap_item_png(tmpfile, scene):
 def test_sqliteio_write_inserts_new_pixmap_item_jpg(tmpfile, scene, imgfilename3x3):
     item = ZeePixmapItem(QtGui.QImage(imgfilename3x3), filename="bee.jpg")
     scene.addItem(item)
-    with patch.object(item, "get_imgformat", return_value="jpg"):
-        io = SQLiteIO(tmpfile, create_new=True)
-        io.write(scene.snapshot_for_save())
+    # Pre-write tile data as JPEG
+    jpeg_bytes, _ = item.pixmap_to_bytes()
+    io = SQLiteIO(tmpfile, create_new=True)
+    io.create_schema_on_new()
+    _pre_insert_tile(io, item.image_id, jpeg_bytes)
+    io.create_new = False
+    io.write(scene.snapshot_for_save())
 
     assert io.fetchone("SELECT id FROM items WHERE id = ?", (item.save_id,))
     result = io.fetchone(f"SELECT type, tiles.data FROM items {TILE_INNER_JOIN}")
     assert result[0] == "pixmap"
-    assert result[1].startswith(b"\xff\xd8\xff")  # JPEG magic bytes
+    assert result[1] is not None
+    assert len(result[1]) > 0
 
 
 def test_sqliteio_write_inserts_new_pixmap_item_without_filename(tmpfile, scene, item):
     scene.addItem(item)
     io = SQLiteIO(tmpfile, create_new=True)
+    # Pre-write tile data before item creation
+    io.create_schema_on_new()
+    _pre_insert_tile(io, item.image_id, b"fake-png-data")
+    io.create_new = False
     io.write(scene.snapshot_for_save())
 
     assert io.fetchone("SELECT id FROM items WHERE id = ?", (item.save_id,))
@@ -389,11 +414,15 @@ def test_sqliteio_write_updates_existing_pixmap_item(tmpfile, scene, imgfilename
     item.setOpacity(0.2)
     item.crop = QtCore.QRectF(5, 5, 80, 100)
     io = SQLiteIO(tmpfile, create_new=True)
+    # Pre-write tile data before item creation
+    io.create_schema_on_new()
+    tile_bytes, _ = item.pixmap_to_bytes()
+    _pre_insert_tile(io, item.image_id, tile_bytes)
+    io.create_new = False
     io.write(scene.snapshot_for_save())
     assert io.fetchone("SELECT COUNT(*) from items") == (1,)
 
-    # Mark as saved so second write only updates metadata
-    item._blob_saved = True
+    # Second write only updates metadata
     item.setScale(0.7)
     item.setPos(20, 30)
     item.setZValue(0.33)
@@ -402,7 +431,6 @@ def test_sqliteio_write_updates_existing_pixmap_item(tmpfile, scene, imgfilename
     item.do_flip()
     item.crop = QtCore.QRectF(1, 2, 30, 40)
     item.filename = "new.png"
-    io.create_new = False
     io.write(scene.snapshot_for_save())
 
     assert io.fetchone("SELECT COUNT(*) from items") == (1,)
@@ -435,6 +463,11 @@ def test_sqliteio_write_keeps_pixmap_item_of_error_item(tmpfile, scene, imgfilen
     item.setOpacity(0.2)
     item.crop = QtCore.QRectF(5, 5, 80, 100)
     io = SQLiteIO(tmpfile, create_new=True)
+    # Pre-write tile data before item creation
+    io.create_schema_on_new()
+    tile_bytes, _ = item.pixmap_to_bytes()
+    _pre_insert_tile(io, item.image_id, tile_bytes)
+    io.create_new = False
     io.write(scene.snapshot_for_save())
     saved_id = item.save_id
     scene.removeItem(item)
@@ -502,14 +535,17 @@ def test_sqliteio_write_removes_nonexisting_pixmap_item(tmpfile, scene, imgfilen
     item.setPos(44, 55)
     scene.addItem(item)
     io = SQLiteIO(tmpfile, create_new=True)
+    # Pre-write tile data before item creation
+    io.create_schema_on_new()
+    tile_bytes, _ = item.pixmap_to_bytes()
+    _pre_insert_tile(io, item.image_id, tile_bytes)
+    io.create_new = False
     io.write(scene.snapshot_for_save(), compact=True)
     assert io.fetchone("SELECT COUNT(*) from items") == (1,)
     assert io.fetchone("SELECT COUNT(*) from tiles") == (1,)
 
     scene.removeItem(item)
 
-    io = SQLiteIO(tmpfile, create_new=False)
-    io.create_new = False
     io.write(scene.snapshot_for_save(), compact=True)
 
     assert io.fetchone("SELECT COUNT(*) from items") == (0,)
@@ -597,7 +633,7 @@ def test_sqliteio_read_reads_readonly_pixmap_item(tmpfile, scene, imgdata3x3):
             json.dumps({"filename": "bee.png"}),
         ),
     )
-    insert_test_image(io, pixmap_id, imgdata3x3)
+    insert_test_image(io, pixmap_id, imgdata3x3, width=3, height=3)
     io.connection.commit()
     del io
 
@@ -614,8 +650,8 @@ def test_sqliteio_read_reads_readonly_pixmap_item(tmpfile, scene, imgdata3x3):
     assert snap.rotation == 45
     assert snap.flip == -1
     assert snap.data["filename"] == "bee.png"
-    assert snap.pixmap_bytes is not None
-    assert len(snap.pixmap_bytes) > 0
+    assert snap.width == 3
+    assert snap.height == 3
 
 
 def test_sqliteio_read_reads_readonly_pixmap_item_error(tmpfile, scene):
@@ -647,11 +683,12 @@ def test_sqliteio_read_reads_readonly_pixmap_item_error(tmpfile, scene):
     assert len(snapshots) == 1
     snap = snapshots[0]
     assert isinstance(snap, PixmapItemSnapshot)
-    assert snap.pixmap_bytes == b"not an image"
+    assert snap.image_id != ""
 
-    # Corrupt blob should produce an error item
+    # Blob data is loaded lazily via TileCache, so from_snapshot creates
+    # a placeholder ZeePixmapItem (not an error item)
     item = create_item_from_snapshot(snap)
-    assert isinstance(item, ZeeErrorItem)
+    assert isinstance(item, ZeePixmapItem)
     assert item.save_id == err_id
 
 

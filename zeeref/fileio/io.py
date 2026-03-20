@@ -21,6 +21,8 @@ import logging
 import os
 import queue
 import tempfile
+import time
+import uuid
 from collections.abc import Sequence
 from io import BytesIO
 from pathlib import Path
@@ -29,15 +31,19 @@ from typing import TYPE_CHECKING
 from PIL import Image
 from PyQt6 import QtCore
 
-from zeeref import commands
 from zeeref.fileio.errors import ZeeFileIOError
 from zeeref.fileio.image import load_image
 from zeeref.fileio.scratch import copy_with_progress, create_scratch_file
-from zeeref.types.snapshot import IOResult, ItemSnapshot, LoadResult, SaveResult
+from zeeref.types.snapshot import (
+    IOResult,
+    ItemSnapshot,
+    LoadResult,
+    PixmapItemSnapshot,
+    SaveResult,
+)
 from zeeref.types.tile import TileKey
 from zeeref.fileio.sql import SQLiteIO
 from zeeref.fileio.thread import ThreadedIO
-from zeeref.items import ZeePixmapItem
 
 if TYPE_CHECKING:
     from zeeref.scene import ZeeGraphicsScene
@@ -117,7 +123,7 @@ def save_zref(
     try:
         # 1. Final drain to .swp
         drain_io = SQLiteIO(swp_path, worker=worker)
-        newly_saved = drain_io.write(snapshots, compact=False)
+        drain_io.write(snapshots, compact=False)
         drain_io._close_connection()
 
         # 2. Copy .swp to temp file next to target
@@ -151,12 +157,7 @@ def save_zref(
 
     logger.info("End save")
     if worker:
-        worker.finished.emit(
-            SaveResult(
-                filename=filename,
-                newly_saved=newly_saved or [],
-            )
-        )
+        worker.finished.emit(SaveResult(filename=filename))
 
 
 def drain_zref(
@@ -168,7 +169,7 @@ def drain_zref(
     logger.info(f"Draining to scratch file {filename}...")
     try:
         io = SQLiteIO(filename, worker=worker)
-        newly_saved = io.write(snapshots, compact=False)
+        io.write(snapshots, compact=False)
     except ZeeFileIOError as e:
         logger.exception(f"Failed to drain {filename}")
         if worker:
@@ -176,12 +177,7 @@ def drain_zref(
         return
     logger.info("End drain")
     if worker:
-        worker.finished.emit(
-            SaveResult(
-                filename=filename,
-                newly_saved=newly_saved or [],
-            )
-        )
+        worker.finished.emit(SaveResult(filename=filename))
 
 
 def load_images(
@@ -190,10 +186,17 @@ def load_images(
     scene: ZeeGraphicsScene,
     worker: ThreadedIO,
 ) -> None:
-    """Add images to existing scene."""
+    """Add images to existing scene.
+
+    Each image is written to the .swp as a tile, then a snapshot is
+    queued for the main thread to create the item from.
+    """
     errors = []
-    items = []
+    snapshots: list[PixmapItemSnapshot] = []
     worker.begin_processing.emit(len(filenames))
+    assert scene._scratch_file is not None
+    io = SQLiteIO(scene._scratch_file)
+
     for i, raw_filename in enumerate(filenames):
         logger.info(f"Loading image from file {raw_filename}")
         load_path: Path | QtCore.QUrl = (
@@ -206,16 +209,50 @@ def load_images(
             errors.append(filename)
             continue
 
-        item = ZeePixmapItem(img, filename)
-        item.set_pos_center(pos)
-        scene.add_item_later({"item": item, "type": "pixmap"}, selected=True)
-        items.append(item)
+        # Write tile to .swp
+        image_id = uuid.uuid4().hex
+        w, h = img.width(), img.height()
+        barray = QtCore.QByteArray()
+        buf = QtCore.QBuffer(barray)
+        buf.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+        fmt = "png" if img.hasAlphaChannel() or (w < 500 and h < 500) else "jpeg"
+        img.save(buf, fmt.upper(), quality=90)
+        tile_bytes = barray.data()
+
+        io.ex(
+            "INSERT OR IGNORE INTO images (id, width, height, format) "
+            "VALUES (?, ?, ?, ?)",
+            (image_id, w, h, fmt),
+        )
+        io.ex(
+            "INSERT INTO tiles (image_id, level, col, row, data) "
+            "VALUES (?, 0, 0, 0, ?)",
+            (image_id, tile_bytes),
+        )
+        io.connection.commit()
+
+        snap = PixmapItemSnapshot(
+            save_id=uuid.uuid4().hex,
+            type="pixmap",
+            x=pos.x() - w / 2,
+            y=pos.y() - h / 2,
+            z=0,
+            scale=1,
+            rotation=0,
+            flip=1,
+            data={"filename": filename},
+            created_at=time.time(),
+            image_id=image_id,
+            width=w,
+            height=h,
+        )
+        scene.add_item_later(snap, selected=True)
+        snapshots.append(snap)
         if worker.canceled:
             break
-        # Give main thread time to process items:
         worker.msleep(10)
 
-    scene.undo_stack.push(commands.InsertItems(scene, items, ignore_first_redo=True))
+    io._close_connection()
     worker.finished.emit(IOResult(filename=None, errors=errors))
 
 
