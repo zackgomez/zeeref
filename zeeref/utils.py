@@ -14,9 +14,35 @@
 # along with ZeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
 from collections import OrderedDict
+from collections.abc import Callable
+from functools import wraps
 import re
+import threading
+from typing import Any
 
 from PyQt6 import QtCore, QtGui
+
+
+def main_thread_only[T: Callable[..., Any]](func: T) -> T:
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        assert threading.current_thread() is threading.main_thread(), (
+            f"{func.__name__} must be called on the main thread"
+        )
+        return func(*args, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
+
+
+def bg_thread_only[T: Callable[..., Any]](func: T) -> T:
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        assert threading.current_thread() is not threading.main_thread(), (
+            f"{func.__name__} must be called from a background thread"
+        )
+        return func(*args, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
 
 
 def create_palette_from_dict(conf):

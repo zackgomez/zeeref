@@ -29,7 +29,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PIL import Image
-from PyQt6 import QtCore
+from dataclasses import dataclass
+
+from PyQt6 import QtCore, QtGui
 
 from zeeref.fileio.errors import ZeeFileIOError
 from zeeref.fileio.scratch import copy_with_progress, create_scratch_file
@@ -45,7 +47,16 @@ from zeeref.fileio.sql import SQLiteIO
 from zeeref.fileio.thread import ThreadedIO
 
 if TYPE_CHECKING:
+    from zeeref.fileio.tilecache import TileCache
     from zeeref.scene import ZeeGraphicsScene
+
+
+@dataclass
+class ImageResult(IOResult):
+    """Result from stitching a full image."""
+
+    image: QtGui.QImage | None = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +259,48 @@ def load_images(
 
     io._close_connection()
     worker.finished.emit(IOResult(filename=None, errors=errors))
+
+
+def stitch_image(
+    tile_cache: TileCache,
+    image_id: str,
+    width: int,
+    height: int,
+    worker: ThreadedIO | None = None,
+) -> None:
+    """Fetch all level-0 tiles and stitch into a full QImage.
+
+    Runs on a background thread via run_async. Uses request_blocking
+    to fetch tiles through the TileCache (warms the LRU).
+    The stitched QImage is emitted via worker.finished as IOResult.image.
+    """
+    from math import ceil
+
+    from zeeref.fileio.tiling import TILE_SIZE
+
+    keys: set[TileKey] = set()
+    num_cols = ceil(width / TILE_SIZE)
+    num_rows = ceil(height / TILE_SIZE)
+    for row in range(num_rows):
+        for col in range(num_cols):
+            keys.add(TileKey(image_id, 0, col, row))
+    logger.debug(f"stitch_image: requesting {len(keys)} tiles for {image_id[:8]}")
+
+    tiles = tile_cache.request_blocking(keys)
+    logger.debug(f"stitch_image: got {len(tiles)} tiles back")
+
+    img = QtGui.QImage(width, height, QtGui.QImage.Format.Format_ARGB32)
+    img.fill(QtGui.QColor(0, 0, 0, 0))
+    painter = QtGui.QPainter(img)
+    for key, pixmap in tiles.items():
+        painter.drawPixmap(key.col * TILE_SIZE, key.row * TILE_SIZE, pixmap)
+    painter.end()
+    logger.debug(
+        f"stitch_image: stitched {img.width()}x{img.height()}, null={img.isNull()}"
+    )
+
+    if worker:
+        worker.finished.emit(ImageResult(filename=None, image=img))
 
 
 _SENTINEL = None

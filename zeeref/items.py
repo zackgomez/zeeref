@@ -460,24 +460,20 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         # Ignore tiles for a different level than what we're currently showing
         if key.level != self._current_level:
             return
-        # Create or update child pixmap item
+        # Already have this tile
         if key in self._tile_children:
-            self._tile_children[key].setPixmap(pixmap)
-        else:
-            child = QtWidgets.QGraphicsPixmapItem(pixmap, self)
-            child.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
-            child.setFlag(
-                QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False
-            )
-            # Position in image coords: tile covers TILE_SIZE pixels at the
-            # level resolution, which maps to TILE_SIZE * 2^level in full-res
-            scale_factor = 1 << key.level
-            child.setPos(
-                key.col * TILE_SIZE * scale_factor, key.row * TILE_SIZE * scale_factor
-            )
-            child.setScale(scale_factor)
-            self._tile_children[key] = child
-
+            return
+        child = QtWidgets.QGraphicsPixmapItem(pixmap, self)
+        child.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+        child.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        # Position in image coords: tile covers TILE_SIZE pixels at the
+        # level resolution, which maps to TILE_SIZE * 2^level in full-res
+        scale_factor = 1 << key.level
+        child.setPos(
+            key.col * TILE_SIZE * scale_factor, key.row * TILE_SIZE * scale_factor
+        )
+        child.setScale(scale_factor)
+        self._tile_children[key] = child
         logger.debug(f"Tile child added: {key}")
 
     def on_tile_unloaded(self, key: TileKey) -> None:
@@ -506,9 +502,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             item.do_flip()
         item.crop = self.crop
         return item
-
-    def copy_to_clipboard(self, clipboard: QtGui.QClipboard) -> None:
-        clipboard.setPixmap(self.pixmap())
 
     def reset_crop(self) -> None:
         self.crop = QtCore.QRectF(0, 0, self._image_width, self._image_height)

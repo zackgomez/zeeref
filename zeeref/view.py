@@ -36,6 +36,7 @@ from zeeref import constants
 from zeeref import fileio
 from zeeref.fileio.errors import IMG_LOADING_ERROR_MSG
 from zeeref.fileio.export import exporter_registry
+from zeeref.fileio.io import ImageResult, stitch_image
 from zeeref.fileio.tilecache import TileCache, get_tile_cache, set_tile_cache
 from zeeref import widgets
 from zeeref.items import ZeePixmapItem, ZeeTextItem, create_item_from_snapshot
@@ -782,18 +783,40 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         assert clipboard is not None
         items = self.scene.selectedItems(user_only=True)
 
-        # At the moment, we can only copy one image to the global
-        # clipboard. (Later, we might create an image of the whole
-        # selection for external copying.)
-        items[0].copy_to_clipboard(clipboard)
+        # System clipboard: text items copy directly, pixmap items stitch async
+        item = items[0]
+        if isinstance(item, ZeePixmapItem):
+            self.scene.copy_selection_to_internal_clipboard()
+            self.run_async(
+                stitch_image,
+                get_tile_cache(),
+                item.image_id,
+                item._image_width,
+                item._image_height,
+                on_finished=self._on_image_copy_finished,
+                dialog=DialogOptions(label="Copying image..."),
+            )
+        else:
+            item.copy_to_clipboard(clipboard)
+            self.scene.copy_selection_to_internal_clipboard()
+            mime = clipboard.mimeData()
+            assert mime is not None
+            mime.setData("zeeref/items", QtCore.QByteArray.number(len(items)))
 
-        # However, we can copy all items to the internal clipboard:
-        self.scene.copy_selection_to_internal_clipboard()
-
-        # We set a marker for ourselves in the global clipboard so
-        # that we know to look up the internal clipboard when pasting:
+    def _on_image_copy_finished(self, result: fileio.IOResult) -> None:
+        logger.debug(f"_on_image_copy_finished: result type={type(result).__name__}")
+        assert isinstance(result, ImageResult)
+        assert result.image is not None
+        logger.debug(
+            f"_on_image_copy_finished: image {result.image.width()}x{result.image.height()}"
+        )
+        clipboard = QtWidgets.QApplication.clipboard()
+        assert clipboard is not None
+        clipboard.setImage(result.image)
+        logger.debug("_on_image_copy_finished: set clipboard image")
         mime = clipboard.mimeData()
         assert mime is not None
+        items = self.scene.selectedItems(user_only=True)
         mime.setData("zeeref/items", QtCore.QByteArray.number(len(items)))
 
     def on_action_paste(self) -> None:
