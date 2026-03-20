@@ -839,6 +839,18 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             self.scene.paste_from_internal_clipboard(pos)
             return
 
+        # Check for file URLs (e.g. files copied in a file manager)
+        if mime.hasUrls():
+            urls = mime.urls()
+            image_urls = [
+                u
+                for u in urls
+                if u.isLocalFile() and not fileio.is_zref_file(Path(u.toLocalFile()))
+            ]
+            if image_urls:
+                self.do_insert_images(image_urls)
+                return
+
         img = clipboard.image()
         if not img.isNull():
             self.undo_stack.beginMacro("Paste Image")
