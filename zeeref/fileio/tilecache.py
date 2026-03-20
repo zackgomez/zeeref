@@ -68,6 +68,7 @@ class TileCache(QtCore.QObject):
 
     def __init__(self, swp_path: Path, capacity: int = 10) -> None:
         super().__init__()
+        self._swp_path = swp_path
         self._lru: collections.OrderedDict[TileKey, QtGui.QPixmap] = (
             collections.OrderedDict()
         )

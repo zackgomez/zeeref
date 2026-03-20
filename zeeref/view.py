@@ -456,10 +456,6 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             self, pos, self.scene.sample_color_at(self.mapToScene(pos))
         )
 
-    def on_items_loaded(self, value: int) -> None:
-        logger.debug("On items loaded: add queued items")
-        self.scene.add_queued_items()
-
     def on_loading_finished(self, result: fileio.IOResult) -> None:
         if result.errors:
             QtWidgets.QMessageBox.warning(
@@ -728,7 +724,6 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.worker = fileio.ThreadedIO(
             fileio.load_images, filenames, self.mapToScene(pos), self.scene
         )
-        self.worker.progress.connect(self.on_items_loaded)
         self.worker.finished.connect(
             partial(self.on_insert_images_finished, not self.scene.items())
         )

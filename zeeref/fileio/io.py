@@ -253,39 +253,25 @@ def load_images(
 _SENTINEL = None
 
 
-class ImageLoader(QtCore.QThread):
-    """Background thread that loads tile blobs from the .swp file.
-
-    Opens its own read-only SQLite connection. Receives tile key requests
-    via a thread-safe queue, fetches the blob, decodes with Pillow,
-    and emits tile_blob_loaded back to the main thread.
-    """
+class _LoaderWorker(QtCore.QThread):
+    """Single worker thread that loads tile blobs from the .swp file."""
 
     tile_blob_loaded = QtCore.pyqtSignal(str, int, int, int, object)
 
-    def __init__(self, swp_path: Path) -> None:
+    def __init__(
+        self,
+        swp_path: Path,
+        work_queue: queue.Queue[TileKey | None],
+    ) -> None:
         super().__init__()
         self._swp_path = swp_path
-        self._queue: queue.Queue[TileKey | None] = queue.Queue()
-        self._requested: set[TileKey] = set()
-        self._stop = False
-
-    def request_load(self, key: TileKey) -> None:
-        """Request a tile to be loaded. Thread-safe, deduplicating."""
-        if key not in self._requested:
-            self._requested.add(key)
-            self._queue.put(key)
-
-    def stop(self) -> None:
-        self._stop = True
-        self._queue.put(_SENTINEL)
-        self.wait()
+        self._queue = work_queue
 
     def run(self) -> None:
         io = SQLiteIO(self._swp_path, readonly=True)
-        while not self._stop:
+        while True:
             key = self._queue.get()
-            if key is _SENTINEL or self._stop:
+            if key is _SENTINEL:
                 break
             image_id, level, col, row = key
             try:
@@ -300,8 +286,56 @@ class ImageLoader(QtCore.QThread):
                 pil_img = Image.open(BytesIO(row_data[0]))
                 pil_img.load()
                 self.tile_blob_loaded.emit(image_id, level, col, row, pil_img)
-                self._requested.discard(key)
             except Exception:
                 logger.exception(f"Failed to load tile {key}")
-                self._requested.discard(key)
         io._close_connection()
+
+
+class ImageLoader(QtCore.QObject):
+    """Thread pool that loads tile blobs from the .swp file.
+
+    Multiple workers share a single queue. Each has its own SQLite
+    connection (concurrent readers are fine). Dedup via _requested set
+    prevents duplicate queue entries.
+    """
+
+    tile_blob_loaded = QtCore.pyqtSignal(str, int, int, int, object)
+
+    def __init__(self, swp_path: Path, num_workers: int = 4) -> None:
+        super().__init__()
+        self._queue: queue.Queue[TileKey | None] = queue.Queue()
+        self._requested: set[TileKey] = set()
+        self._workers: list[_LoaderWorker] = []
+        for _ in range(num_workers):
+            worker = _LoaderWorker(swp_path, self._queue)
+            worker.tile_blob_loaded.connect(self._on_worker_loaded)
+            self._workers.append(worker)
+
+    def start(self) -> None:
+        for worker in self._workers:
+            worker.start()
+
+    def request_load(self, key: TileKey) -> None:
+        """Request a tile to be loaded. Thread-safe, deduplicating."""
+        if key not in self._requested:
+            self._requested.add(key)
+            self._queue.put(key)
+
+    def stop(self) -> None:
+        for _ in self._workers:
+            self._queue.put(_SENTINEL)
+        for worker in self._workers:
+            worker.wait()
+        self._workers.clear()
+
+    def _on_worker_loaded(
+        self,
+        image_id: str,
+        level: int,
+        col: int,
+        row: int,
+        pil_img: object,
+    ) -> None:
+        key = TileKey(image_id, level, col, row)
+        self._requested.discard(key)
+        self.tile_blob_loaded.emit(image_id, level, col, row, pil_img)
