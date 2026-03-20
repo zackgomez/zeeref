@@ -38,7 +38,7 @@ def test_load_zref(read_mock):
 def test_load_images_loads(scene, imgfilename3x3):
     scene._scratch_file = create_scratch_file(None)
     worker = MagicMock(canceled=False)
-    fileio.load_images([imgfilename3x3], QtCore.QPointF(5, 6), scene, worker)
+    fileio.insert_image_files([imgfilename3x3], QtCore.QPointF(5, 6), scene, worker)
     worker.begin_processing.emit.assert_called_once_with(1)
     worker.progress.emit.assert_called_once_with(0)
     worker.finished.emit.assert_called_once_with(IOResult(filename=None, errors=[]))
@@ -54,7 +54,7 @@ def test_load_images_loads(scene, imgfilename3x3):
 def test_load_images_canceled(scene, imgfilename3x3):
     scene._scratch_file = create_scratch_file(None)
     worker = MagicMock(canceled=True)
-    fileio.load_images(
+    fileio.insert_image_files(
         [imgfilename3x3, imgfilename3x3], QtCore.QPointF(5, 6), scene, worker
     )
     worker.begin_processing.emit.assert_called_once_with(2)
@@ -72,7 +72,9 @@ def test_load_images_canceled(scene, imgfilename3x3):
 def test_load_images_error(scene, imgfilename3x3):
     scene._scratch_file = create_scratch_file(None)
     worker = MagicMock(canceled=False)
-    fileio.load_images(["foo.jpg", imgfilename3x3], QtCore.QPointF(5, 6), scene, worker)
+    fileio.insert_image_files(
+        ["foo.jpg", imgfilename3x3], QtCore.QPointF(5, 6), scene, worker
+    )
     worker.begin_processing.emit.assert_called_once_with(2)
     worker.progress.emit.assert_any_call(0)
     worker.progress.emit.assert_any_call(1)

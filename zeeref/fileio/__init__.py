@@ -16,9 +16,10 @@
 from zeeref.fileio.errors import ZeeFileIOError
 from zeeref.fileio.io import (
     drain_zref,
+    insert_image_files,
+    insert_image_from_clipboard,
     load_zref,
     load_zref_metadata,
-    load_images,
     save_zref,
 )
 from zeeref.fileio.scratch import (
@@ -45,6 +46,7 @@ __all__ = [
     "list_recovery_files",
     "load_zref",
     "load_zref_metadata",
-    "load_images",
+    "insert_image_files",
+    "insert_image_from_clipboard",
     "save_zref",
 ]

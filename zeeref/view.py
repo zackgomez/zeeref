@@ -124,6 +124,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
         # Create empty .swp for untitled scene
         self.scene._scratch_file = fileio.create_scratch_file(None)
+        self._start_tile_cache()
 
         # Drain timer — periodically write scene state to .swp
         self.drain_timer: QtCore.QTimer = QtCore.QTimer(self)
@@ -334,6 +335,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         if confirm:
             self.clear_scene()
             self.scene._scratch_file = fileio.create_scratch_file(None)
+            self._start_tile_cache()
 
     def on_action_fit_scene(self) -> None:
         self.fit_rect(self.scene.itemsBoundingRect())
@@ -744,7 +746,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.scene.deselect_all_items()
         self.undo_stack.beginMacro("Insert Images")
         self.run_async(
-            fileio.load_images,
+            fileio.insert_image_files,
             filenames,
             self.mapToScene(pos),
             self.scene,
@@ -839,11 +841,17 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
         img = clipboard.image()
         if not img.isNull():
-            item = ZeePixmapItem(img)
-            self.undo_stack.push(commands.InsertItems(self.scene, [item], pos))
-            if len(self.scene.items()) == 1:
-                # This is the first image in the scene
-                self.on_action_fit_scene()
+            self.undo_stack.beginMacro("Paste Image")
+            self.run_async(
+                fileio.insert_image_from_clipboard,
+                img,
+                pos,
+                self.scene,
+                on_finished=partial(
+                    self.on_insert_images_finished, not self.scene.items()
+                ),
+                dialog=DialogOptions(label="Pasting image..."),
+            )
             return
         text = clipboard.text()
         if text:

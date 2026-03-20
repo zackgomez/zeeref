@@ -26,7 +26,7 @@ import uuid
 from collections.abc import Sequence
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PIL import Image
 from dataclasses import dataclass
@@ -190,19 +190,59 @@ def drain_zref(
         worker.finished.emit(SaveResult(filename=filename))
 
 
-def load_images(
+def _insert_image(
+    pil_img: Image.Image,
+    filename: str | None,
+    pos: QtCore.QPointF,
+    io: SQLiteIO,
+    scene: ZeeGraphicsScene,
+) -> PixmapItemSnapshot:
+    """Write tiles to .swp and queue a snapshot for the main thread."""
+    from zeeref.fileio.tiling import encode_tile, generate_tiles, pick_format
+
+    image_id = uuid.uuid4().hex
+    w, h = pil_img.size
+    fmt = pick_format(pil_img)
+
+    io.ex(
+        "INSERT INTO images (id, width, height, format) VALUES (?, ?, ?, ?)",
+        (image_id, w, h, fmt),
+    )
+    for tile_pil, level, col, row in generate_tiles(pil_img):
+        io.ex(
+            "INSERT INTO tiles (image_id, level, col, row, data) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (image_id, level, col, row, encode_tile(tile_pil, fmt)),
+        )
+    io.connection.commit()
+
+    snap = PixmapItemSnapshot(
+        save_id=uuid.uuid4().hex,
+        type="pixmap",
+        x=pos.x() - w / 2,
+        y=pos.y() - h / 2,
+        z=0,
+        scale=1,
+        rotation=0,
+        flip=1,
+        data={"filename": filename},
+        created_at=time.time(),
+        image_id=image_id,
+        width=w,
+        height=h,
+    )
+    scene.add_item_later(snap, selected=True)
+    return snap
+
+
+def insert_image_files(
     filenames: Sequence[str | QtCore.QUrl],
     pos: QtCore.QPointF,
     scene: ZeeGraphicsScene,
     worker: ThreadedIO,
 ) -> None:
-    """Add images to existing scene.
-
-    Each image is loaded via PIL, tiled into the .swp, then a snapshot
-    is queued for the main thread to create the item from.
-    """
+    """Add images from files to existing scene."""
     from zeeref.fileio.image import load_pil_from_source
-    from zeeref.fileio.tiling import encode_tile, generate_tiles, pick_format
 
     errors = []
     worker.begin_processing.emit(len(filenames))
@@ -221,44 +261,44 @@ def load_images(
             errors.append(filename)
             continue
 
-        image_id = uuid.uuid4().hex
-        w, h = pil_img.size
-        fmt = pick_format(pil_img)
-
-        io.ex(
-            "INSERT INTO images (id, width, height, format) VALUES (?, ?, ?, ?)",
-            (image_id, w, h, fmt),
-        )
-        for tile_pil, level, col, row in generate_tiles(pil_img):
-            io.ex(
-                "INSERT INTO tiles (image_id, level, col, row, data) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (image_id, level, col, row, encode_tile(tile_pil, fmt)),
-            )
-        io.connection.commit()
-
-        snap = PixmapItemSnapshot(
-            save_id=uuid.uuid4().hex,
-            type="pixmap",
-            x=pos.x() - w / 2,
-            y=pos.y() - h / 2,
-            z=0,
-            scale=1,
-            rotation=0,
-            flip=1,
-            data={"filename": filename},
-            created_at=time.time(),
-            image_id=image_id,
-            width=w,
-            height=h,
-        )
-        scene.add_item_later(snap, selected=True)
+        _insert_image(pil_img, filename, pos, io, scene)
         if worker.canceled:
             break
         worker.msleep(10)
 
     io._close_connection()
     worker.finished.emit(IOResult(filename=None, errors=errors))
+
+
+def insert_image_from_clipboard(
+    qimage: QtGui.QImage,
+    pos: QtCore.QPointF,
+    scene: ZeeGraphicsScene,
+    worker: ThreadedIO | None = None,
+) -> None:
+    """Add a QImage from the clipboard to the scene."""
+    # Convert QImage to PIL
+    qimage = qimage.convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
+    ptr = qimage.constBits()
+    assert ptr is not None
+    ptr.setsize(qimage.sizeInBytes())
+    raw_bytes = bytes(cast(bytearray, ptr))
+    pil_img = Image.frombytes(
+        "RGBA",
+        (qimage.width(), qimage.height()),
+        raw_bytes,
+        "raw",
+        "RGBA",
+        qimage.bytesPerLine(),
+    )
+
+    assert scene._scratch_file is not None
+    io = SQLiteIO(scene._scratch_file)
+    _insert_image(pil_img, None, pos, io, scene)
+    io._close_connection()
+
+    if worker:
+        worker.finished.emit(IOResult(filename=None))
 
 
 def stitch_image(
