@@ -341,8 +341,11 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
 
     def sample_color_at(self, position: QtCore.QPointF) -> QtGui.QColor | None:
         item_at_pos = self.itemAt(position, self.views()[0].transform())
-        if item_at_pos:
-            return cast(Any, item_at_pos).sample_color_at(position)
+        # Walk up from tile children to the parent ZeePixmapItem
+        while item_at_pos and item_at_pos.parentItem():
+            item_at_pos = item_at_pos.parentItem()
+        if isinstance(item_at_pos, ZeePixmapItem):
+            return item_at_pos.sample_color_at(position)
         return None
 
     def select_all_items(self) -> None:

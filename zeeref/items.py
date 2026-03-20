@@ -195,7 +195,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.filename = filename
         self.is_image = True
         self.crop_mode: bool = False
-        self._placeholder: bool = False
         self._subscribed: bool = False
         self._tile_children: dict[TileKey, QtWidgets.QGraphicsPixmapItem] = {}
         self._current_level: int = 0
@@ -242,7 +241,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         Tile data is loaded on demand via the TileCache.
         """
         item = cls(QtGui.QImage())
-        item._placeholder = True
         item._image_width = snap.width
         item._image_height = snap.height
         item._crop = QtCore.QRectF(0, 0, snap.width, snap.height)
@@ -262,8 +260,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         return item
 
     def __str__(self) -> str:
-        suffix = " (placeholder)" if self._placeholder else ""
-        return f'Image "{self.filename}" {self._image_width} x {self._image_height}{suffix}'
+        return f'Image "{self.filename}" {self._image_width} x {self._image_height}'
 
     @property
     def crop(self) -> QtCore.QRectF:
@@ -277,14 +274,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.update()
 
     def sample_color_at(self, pos: QtCore.QPointF) -> QtGui.QColor | None:
-        if self._placeholder:
-            return None
-        ipos = self.mapFromScene(pos)
-        img = self.pixmap().toImage()
-
-        color = img.pixelColor(int(ipos.x()), int(ipos.y()))
-        if color.alpha():
-            return color
+        # TODO: sample from tile children
         return None
 
     def bounding_rect_unselected(self) -> QtCore.QRectF:
@@ -463,7 +453,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             if scene is not None:
                 scene.removeItem(child)
         self._tile_children.clear()
-        self._placeholder = True
+
         self.update()
 
     def on_tile_loaded(self, key: TileKey, pixmap: QtGui.QPixmap) -> None:
@@ -487,7 +477,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             )
             child.setScale(scale_factor)
             self._tile_children[key] = child
-        self._placeholder = False
+
         logger.debug(f"Tile child added: {key}")
 
     def on_tile_unloaded(self, key: TileKey) -> None:
@@ -498,7 +488,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
                 scene.removeItem(child)
             logger.debug(f"Tile child removed: {key}")
         if not self._tile_children:
-            self._placeholder = True
             self.update()
 
     def create_copy(self) -> ZeePixmapItem:
@@ -669,11 +658,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         painter.setPen(pen)
         painter.drawRect(rect)
 
-    def has_selection_handles(self) -> bool:
-        if self._placeholder:
-            return False
-        return super().has_selection_handles()
-
     def paint(
         self,
         painter: QtGui.QPainter | None,
@@ -682,21 +666,15 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
     ) -> None:
         assert painter is not None
 
-        if self._placeholder:
-            rect = self.crop
-            fill = QtGui.QColor(128, 128, 128, 50)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QtGui.QBrush(fill))
-            painter.drawRect(rect)
-            pen = QtGui.QPen(QtGui.QColor(128, 128, 128, 128))
-            pen.setWidthF(1.0)
-            pen.setCosmetic(True)
-            painter.setPen(pen)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(rect)
+        # Background rect — visible where tile children haven't loaded yet.
+        # TODO: skip when all tiles are loaded, or make fully transparent
+        rect = self.crop
+        fill = QtGui.QColor(128, 128, 128, 50)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QtGui.QBrush(fill))
+        painter.drawRect(rect)
 
         # Tile children paint themselves via Qt's parent-child mechanism.
-        # We only paint the selection overlay and crop UI here.
 
         if self.crop_mode:
             assert self.crop_temp is not None

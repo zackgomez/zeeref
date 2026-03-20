@@ -481,13 +481,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self._start_tile_cache()
 
     def _start_tile_cache(self) -> None:
-        """Start the TileCache if there are placeholders in the scene."""
-        has_placeholders = any(
-            isinstance(item, ZeePixmapItem) and item._placeholder
-            for item in self.scene.user_items()
-        )
-        if not has_placeholders:
-            return
+        """Start the TileCache for the current scratch file."""
         assert self.scene._scratch_file is not None
         set_tile_cache(TileCache(self.scene._scratch_file))
         self._has_tile_cache = True
