@@ -34,7 +34,7 @@ from zeeref import constants
 from zeeref import fileio
 from zeeref.fileio.errors import IMG_LOADING_ERROR_MSG
 from zeeref.fileio.export import exporter_registry, ImagesToDirectoryExporter
-from zeeref.fileio.tilecache import TileCache
+from zeeref.fileio.tilecache import TileCache, set_tile_cache
 from zeeref import widgets
 from zeeref.items import ZeePixmapItem, ZeeTextItem, create_item_from_snapshot
 from zeeref.main_controls import MainControlsMixin
@@ -92,8 +92,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.filename = None
         self.worker: fileio.ThreadedIO | None = None
         self._drain_dirty: bool = False
-        self._tile_cache: TileCache | None = None
-        self._tile_items: dict[tuple[str, int, int, int], list[ZeePixmapItem]] = {}
+        self._has_tile_cache: bool = False
         self.previous_transform: dict[str, Any] | None = None
         self.active_mode: int | None = None
         self.event_start: QtCore.QPointF = QtCore.QPointF()
@@ -252,7 +251,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
     def clear_scene(self) -> None:
         logger.debug("Clearing scene...")
-        self._stop_image_loader()
+        self._stop_tile_cache()
         self.cancel_active_modes()
         self._drain_dirty = False
         if self.scene._scratch_file:
@@ -497,42 +496,30 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         if not has_placeholders:
             return
         assert self.scene._scratch_file is not None
-        self._tile_cache = TileCache(self.scene._scratch_file)
-        self._tile_cache.tile_loaded.connect(self._on_tile_loaded)
-        self._tile_cache.tile_unloaded.connect(self._on_tile_unloaded)
-        # Build initial tile_items mapping
-        self._tile_items = {}
-        for item in self.scene.user_items():
-            if isinstance(item, ZeePixmapItem) and item._placeholder:
-                key = (item.image_id, 0, 0, 0)
-                self._tile_items.setdefault(key, []).append(item)
+        set_tile_cache(TileCache(self.scene._scratch_file))
+        self._has_tile_cache = True
         self._check_viewport_and_load()
 
-    def _stop_image_loader(self) -> None:
+    def _stop_tile_cache(self) -> None:
         """Stop the TileCache if running."""
-        if self._tile_cache is not None:
-            self._tile_cache.stop()
-            self._tile_cache = None
-        self._tile_items = {}
+        if self._has_tile_cache:
+            set_tile_cache(None)
+            self._has_tile_cache = False
 
-    def _restart_image_loader(self) -> None:
+    def _restart_tile_cache(self) -> None:
         """Restart the TileCache with the current .swp path.
 
         Called after Save As renames the .swp file.
         """
-        # Preserve tile_items mapping — items still exist, just need new loader
-        old_tile_items = self._tile_items
-        self._stop_image_loader()
+        self._stop_tile_cache()
         assert self.scene._scratch_file is not None
-        self._tile_cache = TileCache(self.scene._scratch_file)
-        self._tile_cache.tile_loaded.connect(self._on_tile_loaded)
-        self._tile_cache.tile_unloaded.connect(self._on_tile_unloaded)
-        self._tile_items = old_tile_items
+        set_tile_cache(TileCache(self.scene._scratch_file))
+        self._has_tile_cache = True
         self._check_viewport_and_load()
 
     def _check_viewport_and_load(self) -> None:
-        """Declare visible tiles to the TileCache."""
-        if not self._tile_cache:
+        """Tell visible items to request their tiles."""
+        if not self._has_tile_cache:
             return
         vp = self.viewport()
         assert vp is not None
@@ -541,38 +528,14 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         margin_h = viewport_rect.height() * 0.1
         viewport_rect.adjust(-margin_w, -margin_h, margin_w, margin_h)
 
-        needed: set[tuple[str, int, int, int]] = set()
+        from zeeref.fileio.tilecache import get_tile_cache
+
+        cache = get_tile_cache()
+        cache.begin_frame()
         for item in self.scene.items(viewport_rect):
             if isinstance(item, ZeePixmapItem):
-                key = (item.image_id, 0, 0, 0)
-                needed.add(key)
-        self._tile_cache.mark_visible(needed)
-
-    def _on_tile_loaded(
-        self,
-        image_id: str,
-        level: int,
-        col: int,
-        row: int,
-        pixmap: object,
-    ) -> None:
-        """Handle a loaded tile from the TileCache."""
-        assert isinstance(pixmap, QtGui.QPixmap)
-        key = (image_id, level, col, row)
-        for item in self._tile_items.get(key, []):
-            item.load_pixmap(pixmap)
-
-    def _on_tile_unloaded(
-        self,
-        image_id: str,
-        level: int,
-        col: int,
-        row: int,
-    ) -> None:
-        """Handle a tile eviction from the TileCache."""
-        key = (image_id, level, col, row)
-        for item in self._tile_items.get(key, []):
-            item.unload_pixmap()
+                item.update_visible_tiles()
+        cache.end_frame()
 
     def on_action_open_recent_file(self, filename: str) -> None:
         confirm = self.get_confirmation_unsaved_changes(
@@ -633,7 +596,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             if self.scene._scratch_file != new_swp:
                 os.rename(self.scene._scratch_file, new_swp)
                 self.scene._scratch_file = new_swp
-                self._restart_image_loader()
+                self._restart_tile_cache()
 
     def do_save(self, filename: Path) -> None:
         if not fileio.is_zref_file(filename):

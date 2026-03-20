@@ -36,6 +36,7 @@ from PyQt6.QtCore import Qt
 from zeeref import commands
 from zeeref.config import ZeeSettings
 from zeeref.constants import COLORS
+from zeeref.types.tile import TileKey
 from zeeref.types.snapshot import ErrorItemSnapshot, ItemSnapshot, PixmapItemSnapshot
 from zeeref.selection import SelectableMixin
 
@@ -199,6 +200,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.crop_mode: bool = False
         self._blob_saved: bool = False
         self._placeholder: bool = False
+        self._subscribed: bool = False
         pm = self.pixmap()
         self._image_width: int = pm.width()
         self._image_height: int = pm.height()
@@ -464,6 +466,47 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         super().setPixmap(QtGui.QPixmap())
         self.prepareGeometryChange()
         self.update()
+
+    def _ensure_subscribed(self) -> None:
+        """Lazily subscribe to tile cache on first visibility check."""
+        if not self._subscribed:
+            from zeeref.fileio.tilecache import get_tile_cache
+
+            get_tile_cache().subscribe(self.image_id, self._on_tile_event)
+            self._subscribed = True
+
+    def unsubscribe_tile_cache(self) -> None:
+        """Unsubscribe from tile cache. Called on removal from scene."""
+        if self._subscribed:
+            from zeeref.fileio.tilecache import get_tile_cache
+
+            get_tile_cache().unsubscribe(self.image_id, self._on_tile_event)
+            self._subscribed = False
+
+    def update_visible_tiles(self) -> None:
+        """Compute and request needed tiles for the current viewport.
+
+        Called by the view for each visible item during viewport checks.
+        """
+        from zeeref.fileio.tilecache import get_tile_cache
+
+        self._ensure_subscribed()
+        key = TileKey(self.image_id, 0, 0, 0)
+        get_tile_cache().request({key})
+
+    def _on_tile_event(
+        self,
+        image_id: str,
+        level: int,
+        col: int,
+        row: int,
+        pixmap: QtGui.QPixmap | None,
+    ) -> None:
+        """Callback from TileCache on tile load or unload."""
+        if pixmap is not None:
+            self.load_pixmap(pixmap)
+        else:
+            self.unload_pixmap()
 
     def pixmap_from_bytes(self, data: bytes) -> None:
         """Set image pimap from a bytestring."""

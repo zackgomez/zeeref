@@ -34,6 +34,7 @@ from zeeref.fileio.errors import ZeeFileIOError
 from zeeref.fileio.image import load_image
 from zeeref.fileio.scratch import copy_with_progress, create_scratch_file
 from zeeref.types.snapshot import IOResult, ItemSnapshot, LoadResult, SaveResult
+from zeeref.types.tile import TileKey
 from zeeref.fileio.sql import SQLiteIO
 from zeeref.fileio.thread import ThreadedIO
 from zeeref.items import ZeePixmapItem
@@ -219,9 +220,6 @@ def load_images(
 
 
 _SENTINEL = None
-
-
-TileKey = tuple[str, int, int, int]  # (image_id, level, col, row)
 
 
 class ImageLoader(QtCore.QThread):

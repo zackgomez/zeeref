@@ -15,24 +15,27 @@
 
 """Tile cache with LRU eviction.
 
-Sits between the view and ImageLoader. The view calls mark_visible()
-with the set of tile keys it needs. TileCache bumps loaded tiles in
-the LRU, requests missing ones from ImageLoader, and evicts excess.
-Emits tile_loaded (with QPixmap) and tile_unloaded signals.
+Items subscribe by image_id and manage their own tile requests via
+update_visible_tiles(). TileCache handles LRU, PIL->QPixmap conversion,
+and dispatches load/unload callbacks to subscribers.
 """
 
 from __future__ import annotations
 
 import collections
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from PIL import Image
 from PyQt6 import QtCore, QtGui
 
-from zeeref.fileio.io import ImageLoader, TileKey
+from zeeref.fileio.io import ImageLoader
+from zeeref.types.tile import TileKey
 
 logger = logging.getLogger(__name__)
+
+TileCallback = Callable[[str, int, int, int, QtGui.QPixmap | None], None]
 
 
 def _pil_to_qpixmap(pil_img: Image.Image) -> QtGui.QPixmap:
@@ -53,12 +56,10 @@ def _pil_to_qpixmap(pil_img: Image.Image) -> QtGui.QPixmap:
 class TileCache(QtCore.QObject):
     """LRU tile cache backed by an ImageLoader.
 
-    All methods are called on the main thread. The ImageLoader runs
-    on a background thread and delivers decoded PIL images via signal.
+    Items subscribe by image_id to receive tile load/unload callbacks.
+    Callback signature: (image_id, level, col, row, pixmap_or_none)
+    where pixmap is a QPixmap on load, None on unload.
     """
-
-    tile_loaded = QtCore.pyqtSignal(str, int, int, int, object)
-    tile_unloaded = QtCore.pyqtSignal(str, int, int, int)
 
     def __init__(self, swp_path: Path, capacity: int = 10) -> None:
         super().__init__()
@@ -67,26 +68,63 @@ class TileCache(QtCore.QObject):
         )
         self._capacity = capacity
         self._visible: set[TileKey] = set()
+        self._in_frame: bool = False
+        self._subscribers: dict[str, list[TileCallback]] = {}
         self._loader = ImageLoader(swp_path)
         self._loader.tile_blob_loaded.connect(self._on_tile_blob_loaded)
         self._loader.start()
 
-    def mark_visible(self, needed: set[TileKey]) -> None:
-        """Declare which tiles are currently needed.
+    def subscribe(self, image_id: str, callback: TileCallback) -> None:
+        """Register for tile load/unload events for an image_id."""
+        self._subscribers.setdefault(image_id, []).append(callback)
 
-        Bumps loaded tiles in LRU, requests missing ones, evicts excess.
-        """
-        self._visible = needed
-        for key in needed:
+    def unsubscribe(self, image_id: str, callback: TileCallback) -> None:
+        """Deregister from tile events for an image_id."""
+        cbs = self._subscribers.get(image_id)
+        if cbs:
+            try:
+                cbs.remove(callback)
+            except ValueError:
+                pass
+            if not cbs:
+                del self._subscribers[image_id]
+
+    def begin_frame(self) -> None:
+        """Start a viewport check frame. Accumulates requests until end_frame."""
+        self._visible = set()
+        self._in_frame = True
+
+    def end_frame(self) -> None:
+        """End a viewport check frame. Runs eviction with the full visible set."""
+        self._in_frame = False
+        self._evict()
+
+    def request(self, keys: set[TileKey]) -> None:
+        """Request specific tiles. Bumps loaded ones in LRU, queues missing."""
+        self._visible = self._visible | keys
+        for key in keys:
             if key in self._lru:
                 self._lru.move_to_end(key)
             else:
                 self._loader.request_load(key)
-        self._evict()
+        if not self._in_frame:
+            self._evict()
 
     def stop(self) -> None:
         self._loader.stop()
         self._lru.clear()
+        self._subscribers.clear()
+
+    def _notify(
+        self,
+        image_id: str,
+        level: int,
+        col: int,
+        row: int,
+        pixmap: QtGui.QPixmap | None,
+    ) -> None:
+        for cb in self._subscribers.get(image_id, []):
+            cb(image_id, level, col, row, pixmap)
 
     def _on_tile_blob_loaded(
         self,
@@ -98,23 +136,36 @@ class TileCache(QtCore.QObject):
     ) -> None:
         """Handle decoded PIL image from ImageLoader."""
         assert isinstance(pil_img, Image.Image)
-        key: TileKey = (image_id, level, col, row)
+        key = TileKey(image_id, level, col, row)
         pixmap = _pil_to_qpixmap(pil_img)
         self._lru[key] = pixmap
         self._lru.move_to_end(key)
         logger.debug(f"Tile loaded: {key}")
-        self.tile_loaded.emit(image_id, level, col, row, pixmap)
+        self._notify(image_id, level, col, row, pixmap)
         self._evict()
 
     def _evict(self) -> None:
         """Evict oldest tiles over capacity, skipping visible ones."""
         while len(self._lru) > self._capacity:
-            key, _pixmap = self._lru.popitem(last=False)
+            key, pixmap = self._lru.popitem(last=False)
             if key in self._visible:
-                # Don't evict something currently visible; put it back
-                self._lru[key] = _pixmap
+                self._lru[key] = pixmap
                 self._lru.move_to_end(key)
                 break
-            image_id, level, col, row = key
             logger.debug(f"Tile evicted: {key}")
-            self.tile_unloaded.emit(image_id, level, col, row)
+            self._notify(key.image_id, key.level, key.col, key.row, None)
+
+
+_instance: TileCache | None = None
+
+
+def get_tile_cache() -> TileCache:
+    assert _instance is not None, "TileCache not initialized"
+    return _instance
+
+
+def set_tile_cache(cache: TileCache | None) -> None:
+    global _instance
+    if _instance is not None:
+        _instance.stop()
+    _instance = cache
