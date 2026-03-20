@@ -26,6 +26,7 @@ from zeeref.logging import getLogger
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
+from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 from zeeref.actions import ActionsMixin
 from zeeref import commands
@@ -77,6 +78,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         ZeeSettings.FIELDS["View/canvas_color"]["post_save_callback"] = (
             on_canvas_color_changed
         )
+        self.setViewport(QOpenGLWidget())
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
