@@ -15,12 +15,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import partial
 import os
 import os.path
 from pathlib import Path
-from collections.abc import Sequence
-from typing import Any, Callable, cast
+from collections.abc import Callable, Sequence
+from typing import Any, cast
 
 from zeeref.logging import getLogger
 
@@ -45,6 +46,12 @@ from zeeref.utils import get_file_extension_from_format, qcolor_to_hex
 
 commandline_args = CommandlineArgs()
 logger = getLogger(__name__)
+
+
+@dataclass
+class DialogOptions:
+    label: str
+    delay_ms: int = 300
 
 
 class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
@@ -204,6 +211,23 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self._drain_dirty = True
         self._check_viewport_and_load()
 
+    def run_async(
+        self,
+        func: Callable[..., None],
+        *args: Any,
+        on_finished: Callable[[fileio.IOResult], None],
+        dialog: DialogOptions | None = None,
+    ) -> None:
+        """Run a function on a background thread with optional progress dialog."""
+        self.worker = fileio.ThreadedIO(func, *args)
+        self.worker.finished.connect(on_finished)
+        if dialog is not None:
+            self.progress = widgets.ZeeProgressDialog(
+                dialog.label, worker=self.worker, parent=self
+            )
+            self.progress.setMinimumDuration(dialog.delay_ms)
+        self.worker.start()
+
     def drain_tick(self) -> None:
         """Periodic drain: write scene state to the .swp file."""
         if not self._drain_dirty:
@@ -214,13 +238,12 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             return
         self._drain_dirty = False
         snapshots = self.scene.snapshot_for_save()
-        self.worker = fileio.ThreadedIO(
+        self.run_async(
             fileio.drain_zref,
             self.scene._scratch_file,
             snapshots,
+            on_finished=self.on_drain_finished,
         )
-        self.worker.finished.connect(self.on_drain_finished)
-        self.worker.start()
 
     def on_drain_finished(self, result: fileio.IOResult) -> None:
         """Handle drain completion."""
@@ -528,12 +551,13 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
     def open_from_file(self, filename: Path) -> None:
         logger.info(f"Opening file {filename}")
         self.clear_scene()
-        self.worker = fileio.ThreadedIO(fileio.load_zref_metadata, filename, self.scene)
-        self.worker.finished.connect(self.on_loading_finished)
-        self.progress = widgets.ZeeProgressDialog(
-            f"Loading {filename}", worker=self.worker, parent=self
+        self.run_async(
+            fileio.load_zref_metadata,
+            filename,
+            self.scene,
+            on_finished=self.on_loading_finished,
+            dialog=DialogOptions(label=f"Loading {filename}"),
         )
-        self.worker.start()
 
     def on_action_open(self) -> None:
         confirm = self.get_confirmation_unsaved_changes(
@@ -582,17 +606,14 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         # Snapshot scene state on the main thread before handing to
         # the background thread — no Qt objects cross the boundary
         snapshots = self.scene.snapshot_for_save()
-        self.worker = fileio.ThreadedIO(
+        self.run_async(
             fileio.save_zref,
             filename,
             snapshots,
             self.scene._scratch_file,
+            on_finished=self.on_saving_finished,
+            dialog=DialogOptions(label=f"Saving {filename}"),
         )
-        self.worker.finished.connect(self.on_saving_finished)
-        self.progress = widgets.ZeeProgressDialog(
-            f"Saving {filename}", worker=self.worker, parent=self
-        )
-        self.worker.start()
 
     def on_action_save_as(self) -> None:
         self.cancel_active_modes()
@@ -643,12 +664,12 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         if not exporter.get_user_input(self):
             return
 
-        self.worker = fileio.ThreadedIO(exporter.export, path)
-        self.worker.finished.connect(self.on_export_finished)
-        self.progress = widgets.ZeeProgressDialog(
-            f"Exporting {filename}", worker=self.worker, parent=self
+        self.run_async(
+            exporter.export,
+            path,
+            on_finished=self.on_export_finished,
+            dialog=DialogOptions(label=f"Exporting {filename}"),
         )
-        self.worker.start()
 
     def on_export_finished(self, result: fileio.IOResult) -> None:
         if result.errors:
@@ -721,16 +742,14 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             pos = self.get_view_center()
         self.scene.deselect_all_items()
         self.undo_stack.beginMacro("Insert Images")
-        self.worker = fileio.ThreadedIO(
-            fileio.load_images, filenames, self.mapToScene(pos), self.scene
+        self.run_async(
+            fileio.load_images,
+            filenames,
+            self.mapToScene(pos),
+            self.scene,
+            on_finished=partial(self.on_insert_images_finished, not self.scene.items()),
+            dialog=DialogOptions(label="Loading images"),
         )
-        self.worker.finished.connect(
-            partial(self.on_insert_images_finished, not self.scene.items())
-        )
-        self.progress = widgets.ZeeProgressDialog(
-            "Loading images", worker=self.worker, parent=self
-        )
-        self.worker.start()
 
     def on_action_insert_images(self) -> None:
         self.cancel_active_modes()
