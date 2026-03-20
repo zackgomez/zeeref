@@ -220,11 +220,11 @@ def _migrate_to_tile_pyramids(io):
             (image_id,),
         )
         # Insert full pyramid
-        for tile_pil, level, col, row in generate_tiles(pil_img):
+        for tile_qimg, level, col, row in generate_tiles(pil_img):
             io.ex(
                 "INSERT INTO tiles (image_id, level, col, row, data) "
                 "VALUES (?, ?, ?, ?, ?)",
-                (image_id, level, col, row, encode_tile(tile_pil, fmt)),
+                (image_id, level, col, row, encode_tile(tile_qimg, fmt)),
             )
 
 

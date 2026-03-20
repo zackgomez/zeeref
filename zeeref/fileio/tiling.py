@@ -18,51 +18,66 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from io import BytesIO
 from math import ceil
 
 from PIL import Image
+from PyQt6 import QtCore, QtGui
 
 TILE_SIZE = 512
 
 
+def _pil_to_qimage(pil_img: Image.Image) -> QtGui.QImage:
+    """Convert a PIL Image to a QImage."""
+    if pil_img.mode == "RGBA":
+        fmt = QtGui.QImage.Format.Format_RGBA8888
+        channels = 4
+    else:
+        pil_img = pil_img.convert("RGB")
+        fmt = QtGui.QImage.Format.Format_RGB888
+        channels = 3
+    data = pil_img.tobytes()
+    stride = channels * pil_img.width
+    qimg = QtGui.QImage(data, pil_img.width, pil_img.height, stride, fmt)
+    return qimg.copy()
+
+
 def generate_tiles(
     pil_img: Image.Image,
-) -> Iterator[tuple[Image.Image, int, int, int]]:
-    """Yield (tile_pil, level, col, row) for each tile in the pyramid.
+) -> Iterator[tuple[QtGui.QImage, int, int, int]]:
+    """Yield (tile_qimage, level, col, row) for each tile in the pyramid.
 
     Level 0 is full resolution. Each subsequent level halves the image.
+    Uses Qt for scaling (fast) and cropping.
     Stops after the first level where the entire image fits in one tile.
     """
+    current = _pil_to_qimage(pil_img)
     level = 0
-    current = pil_img
     while True:
-        w, h = current.size
-        cols = ceil(w / TILE_SIZE)
-        rows = ceil(h / TILE_SIZE)
-        for row in range(rows):
-            for col in range(cols):
-                x0 = col * TILE_SIZE
-                y0 = row * TILE_SIZE
-                x1 = min(x0 + TILE_SIZE, w)
-                y1 = min(y0 + TILE_SIZE, h)
-                tile = current.crop((x0, y0, x1, y1))
+        w = current.width()
+        h = current.height()
+        for row in range(ceil(h / TILE_SIZE)):
+            for col in range(ceil(w / TILE_SIZE)):
+                tw = min(TILE_SIZE, w - col * TILE_SIZE)
+                th = min(TILE_SIZE, h - row * TILE_SIZE)
+                tile = current.copy(col * TILE_SIZE, row * TILE_SIZE, tw, th)
                 yield (tile, level, col, row)
         if w <= TILE_SIZE and h <= TILE_SIZE:
             break
-        current = current.resize(
-            (max(1, w >> 1), max(1, h >> 1)),
-            Image.Resampling.LANCZOS,
+        current = current.scaled(
+            max(1, w >> 1),
+            max(1, h >> 1),
+            transformMode=QtCore.Qt.TransformationMode.SmoothTransformation,
         )
         level += 1
 
 
-def encode_tile(tile: Image.Image, fmt: str) -> bytes:
-    """Encode a PIL tile image to bytes."""
-    buf = BytesIO()
-    save_fmt = "JPEG" if fmt == "jpeg" else "PNG"
-    tile.save(buf, save_fmt, quality=90)
-    return buf.getvalue()
+def encode_tile(tile: QtGui.QImage, fmt: str) -> bytes:
+    """Encode a QImage tile to bytes."""
+    buf = QtCore.QByteArray()
+    buffer = QtCore.QBuffer(buf)
+    buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+    tile.save(buffer, "JPEG" if fmt == "jpeg" else "PNG", quality=90)
+    return buf.data()
 
 
 def pick_format(pil_img: Image.Image) -> str:

@@ -213,9 +213,11 @@ def _insert_image(
         (image_id, w, h, fmt),
     )
 
-    def _encode(args: tuple[Image.Image, int, int, int]) -> tuple[int, int, int, bytes]:
-        tile_pil, level, col, row = args
-        return (level, col, row, encode_tile(tile_pil, fmt))
+    def _encode(
+        args: tuple[QtGui.QImage, int, int, int],
+    ) -> tuple[int, int, int, bytes]:
+        tile_qimg, level, col, row = args
+        return (level, col, row, encode_tile(tile_qimg, fmt))
 
     tile_count = 0
     with ThreadPoolExecutor() as pool:

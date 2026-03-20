@@ -37,6 +37,7 @@ def _ensure_srgb(pil_img: Image.Image) -> Image.Image:
 
     if pil_img.mode == "CMYK":
         if icc:
+            logger.debug("_ensure_srgb: CMYK with ICC profile, converting")
             src = ImageCms.ImageCmsProfile(io.BytesIO(icc))
             dst = ImageCms.ImageCmsProfile(SRGB_PROFILE)
             result = ImageCms.profileToProfile(pil_img, src, dst, outputMode="RGB")
@@ -47,6 +48,7 @@ def _ensure_srgb(pil_img: Image.Image) -> Image.Image:
             return pil_img.convert("RGB")
 
     if icc and pil_img.mode in ("RGB", "RGBA"):
+        logger.debug("_ensure_srgb: RGB/RGBA with ICC profile, converting")
         try:
             src = ImageCms.ImageCmsProfile(io.BytesIO(icc))
             dst = ImageCms.ImageCmsProfile(SRGB_PROFILE)
@@ -58,17 +60,28 @@ def _ensure_srgb(pil_img: Image.Image) -> Image.Image:
         except ImageCms.PyCMSError:
             logger.debug("ICC profile conversion failed, using image as-is")
 
+    logger.debug("_ensure_srgb: no conversion needed")
     return pil_img
 
 
 def load_pil(path: Path) -> Image.Image | None:
     """Load image via Pillow with EXIF rotation and color management.
     Returns a PIL Image, or None if loading fails."""
+    import time
+
     try:
+        t0 = time.monotonic()
         pil_img = Image.open(path)
+        t1 = time.monotonic()
         pil_img = ImageOps.exif_transpose(pil_img)
+        t2 = time.monotonic()
         pil_img = _ensure_srgb(pil_img)
+        t3 = time.monotonic()
         pil_img.load()
+        t4 = time.monotonic()
+        logger.debug(
+            f"load_pil: open={t1 - t0:.3f}s exif={t2 - t1:.3f}s srgb={t3 - t2:.3f}s load={t4 - t3:.3f}s"
+        )
         return pil_img
     except Exception:
         logger.debug(f"Failed to load image: {path}")
