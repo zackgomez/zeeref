@@ -441,9 +441,6 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             commands.ResetTransforms(self.scene.selectedItems(user_only=True))
         )
 
-    def on_action_show_color_gamut(self) -> None:
-        widgets.color_gamut.GamutDialog(self, self.scene.selectedItems()[0])
-
     def on_action_sample_color(self) -> None:
         self.cancel_active_modes()
         logger.debug("Entering sample color mode")

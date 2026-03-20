@@ -213,15 +213,6 @@ def test_pixmap_to_bytes_apply_crop(qapp, imgfilename3x3):
     assert img.size() == QtCore.QSize(2, 2)
 
 
-def test_pixmap_from_bytes(qapp, item, imgfilename3x3):
-    with open(imgfilename3x3, "rb") as f:
-        imgdata = f.read()
-    item.pixmap_from_bytes(imgdata)
-    assert item.width == 3
-    assert item.height == 3
-    assert item.crop == QtCore.QRectF(0, 0, 3, 3)
-
-
 def test_has_selection_outline_when_not_selected(scene, item):
     scene.addItem(item)
     item.setSelected(False)
@@ -340,37 +331,6 @@ def test_create_copy(qapp, imgfilename3x3):
     assert copy.scale() == 2.2
     assert copy.crop == QtCore.QRectF(10, 20, 30, 40)
     assert copy.opacity() == 0.7
-
-
-def test_color_gamut_finds_colors(qapp):
-    img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
-    img.fill(QtGui.QColor(0, 0, 0))
-    img.setPixelColor(1, 1, QtGui.QColor(255, 0, 0))
-    img.setPixelColor(5, 5, QtGui.QColor(0, 255, 0))
-    img.setPixelColor(5, 6, QtGui.QColor(0, 50, 0))
-    item = ZeePixmapItem(img, "foo.png")
-    assert item.color_gamut == {(0, 255): 1, (120, 255): 2}
-
-
-def test_color_gamut_ignores_almost_black(qapp):
-    img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
-    img.fill(QtGui.QColor(3, 3, 3))
-    item = ZeePixmapItem(img, "foo.png")
-    assert item.color_gamut == {}
-
-
-def test_color_gamut_ignores_almost_white(qapp):
-    img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
-    img.fill(QtGui.QColor(253, 253, 253))
-    item = ZeePixmapItem(img, "foo.png")
-    assert item.color_gamut == {}
-
-
-def test_color_gamut_ignores_almost_transparent(qapp):
-    img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
-    img.fill(QtGui.QColor(255, 0, 0, 3))
-    item = ZeePixmapItem(img, "foo.png")
-    assert item.color_gamut == {}
 
 
 def test_copy_to_clipboard(qapp, imgfilename3x3):

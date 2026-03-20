@@ -286,12 +286,6 @@ actions = ActionList(
             group="active_when_selection",
         ),
         Action(
-            id="show_color_gamut",
-            text="Show &Color Gamut",
-            callback="on_action_show_color_gamut",
-            group="active_when_single_image",
-        ),
-        Action(
             id="sample_color",
             text="Sample Color",
             shortcuts=["S"],

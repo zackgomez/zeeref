@@ -14,7 +14,6 @@
 # along with ZeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
 from zeeref.widgets import (  # noqa: F401
-    color_gamut,
     common,
     controls,
     debuglog,
