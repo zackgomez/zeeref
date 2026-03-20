@@ -4,7 +4,7 @@ from io import BytesIO
 
 from PIL import Image
 
-USER_VERSION = 5
+USER_VERSION = 6
 APPLICATION_ID = 2060242126
 
 
@@ -192,6 +192,42 @@ def _migrate_to_images_and_tiles(io):
     io.ex("ALTER TABLE items_new RENAME TO items")
 
 
+def _migrate_to_tile_pyramids(io):
+    """Generate tile pyramids for images stored as a single blob.
+
+    v5 stores each image as one tile at (image_id, 0, 0, 0).
+    v6 chops level 0 into 512x512 grid tiles and adds downsampled levels.
+    """
+    from zeeref.fileio.tiling import encode_tile, generate_tiles, pick_format
+
+    rows = io.fetchall(
+        "SELECT image_id, data FROM tiles WHERE level = 0 AND col = 0 AND row = 0"
+    )
+    for image_id, blob in rows:
+        if blob is None:
+            continue
+        try:
+            pil_img = Image.open(BytesIO(blob))
+            pil_img.load()
+        except Exception:
+            continue
+        fmt = pick_format(pil_img)
+        # Update format in images table
+        io.ex("UPDATE images SET format = ? WHERE id = ?", (fmt, image_id))
+        # Delete the single legacy tile
+        io.ex(
+            "DELETE FROM tiles WHERE image_id = ?",
+            (image_id,),
+        )
+        # Insert full pyramid
+        for tile_pil, level, col, row in generate_tiles(pil_img):
+            io.ex(
+                "INSERT INTO tiles (image_id, level, col, row, data) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (image_id, level, col, row, encode_tile(tile_pil, fmt)),
+            )
+
+
 MIGRATIONS = {
     2: [
         lambda io: io.ex("ALTER TABLE items ADD COLUMN data JSON"),
@@ -207,5 +243,8 @@ MIGRATIONS = {
     ],
     5: [
         _migrate_to_images_and_tiles,
+    ],
+    6: [
+        _migrate_to_tile_pyramids,
     ],
 }
