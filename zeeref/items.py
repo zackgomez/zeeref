@@ -383,12 +383,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         qimg = QtGui.QImage(data, pil_img.width, pil_img.height, stride, fmt)
         return QtGui.QPixmap.fromImage(qimg.copy())
 
-    def setPixmap(self, pixmap: QtGui.QPixmap) -> None:
-        super().setPixmap(pixmap)
-        self._image_width = pixmap.width()
-        self._image_height = pixmap.height()
-        self.reset_crop()
-
     @property
     def _max_level(self) -> int:
         if self._image_width == 0 or self._image_height == 0:
@@ -458,7 +452,9 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         for row in range(num_rows):
             for col in range(num_cols):
                 keys.add(TileKey(self.image_id, level, col, row))
-        get_tile_cache().request(keys)
+        hits = get_tile_cache().request(keys)
+        for key, pixmap in hits.items():
+            self.on_tile_loaded(key, pixmap)
 
     def _remove_all_tile_children(self) -> None:
         """Remove all tile child items from the scene."""
@@ -506,8 +502,12 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             self.update()
 
     def create_copy(self) -> ZeePixmapItem:
-        item = ZeePixmapItem(QtGui.QImage(), self.filename)
-        item.setPixmap(self.pixmap())
+        item = ZeePixmapItem(QtGui.QImage())
+        item.image_id = self.image_id
+        item._image_width = self._image_width
+        item._image_height = self._image_height
+        item._crop = QtCore.QRectF(0, 0, self._image_width, self._image_height)
+        item.filename = self.filename
         item.setPos(self.pos())
         item.setZValue(self.zValue())
         item.setScale(self.scale())
@@ -789,39 +789,25 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             bottomright = self.crop_temp.bottomRight()
         if handle == self.crop_handle_bottomleft:
             topleft = QtCore.QPointF(0, self.crop_temp.top())
-            bottomright = QtCore.QPointF(
-                self.crop_temp.right(), self.pixmap().size().height()
-            )
+            bottomright = QtCore.QPointF(self.crop_temp.right(), self._image_height)
         if handle == self.crop_handle_bottomright:
             topleft = self.crop_temp.topLeft()
-            bottomright = QtCore.QPointF(
-                self.pixmap().size().width(), self.pixmap().size().height()
-            )
+            bottomright = QtCore.QPointF(self._image_width, self._image_height)
         if handle == self.crop_handle_topright:
             topleft = QtCore.QPointF(self.crop_temp.left(), 0)
-            bottomright = QtCore.QPointF(
-                self.pixmap().size().width(), self.crop_temp.bottom()
-            )
+            bottomright = QtCore.QPointF(self._image_width, self.crop_temp.bottom())
         if handle == self.crop_edge_top:
             topleft = QtCore.QPointF(0, 0)
-            bottomright = QtCore.QPointF(
-                self.pixmap().size().width(), self.crop_temp.bottom()
-            )
+            bottomright = QtCore.QPointF(self._image_width, self.crop_temp.bottom())
         if handle == self.crop_edge_bottom:
             topleft = QtCore.QPointF(0, self.crop_temp.top())
-            bottomright = QtCore.QPointF(
-                self.pixmap().size().width(), self.pixmap().size().height()
-            )
+            bottomright = QtCore.QPointF(self._image_width, self._image_height)
         if handle == self.crop_edge_left:
             topleft = QtCore.QPointF(0, 0)
-            bottomright = QtCore.QPointF(
-                self.crop_temp.right(), self.pixmap().size().height()
-            )
+            bottomright = QtCore.QPointF(self.crop_temp.right(), self._image_height)
         if handle == self.crop_edge_right:
             topleft = QtCore.QPointF(self.crop_temp.left(), 0)
-            bottomright = QtCore.QPointF(
-                self.pixmap().size().width(), self.pixmap().size().height()
-            )
+            bottomright = QtCore.QPointF(self._image_width, self._image_height)
 
         point.setX(min(bottomright.x(), max(topleft.x(), point.x())))
         point.setY(min(bottomright.y(), max(topleft.y(), point.y())))

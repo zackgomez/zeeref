@@ -104,14 +104,17 @@ class TileCache(QtCore.QObject):
         self._in_frame = False
         self._evict()
 
-    def request(self, keys: set[TileKey]) -> None:
-        """Request specific tiles. Bumps loaded ones in LRU, queues missing."""
+    def request(self, keys: set[TileKey]) -> dict[TileKey, QtGui.QPixmap]:
+        """Request tiles. Returns cached ones immediately, queues the rest."""
         self._visible = self._visible | keys
+        hits: dict[TileKey, QtGui.QPixmap] = {}
         for key in keys:
             if key in self._lru:
                 self._lru.move_to_end(key)
+                hits[key] = self._lru[key]
             else:
                 self._loader.request_load(key)
+        return hits
 
     def stop(self) -> None:
         self._loader.stop()
