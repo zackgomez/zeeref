@@ -198,23 +198,38 @@ def _insert_image(
     scene: ZeeGraphicsScene,
 ) -> PixmapItemSnapshot:
     """Write tiles to .swp and queue a snapshot for the main thread."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     from zeeref.fileio.tiling import encode_tile, generate_tiles, pick_format
 
+    t0 = time.monotonic()
     image_id = uuid.uuid4().hex
     w, h = pil_img.size
     fmt = pick_format(pil_img)
+    logger.debug(f"_insert_image: {w}x{h} fmt={fmt}")
 
     io.ex(
         "INSERT INTO images (id, width, height, format) VALUES (?, ?, ?, ?)",
         (image_id, w, h, fmt),
     )
-    for tile_pil, level, col, row in generate_tiles(pil_img):
-        io.ex(
-            "INSERT INTO tiles (image_id, level, col, row, data) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (image_id, level, col, row, encode_tile(tile_pil, fmt)),
-        )
+
+    def _encode(args: tuple[Image.Image, int, int, int]) -> tuple[int, int, int, bytes]:
+        tile_pil, level, col, row = args
+        return (level, col, row, encode_tile(tile_pil, fmt))
+
+    tile_count = 0
+    with ThreadPoolExecutor() as pool:
+        futures = [pool.submit(_encode, args) for args in generate_tiles(pil_img)]
+        for future in as_completed(futures):
+            level, col, row, data = future.result()
+            io.ex(
+                "INSERT INTO tiles (image_id, level, col, row, data) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (image_id, level, col, row, data),
+            )
+            tile_count += 1
     io.connection.commit()
+    logger.debug(f"_insert_image: {tile_count} tiles in {time.monotonic() - t0:.3f}s")
 
     snap = PixmapItemSnapshot(
         save_id=uuid.uuid4().hex,
@@ -250,11 +265,13 @@ def insert_image_files(
     io = SQLiteIO(scene._scratch_file)
 
     for i, raw_filename in enumerate(filenames):
+        t_load = time.monotonic()
         logger.info(f"Loading image from file {raw_filename}")
         load_path: Path | QtCore.QUrl = (
             Path(raw_filename) if isinstance(raw_filename, str) else raw_filename
         )
         pil_img, filename = load_pil_from_source(load_path)
+        logger.debug(f"insert_image_files: load took {time.monotonic() - t_load:.3f}s")
         worker.progress.emit(i)
         if pil_img is None:
             logger.info(f"Could not load file {filename}")

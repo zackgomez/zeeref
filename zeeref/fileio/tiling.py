@@ -50,11 +50,8 @@ def generate_tiles(
                 yield (tile, level, col, row)
         if w <= TILE_SIZE and h <= TILE_SIZE:
             break
-        current = pil_img.resize(
-            (
-                max(1, pil_img.width >> (level + 1)),
-                max(1, pil_img.height >> (level + 1)),
-            ),
+        current = current.resize(
+            (max(1, w >> 1), max(1, h >> 1)),
             Image.Resampling.LANCZOS,
         )
         level += 1
