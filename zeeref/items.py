@@ -395,10 +395,11 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             get_tile_cache().unsubscribe(self.image_id, self)
             self._subscribed = False
 
-    def update_visible_tiles(self) -> None:
+    def update_visible_tiles(self, viewport_rect: QtCore.QRectF) -> None:
         """Compute and request needed tiles for the current viewport.
 
         Called by the view for each visible item during viewport checks.
+        viewport_rect is in scene coordinates.
         """
         from math import ceil, floor, log2
 
@@ -431,16 +432,27 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             self._remove_all_tile_children()
             self._current_level = level
 
-        # Compute tile grid dimensions at this level
+        # Convert viewport rect to item-local coords
+        local_rect = self.mapRectFromScene(viewport_rect)
+
+        # Tile size in image coords at this level
+        tile_extent = TILE_SIZE * (1 << level)
+
+        # Compute which tiles intersect the viewport
+        # Pad by one tile to avoid edge flickering from rounding
+        col_min = max(0, int(local_rect.left() / tile_extent) - 1)
+        col_max = int(ceil(local_rect.right() / tile_extent)) + 1
+        row_min = max(0, int(local_rect.top() / tile_extent) - 1)
+        row_max = int(ceil(local_rect.bottom() / tile_extent)) + 1
+
         level_w = max(1, self._image_width >> level)
         level_h = max(1, self._image_height >> level)
-        num_cols = ceil(level_w / TILE_SIZE)
-        num_rows = ceil(level_h / TILE_SIZE)
+        max_col = ceil(level_w / TILE_SIZE)
+        max_row = ceil(level_h / TILE_SIZE)
 
-        # Request all tiles at this level
         keys: set[TileKey] = set()
-        for row in range(num_rows):
-            for col in range(num_cols):
+        for row in range(row_min, min(row_max, max_row)):
+            for col in range(col_min, min(col_max, max_col)):
                 keys.add(TileKey(self.image_id, level, col, row))
         hits = get_tile_cache().request(keys)
         for key, pixmap in hits.items():

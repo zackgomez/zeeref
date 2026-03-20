@@ -541,7 +541,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         cache.begin_frame()
         for item in self.scene.items(viewport_rect):
             if isinstance(item, ZeePixmapItem):
-                item.update_visible_tiles()
+                item.update_visible_tiles(viewport_rect)
         cache.end_frame()
 
     def on_action_open_recent_file(self, filename: str) -> None:
