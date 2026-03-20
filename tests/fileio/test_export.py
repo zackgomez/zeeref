@@ -1,19 +1,9 @@
-import pytest
-
 from zeeref.fileio.export import (
     exporter_registry,
     SceneToPixmapExporter,
-    SceneToSVGExporter,
 )
 
 
-@pytest.mark.parametrize(
-    "key,expected",
-    [
-        ("png", SceneToPixmapExporter),
-        ("jpg", SceneToPixmapExporter),
-        ("svg", SceneToSVGExporter),
-    ],
-)
-def test_registry(key, expected):
-    exporter_registry[key] == expected
+def test_registry():
+    assert exporter_registry["png"] == SceneToPixmapExporter
+    assert exporter_registry["jpg"] == SceneToPixmapExporter

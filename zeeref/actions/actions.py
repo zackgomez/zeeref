@@ -155,12 +155,6 @@ actions = ActionList(
             group="active_when_items_in_scene",
         ),
         Action(
-            id="export_images",
-            text="Export &Images...",
-            callback="on_action_export_images",
-            group="active_when_items_in_scene",
-        ),
-        Action(
             id="quit",
             text="&Quit",
             shortcuts=["Ctrl+Q"],
