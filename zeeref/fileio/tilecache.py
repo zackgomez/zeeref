@@ -112,8 +112,6 @@ class TileCache(QtCore.QObject):
                 self._lru.move_to_end(key)
             else:
                 self._loader.request_load(key)
-        if not self._in_frame:
-            self._evict()
 
     def stop(self) -> None:
         self._loader.stop()
@@ -144,7 +142,6 @@ class TileCache(QtCore.QObject):
         self._lru.move_to_end(key)
         logger.debug(f"Tile loaded: {key}")
         self._notify_loaded(key, pixmap)
-        self._evict()
 
     def _evict(self) -> None:
         """Evict oldest tiles over capacity, skipping visible ones."""
@@ -154,7 +151,9 @@ class TileCache(QtCore.QObject):
                 self._lru[key] = pixmap
                 self._lru.move_to_end(key)
                 break
-            logger.debug(f"Tile evicted: {key}")
+            logger.info(
+                f"Tile evicted: {key} (lru={len(self._lru)}, cap={self._capacity}, visible={len(self._visible)})"
+            )
             self._notify_unloaded(key)
 
 

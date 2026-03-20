@@ -37,6 +37,7 @@ from zeeref import commands
 from zeeref.config import ZeeSettings
 from zeeref.constants import COLORS
 from zeeref.fileio.tilecache import get_tile_cache
+from zeeref.fileio.tiling import TILE_SIZE
 from zeeref.types.tile import TileKey
 from zeeref.types.snapshot import ErrorItemSnapshot, ItemSnapshot, PixmapItemSnapshot
 from zeeref.selection import SelectableMixin
@@ -183,8 +184,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
     TYPE = "pixmap"
     CROP_HANDLE_SIZE: int = 15
 
-    MIP_MIN_DIM: int = 128
-
     crop_temp: QtCore.QRectF | None
     crop_mode_move: Callable[[], QtCore.QRectF] | None
     crop_mode_event_start: QtCore.QPointF | None
@@ -196,16 +195,16 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.save_id: str = uuid.uuid4().hex
         self.created_at: float = time.time()
         self.filename = filename
-        self._mip_chain: list[tuple[QtGui.QPixmap, float]] = []
         self.is_image = True
         self.crop_mode: bool = False
         self._placeholder: bool = False
         self._subscribed: bool = False
+        self._tile_children: dict[TileKey, QtWidgets.QGraphicsPixmapItem] = {}
+        self._current_level: int = 0
         pm = self.pixmap()
         self._image_width: int = pm.width()
         self._image_height: int = pm.height()
         self.reset_crop()
-        self._generate_mips()
         self.image_id: str = uuid.uuid4().hex
         self.init_selectable()
         self.settings = ZeeSettings()
@@ -386,61 +385,21 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         qimg = QtGui.QImage(data, pil_img.width, pil_img.height, stride, fmt)
         return QtGui.QPixmap.fromImage(qimg.copy())
 
-    def _generate_mips(self) -> None:
-        """Pre-compute half-res mip levels using Pillow LANCZOS."""
-        pm = self.pixmap()
-        if pm.isNull() or min(pm.width(), pm.height()) < self.MIP_MIN_DIM * 2:
-            self._mip_chain = []
-            return
-
-        pil_img = self._qpixmap_to_pil(pm)
-        self._mip_chain = []
-        level = 1
-        while True:
-            new_w = pm.width() >> level
-            new_h = pm.height() >> level
-            if min(new_w, new_h) < self.MIP_MIN_DIM:
-                break
-            mip = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-            scale = 1 / (1 << level)
-            self._mip_chain.append((self._pil_to_qpixmap(mip), scale))
-            level += 1
-
     def setPixmap(self, pixmap: QtGui.QPixmap) -> None:
         super().setPixmap(pixmap)
         self._image_width = pixmap.width()
         self._image_height = pixmap.height()
         self.reset_crop()
-        self._generate_mips()
 
-    def load_pixmap(self, pixmap: QtGui.QPixmap) -> None:
-        """Transition from placeholder to loaded image.
+    @property
+    def _max_level(self) -> int:
+        if self._image_width == 0 or self._image_height == 0:
+            return 0
+        from math import floor, log2
 
-        Called on the main thread when the TileCache delivers a QPixmap.
-        Bypasses setPixmap() to avoid reset_crop / _generate_mips.
-        """
-        logger.debug(f"Loading pixmap for {self}")
-        saved_crop = QtCore.QRectF(self.crop)
-        super().setPixmap(pixmap)
-        self._image_width = pixmap.width()
-        self._image_height = pixmap.height()
-        self._mip_chain = []
-        self.crop = saved_crop
-        self._placeholder = False
-        self.prepareGeometryChange()
-        self.update()
-
-    def unload_pixmap(self) -> None:
-        """Revert from loaded image to placeholder, freeing memory.
-
-        Preserves _image_width/_image_height and crop.
-        """
-        logger.debug(f"Unloading pixmap for {self}")
-        self._placeholder = True
-        self._mip_chain = []
-        super().setPixmap(QtGui.QPixmap())
-        self.prepareGeometryChange()
-        self.update()
+        return max(
+            0, floor(log2(max(self._image_width, self._image_height) / TILE_SIZE))
+        )
 
     def _ensure_subscribed(self) -> None:
         """Lazily subscribe to tile cache on first visibility check."""
@@ -459,21 +418,94 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
 
         Called by the view for each visible item during viewport checks.
         """
+        from math import ceil, floor, log2
+
         self._ensure_subscribed()
-        key = TileKey(self.image_id, 0, 0, 0)
-        get_tile_cache().request({key})
+
+        # Compute effective scale (view zoom × item scale)
+        scene = self.scene()
+        if scene is None:
+            return
+        views = scene.views()
+        if not views:
+            return
+        view_scale = abs(views[0].transform().m11())
+        effective_scale = view_scale * self.scale()
+
+        # Pick level
+        if effective_scale > 0:
+            level = max(0, floor(-log2(effective_scale)))
+        else:
+            level = 0
+        level = min(level, self._max_level)
+
+        # If level changed, remove old tile children
+        if level != self._current_level:
+            logger.info(
+                f"Level change {self._current_level} -> {level} for {self.image_id[:8]} "
+                f"(effective_scale={effective_scale:.4f}, view_scale={view_scale:.4f}, "
+                f"item_scale={self.scale():.4f}, max_level={self._max_level})"
+            )
+            self._remove_all_tile_children()
+            self._current_level = level
+
+        # Compute tile grid dimensions at this level
+        level_w = max(1, self._image_width >> level)
+        level_h = max(1, self._image_height >> level)
+        num_cols = ceil(level_w / TILE_SIZE)
+        num_rows = ceil(level_h / TILE_SIZE)
+
+        # Request all tiles at this level
+        keys: set[TileKey] = set()
+        for row in range(num_rows):
+            for col in range(num_cols):
+                keys.add(TileKey(self.image_id, level, col, row))
+        get_tile_cache().request(keys)
+
+    def _remove_all_tile_children(self) -> None:
+        """Remove all tile child items from the scene."""
+        for child in self._tile_children.values():
+            scene = child.scene()
+            if scene is not None:
+                scene.removeItem(child)
+        self._tile_children.clear()
+        self._placeholder = True
+        self.update()
 
     def on_tile_loaded(self, key: TileKey, pixmap: QtGui.QPixmap) -> None:
-        self.load_pixmap(pixmap)
+        # Ignore tiles for a different level than what we're currently showing
+        if key.level != self._current_level:
+            return
+        # Create or update child pixmap item
+        if key in self._tile_children:
+            self._tile_children[key].setPixmap(pixmap)
+        else:
+            child = QtWidgets.QGraphicsPixmapItem(pixmap, self)
+            child.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+            child.setFlag(
+                QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False
+            )
+            # Position in image coords: tile covers TILE_SIZE pixels at the
+            # level resolution, which maps to TILE_SIZE * 2^level in full-res
+            scale_factor = 1 << key.level
+            child.setPos(
+                key.col * TILE_SIZE * scale_factor, key.row * TILE_SIZE * scale_factor
+            )
+            child.setScale(scale_factor)
+            self._tile_children[key] = child
+        self._placeholder = False
+        logger.debug(f"Tile child added: {key}")
 
     def on_tile_unloaded(self, key: TileKey) -> None:
-        self.unload_pixmap()
-
-    def pixmap_from_bytes(self, data: bytes) -> None:
-        """Set image pimap from a bytestring."""
-        pixmap = QtGui.QPixmap()
-        pixmap.loadFromData(data)
-        self.setPixmap(pixmap)
+        child = self._tile_children.pop(key, None)
+        if child is not None:
+            scene = child.scene()
+            if scene is not None:
+                scene.removeItem(child)
+            logger.debug(f"Tile child removed: {key}")
+        if not self._tile_children:
+            self._placeholder = True
+            self.update()
 
     def create_copy(self) -> ZeePixmapItem:
         item = ZeePixmapItem(QtGui.QImage(), self.filename)
@@ -675,19 +707,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         painter.setPen(pen)
         painter.drawRect(rect)
 
-    def _get_mip(
-        self, effective_scale: float
-    ) -> tuple[QtGui.QPixmap | None, float | None]:
-        """Pick the coarsest mip level that won't require upscaling."""
-        pm: QtGui.QPixmap | None = None
-        mip_scale: float | None = None
-        for mip_pm, ms in self._mip_chain:
-            if ms <= effective_scale:
-                break
-            pm = mip_pm
-            mip_scale = ms
-        return pm, mip_scale
-
     def has_selection_handles(self) -> bool:
         if self._placeholder:
             return False
@@ -713,53 +732,18 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(rect)
-            self.paint_selectable(painter, option, widget)
-            return
 
-        effective_scale = abs(painter.combinedTransform().m11())
-
-        if effective_scale < 2:
-            # We want image smoothing, but only for images where we
-            # are not zoomed in a lot. This is to ensure that for
-            # example icons and pixel sprites can be viewed correctly.
-            painter.setRenderHint(painter.RenderHint.SmoothPixmapTransform)
+        # Tile children paint themselves via Qt's parent-child mechanism.
+        # We only paint the selection overlay and crop UI here.
 
         if self.crop_mode:
             assert self.crop_temp is not None
             self.paint_debug(painter, option, widget)
-
-            # Darken image outside of cropped area
-            painter.drawPixmap(0, 0, self.pixmap())
-            path = QtWidgets.QGraphicsPixmapItem.shape(self)
-            path.addRect(self.crop_temp)
-            color = QtGui.QColor(0, 0, 0)
-            color.setAlpha(100)
-            painter.setBrush(QtGui.QBrush(color))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawPath(path)
-            painter.setBrush(QtGui.QBrush())
-
+            self.draw_crop_rect(painter, self.crop_temp)
             for handle in self.crop_handles():
                 self.draw_crop_rect(painter, handle())
-            self.draw_crop_rect(painter, self.crop_temp)
-        else:
-            pm = self.pixmap()
-            source_crop = self.crop
 
-            if effective_scale < 0.8 and self._mip_chain:
-                mip_pm, mip_scale = self._get_mip(effective_scale)
-                if mip_pm is not None:
-                    assert mip_scale is not None
-                    pm = mip_pm
-                    source_crop = QtCore.QRectF(
-                        self.crop.x() * mip_scale,
-                        self.crop.y() * mip_scale,
-                        self.crop.width() * mip_scale,
-                        self.crop.height() * mip_scale,
-                    )
-
-            painter.drawPixmap(self.crop, pm, source_crop)
-            self.paint_selectable(painter, option, widget)
+        self.paint_selectable(painter, option, widget)
 
     def enter_crop_mode(self) -> None:
         logger.debug(f"Entering crop mode on {self}")
