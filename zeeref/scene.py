@@ -37,7 +37,7 @@ from zeeref.items import (
     create_item_from_snapshot,
     sort_by_filename,
 )
-from zeeref.selection import MultiSelectItem, RubberbandItem
+from zeeref.selection import MultiSelectItem, RubberbandItem, SelectableMixin
 
 if TYPE_CHECKING:
     from zeeref.view import ZeeGraphicsView
@@ -339,11 +339,16 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
             if isinstance(item, ZeePixmapItem):
                 item.enter_crop_mode()
 
+    def user_item_at(self, pos: QtCore.QPointF) -> SelectableMixin | None:
+        """Like itemAt(), but walks up from tile children to the nearest
+        SelectableMixin (user items or MultiSelectItem)."""
+        item = self.itemAt(pos, self.views()[0].transform())
+        while item and not isinstance(item, SelectableMixin):
+            item = item.parentItem()
+        return item  # type: ignore[return-value]
+
     def sample_color_at(self, position: QtCore.QPointF) -> QtGui.QColor | None:
-        item_at_pos = self.itemAt(position, self.views()[0].transform())
-        # Walk up from tile children to the parent ZeePixmapItem
-        while item_at_pos and item_at_pos.parentItem():
-            item_at_pos = item_at_pos.parentItem()
+        item_at_pos = self.user_item_at(position)
         if isinstance(item_at_pos, ZeePixmapItem):
             return item_at_pos.sample_color_at(position)
         return None
@@ -390,7 +395,7 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
 
         if event.button() == Qt.MouseButton.LeftButton:
             self.event_start = event.scenePos()
-            item_at_pos = self.itemAt(event.scenePos(), self.views()[0].transform())
+            item_at_pos = self.user_item_at(event.scenePos())
 
             if self.edit_item:
                 if item_at_pos != self.edit_item:
@@ -416,13 +421,12 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
     ) -> None:
         self.cancel_active_modes()
         assert event is not None
-        item = self.itemAt(event.scenePos(), self.views()[0].transform())
+        item = self.user_item_at(event.scenePos())
         if item:
             if not item.isSelected():
                 item.setSelected(True)
-            zee_item = cast(Any, item)
-            if zee_item.is_editable:
-                zee_item.enter_edit_mode()
+            if isinstance(item, ZeeTextItem):
+                item.enter_edit_mode()
                 self.mousePressEvent(event)
             else:
                 view = cast("ZeeGraphicsView", self.views()[0])
@@ -458,7 +462,9 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
             if not delta.isNull():
                 self.undo_stack.push(
                     commands.MoveItemsBy(
-                        self.selectedItems(), delta, ignore_first_redo=True
+                        self.selectedItems(user_only=True),
+                        delta,
+                        ignore_first_redo=True,
                     )
                 )
         self.active_mode = None

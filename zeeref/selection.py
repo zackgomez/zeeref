@@ -194,7 +194,6 @@ class SelectableMixin(BaseItemMixin):
 
     viewport_scale: float
     active_mode: int | None
-    is_editable: bool
     _view_scale: float = 1
     event_start: QtCore.QPointF
     event_direction: QtCore.QPointF
@@ -227,7 +226,6 @@ class SelectableMixin(BaseItemMixin):
 
         self.viewport_scale = 1
         self.active_mode = None
-        self.is_editable = False
 
     def fixed_length_for_viewport(self, value: float) -> float:
         """The interactable areas need to stay the same size on the

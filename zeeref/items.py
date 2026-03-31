@@ -204,6 +204,10 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.reset_crop()
         self.image_id: str = uuid.uuid4().hex
         self.init_selectable()
+        self.setFlag(
+            QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemClipsChildrenToShape,
+            True,
+        )
         self.settings = ZeeSettings()
 
     def snapshot(self) -> PixmapItemSnapshot:
@@ -279,7 +283,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
 
     def bounding_rect_unselected(self) -> QtCore.QRectF:
         if self.crop_mode:
-            return QtWidgets.QGraphicsPixmapItem.boundingRect(self)
+            return QtCore.QRectF(0, 0, self._image_width, self._image_height)
         else:
             return self.crop
 
@@ -478,6 +482,10 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         child = QtWidgets.QGraphicsPixmapItem(pixmap, self)
         child.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
         child.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        child.setFlag(
+            QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent, True
+        )
+        child.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         # Position in image coords: tile covers TILE_SIZE pixels at the
         # level resolution, which maps to TILE_SIZE * 2^level in full-res
         scale_factor = 1 << key.level
@@ -671,15 +679,8 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
     ) -> None:
         assert painter is not None
 
-        # Background rect — visible where tile children haven't loaded yet.
-        # TODO: skip when all tiles are loaded, or make fully transparent
-        rect = self.crop
-        fill = QtGui.QColor(128, 128, 128, 50)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QtGui.QBrush(fill))
-        painter.drawRect(rect)
-
-        # Tile children paint themselves via Qt's parent-child mechanism.
+        # Tile children paint themselves behind the parent
+        # (ItemStacksBehindParent), so everything below here renders on top.
 
         if self.crop_mode:
             assert self.crop_temp is not None
@@ -799,7 +800,10 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
 
     def mouseMoveEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent | None) -> None:
         assert event is not None
-        if self.crop_mode and self.crop_mode_event_start is not None:
+        if self.crop_mode:
+            if self.crop_mode_event_start is None:
+                event.accept()
+                return
             assert self.crop_temp is not None
             diff = event.pos() - self.crop_mode_event_start
             if self.crop_mode_move == self.crop_handle_topleft:
@@ -880,7 +884,6 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         self.created_at: float = time.time()
         self.is_image = False
         self.init_selectable()
-        self.is_editable = True
         self.edit_mode: bool = False
         self._markdown: str = text or "Text"
         self._render_markdown()
@@ -1030,7 +1033,6 @@ class ZeeErrorItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         logger.debug(f"Initialized {self}")
         self.is_image = False
         self.init_selectable()
-        self.is_editable = False
         self.setDefaultTextColor(QtGui.QColor(*COLORS["Scene:Text"]))
 
     def snapshot(self) -> ErrorItemSnapshot:
