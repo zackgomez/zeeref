@@ -451,10 +451,6 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             self._tile_children = {}
             self._current_level = level
 
-        # Keep stale tiles alive in cache during transition
-        if self._stale_tile_children:
-            get_tile_cache().request(set(self._stale_tile_children.keys()))
-
         # Convert viewport rect to item-local coords
         local_rect = self.mapRectFromScene(viewport_rect)
 

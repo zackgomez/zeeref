@@ -16,45 +16,87 @@
 from __future__ import annotations
 
 import logging
-
+import os.path
+from functools import partial
 from PyQt6 import QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 
 from zeeref.config import ZeeSettings
 
-
 logger = logging.getLogger(__name__)
 
 
 class WelcomeOverlay(QtWidgets.QWidget):
-    """Some basic info to be displayed when the scene is empty.
-
-    This widget is purely visual — it sets WA_TransparentForMouseEvents
-    so all mouse events fall through to the ZeeGraphicsView underneath.
-    """
+    """Info displayed when the scene is empty, with recent file buttons."""
 
     txt = """<p>Paste or drop images here.</p>
              <p>Right-click for more options.</p>"""
 
-    def __init__(self, parent):
+    def __init__(self, parent: QtWidgets.QWidget):
         super().__init__(parent)
-        self.setAutoFillBackground(True)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.update_background_color()
+        from zeeref.view import ZeeGraphicsView
 
-    def update_background_color(self):
-        canvas_color = ZeeSettings().valueOrDefault("View/canvas_color")
-        palette = self.palette()
-        palette.setColor(self.backgroundRole(), QtGui.QColor(canvas_color))
-        self.setPalette(palette)
+        view = parent.parent()
+        assert isinstance(view, ZeeGraphicsView)
+        self.view: ZeeGraphicsView = view
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        # Help text
-        self.label = QtWidgets.QLabel(self.txt, self)
-        self.label.setAlignment(
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignCenter
-        )
-        lyt = QtWidgets.QHBoxLayout()
+        lyt = QtWidgets.QVBoxLayout()
+        lyt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.label = QtWidgets.QLabel(self.txt)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lyt.addStretch(50)
-        lyt.addWidget(self.label)
+        lyt.addWidget(self.label, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.recent_header = QtWidgets.QLabel("Recent Files")
+        self.recent_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.recent_header.setStyleSheet("QLabel { color: #888; margin-top: 16px; }")
+        lyt.addWidget(self.recent_header, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.recent_layout = QtWidgets.QVBoxLayout()
+        self.recent_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lyt.addLayout(self.recent_layout)
         lyt.addStretch(50)
+
         self.setLayout(lyt)
+        self._rebuild_recent_files()
+
+    def showEvent(self, event: QtGui.QShowEvent | None) -> None:
+        super().showEvent(event)
+        self._rebuild_recent_files()
+
+    def _rebuild_recent_files(self) -> None:
+        while self.recent_layout.count():
+            item = self.recent_layout.takeAt(0)
+            w = item.widget() if item else None
+            if w:
+                w.deleteLater()
+
+        files = ZeeSettings().get_recent_files(existing_only=True)[:3]
+        self.recent_header.setVisible(bool(files))
+
+        for filepath in files:
+            name = os.path.basename(filepath)
+            btn = QtWidgets.QPushButton(name)
+            btn.setToolTip(filepath)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setMinimumWidth(300)
+            btn.setStyleSheet("QPushButton { font-weight: normal; }")
+            btn.clicked.connect(partial(self._on_recent_clicked, filepath))
+            self.recent_layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    def _on_recent_clicked(self, filepath: str) -> None:
+        self.view.on_action_open_recent_file(filepath)
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent | None) -> None:
+        if event:
+            event.ignore()
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent | None) -> None:
+        if event:
+            event.ignore()
+
+    def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent | None) -> None:
+        if event:
+            event.ignore()

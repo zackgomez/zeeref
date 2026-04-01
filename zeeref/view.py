@@ -72,21 +72,22 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.parent: QtWidgets.QMainWindow = parent
         self.settings: ZeeSettings = ZeeSettings()
         self.keyboard_settings: KeyboardSettings = KeyboardSettings()
-        self.welcome_overlay: widgets.welcome_overlay.WelcomeOverlay = (
-            widgets.welcome_overlay.WelcomeOverlay(self)
-        )
-
         canvas_color = self.settings.valueOrDefault("View/canvas_color")
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(canvas_color)))
 
         def on_canvas_color_changed(color: str) -> None:
             self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(color)))
-            self.welcome_overlay.update_background_color()
 
         ZeeSettings.FIELDS["View/canvas_color"]["post_save_callback"] = (
             on_canvas_color_changed
         )
         self.setViewport(QOpenGLWidget())
+
+        vp = self.viewport()
+        assert vp is not None
+        self.welcome_overlay: widgets.welcome_overlay.WelcomeOverlay = (
+            widgets.welcome_overlay.WelcomeOverlay(vp)
+        )
         self.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -142,6 +143,10 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
                 self.do_insert_images(commandline_args.filenames)
 
         self.update_window_title()
+        if not self.scene.items():
+            self.welcome_overlay.resize(self.size())
+            self.welcome_overlay.show()
+            self.welcome_overlay.raise_()
 
     @property
     def filename(self) -> Path | None:
