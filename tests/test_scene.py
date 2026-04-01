@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt
 
 from zeeref import commands
 from zeeref.items import ZeePixmapItem, ZeeTextItem
+from zeeref.types.tile import TileKey
 
 
 def test_add_remove_item(scene, item):
@@ -623,15 +624,14 @@ def test_crop_item_when_not_image(scene):
     item.enter_crop_mode.assert_not_called()
 
 
-@pytest.mark.xfail(
-    reason="sample_color_at not yet implemented for tile-based rendering"
-)
 def test_sample_color_at_when_pixmap_item(view):
     color = QtGui.QColor(255, 0, 0, 3)
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(color)
     item = ZeePixmapItem(img, "foo.png")
     view.scene.addItem(item)
+    key = TileKey(item.image_id, 0, 0, 0)
+    item.on_tile_loaded(key, QtGui.QPixmap.fromImage(img))
     assert view.scene.sample_color_at(QtCore.QPointF(2, 2)) == color
 
 

@@ -278,8 +278,20 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.update()
 
     def sample_color_at(self, pos: QtCore.QPointF) -> QtGui.QColor | None:
-        # TODO: sample from tile children
-        return None
+        local = self.mapFromScene(pos)
+        scale = 1 << self._current_level
+        col = int(local.x()) // (TILE_SIZE * scale)
+        row = int(local.y()) // (TILE_SIZE * scale)
+        key = TileKey(self.image_id, self._current_level, col, row)
+        child = self._tile_children.get(key)
+        if child is None:
+            return None
+        px = (int(local.x()) // scale) % TILE_SIZE
+        py = (int(local.y()) // scale) % TILE_SIZE
+        color = child.pixmap().toImage().pixelColor(px, py)
+        if color.alpha() == 0:
+            return None
+        return color
 
     def bounding_rect_unselected(self) -> QtCore.QRectF:
         if self.crop_mode:

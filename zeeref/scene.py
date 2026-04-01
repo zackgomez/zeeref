@@ -493,8 +493,12 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
         return items
 
     def user_items(self) -> list[ZeeItemMixin]:
-        """Return only items added by the user (no tile children, UI overlays, etc.)."""
-        return [i for i in self.items() if isinstance(i, ZeeItemMixin)]
+        """Returns user-created items (excludes internal Qt items)."""
+        return [
+            i
+            for i in self.items(order=Qt.SortOrder.AscendingOrder)
+            if isinstance(i, ZeeItemMixin)
+        ]
 
     def items_by_type(self, itype: str) -> Iterator[ZeeItemMixin]:
         """Returns all items of the given type."""

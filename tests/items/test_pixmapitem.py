@@ -5,6 +5,7 @@ from PyQt6 import QtCore, QtGui
 from PyQt6.QtCore import Qt
 
 from zeeref.items import ZeePixmapItem, item_registry
+from zeeref.types.tile import TileKey
 
 
 def test_in_item_registry():
@@ -767,15 +768,14 @@ def test_mouse_release_event_when_not_crop_mode(mouse_mock, qapp, item):
     mouse_mock.assert_called_once_with(event)
 
 
-@pytest.mark.xfail(
-    reason="sample_color_at not yet implemented for tile-based rendering"
-)
 def test_sample_color_at_returns_color(qapp, scene):
     color = QtGui.QColor(255, 0, 0, 3)
     img = QtGui.QImage(10, 10, QtGui.QImage.Format.Format_ARGB32)
     img.fill(color)
     item = ZeePixmapItem(img, "foo.png")
     scene.addItem(item)
+    key = TileKey(item.image_id, 0, 0, 0)
+    item.on_tile_loaded(key, QtGui.QPixmap.fromImage(img))
     assert item.sample_color_at(QtCore.QPointF(2, 2)) == color
 
 
@@ -785,6 +785,8 @@ def test_sample_color_at_returns_none_when_fully_transparent(qapp, scene):
     img.fill(color)
     item = ZeePixmapItem(img, "foo.png")
     scene.addItem(item)
+    key = TileKey(item.image_id, 0, 0, 0)
+    item.on_tile_loaded(key, QtGui.QPixmap.fromImage(img))
     assert item.sample_color_at(QtCore.QPointF(2, 2)) is None
 
 
@@ -794,4 +796,6 @@ def test_sample_color_at_returns_none_when_transparent(qapp, scene):
     img.fill(color)
     item = ZeePixmapItem(img, "foo.png")
     scene.addItem(item)
+    key = TileKey(item.image_id, 0, 0, 0)
+    item.on_tile_loaded(key, QtGui.QPixmap.fromImage(img))
     assert item.sample_color_at(QtCore.QPointF(2, 2)) is None
