@@ -515,17 +515,6 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             set_tile_cache(None)
             self._has_tile_cache = False
 
-    def _restart_tile_cache(self) -> None:
-        """Restart the TileCache with the current .swp path.
-
-        Called after Save As renames the .swp file.
-        """
-        self._stop_tile_cache()
-        assert self.scene._scratch_file is not None
-        set_tile_cache(TileCache(self.scene._scratch_file))
-        self._has_tile_cache = True
-        self._check_viewport_and_load()
-
     def _check_viewport_and_load(self) -> None:
         """Tell visible items to request their tiles."""
         if not self._has_tile_cache:
@@ -600,7 +589,8 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             if self.scene._scratch_file != new_swp:
                 os.rename(self.scene._scratch_file, new_swp)
                 self.scene._scratch_file = new_swp
-                self._restart_tile_cache()
+                self._stop_tile_cache()
+                self._start_tile_cache()
 
     def do_save(self, filename: Path) -> None:
         if not fileio.is_zref_file(filename):
