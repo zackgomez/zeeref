@@ -190,7 +190,6 @@ class SelectableMixin(BaseItemMixin):
 
     SCALE_MODE: int = 1
     ROTATE_MODE: int = 2
-    FLIP_MODE: int = 3
 
     viewport_scale: float
     active_mode: int | None
@@ -290,8 +289,6 @@ class SelectableMixin(BaseItemMixin):
                 self.draw_debug_shape(
                     painter, self.get_rotate_bounds(corner), 0, 255, 255
                 )
-            for edge in self.get_flip_bounds():
-                self.draw_debug_shape(painter, edge["rect"], 255, 255, 0)
             self.draw_debug_shape(
                 painter, self.select_handle_free_center(), 255, 0, 255
             )
@@ -382,66 +379,6 @@ class SelectableMixin(BaseItemMixin):
         # https://bugreports.qt.io/browse/QTBUG-57567
         return path - self.get_scale_bounds(corner, margin=0.001)
 
-    def get_flip_bounds(self) -> list[dict[str, Any]]:
-        """The interactactable shape of the flip handles.
-
-        These stretch around the edge of the item filling the areas
-        between the scale handles, e.g. for the bottom right corner:
-
-          |F|
-        ──┼─┼─┐
-        FF│S│R│
-        ──┼─┘ │
-          │R R│
-          └───┘
-        """
-
-        outer_margin = self.select_resize_size / 2
-        inner_margin = self.select_resize_size / 2
-        origin = self.bounding_rect_unselected().topLeft()
-        return [
-            # top:
-            {
-                "rect": QtCore.QRectF(
-                    origin.x() + inner_margin,
-                    origin.y() - outer_margin,
-                    self.width - 2 * inner_margin,
-                    outer_margin + inner_margin,
-                ),
-                "flip_v": True,
-            },
-            # bottom:
-            {
-                "rect": QtCore.QRectF(
-                    origin.x() + inner_margin,
-                    origin.y() + self.height - inner_margin,
-                    self.width - 2 * inner_margin,
-                    outer_margin + inner_margin,
-                ),
-                "flip_v": True,
-            },
-            # left:
-            {
-                "rect": QtCore.QRectF(
-                    origin.x() - outer_margin,
-                    origin.y() + inner_margin,
-                    outer_margin + inner_margin,
-                    self.height - 2 * inner_margin,
-                ),
-                "flip_v": False,
-            },
-            # right:
-            {
-                "rect": QtCore.QRectF(
-                    origin.x() + self.width - inner_margin,
-                    origin.y() + inner_margin,
-                    outer_margin + inner_margin,
-                    self.height - 2 * inner_margin,
-                ),
-                "flip_v": False,
-            },
-        ]
-
     def boundingRect(self) -> QtCore.QRectF:
         if not self.has_selection_outline():
             return self.bounding_rect_unselected()
@@ -486,13 +423,6 @@ class SelectableMixin(BaseItemMixin):
                 return
             elif self.get_rotate_bounds(corner).contains(event.pos()):
                 self.set_cursor(ZeeAssets().cursor_rotate)
-                return
-        for edge in self.get_flip_bounds():
-            if edge["rect"].contains(event.pos()):
-                if self.get_edge_flips_v(edge):
-                    self.set_cursor(ZeeAssets().cursor_flip_v)
-                else:
-                    self.set_cursor(ZeeAssets().cursor_flip_h)
                 return
 
         self.unset_cursor()
@@ -543,19 +473,6 @@ class SelectableMixin(BaseItemMixin):
                         item.rotate_orig_degrees = item.rotation()
                     event.accept()
                     return
-                # Check if we are in one of the flip edges:
-                for edge in self.get_flip_bounds():
-                    if edge["rect"].contains(event.pos()):
-                        self.active_mode = self.FLIP_MODE
-                        event.accept()
-                        self.require_scene().undo_stack.push(
-                            commands.FlipItems(
-                                self.selection_action_items(),
-                                self.center_scene_coords,
-                                vertical=self.get_edge_flips_v(edge),
-                            )
-                        )
-                        return
 
         super().mousePressEvent(event)
 
@@ -655,15 +572,6 @@ class SelectableMixin(BaseItemMixin):
                     else Qt.CursorShape.SizeBDiagCursor
                 )
 
-    def get_edge_flips_v(self, edge: dict[str, Any]) -> bool:
-        """Returns ``True`` if the given edge invokes a horizontal flip,
-        ``False`` if it invokes a vertical flip."""
-
-        if 45 < self.rotation() < 135 or 225 < self.rotation() < 315:
-            return not edge["flip_v"]
-        else:
-            return edge["flip_v"]
-
     def mouseMoveEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent | None) -> None:
         assert event is not None
         if (event.scenePos() - self.event_start).manhattanLength() > 5:
@@ -693,13 +601,6 @@ class SelectableMixin(BaseItemMixin):
                 )
             event.accept()
             return
-        if self.active_mode == self.FLIP_MODE:
-            # We have already flipped on MousePress, but we
-            # still need to accept the event here as to not
-            # initiate an item move
-            event.accept()
-            return
-
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(
@@ -734,15 +635,6 @@ class SelectableMixin(BaseItemMixin):
             event.accept()
             self.active_mode = None
             return
-        elif self.active_mode == self.FLIP_MODE:
-            for edge in self.get_flip_bounds():
-                if edge["rect"].contains(event.pos()):
-                    # We have already flipped on MousePress, but we
-                    # still need to accept the event here as to not
-                    # initiate an item move
-                    event.accept()
-                    self.active_mode = None
-                    return
         self.active_mode = None
         super().mouseReleaseEvent(event)
 
