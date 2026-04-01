@@ -76,13 +76,19 @@ def encode_tile(tile: QtGui.QImage, fmt: str) -> bytes:
     buf = QtCore.QByteArray()
     buffer = QtCore.QBuffer(buf)
     buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
-    tile.save(buffer, "JPEG" if fmt == "jpeg" else "PNG", quality=90)
+    tile.save(buffer, "JPEG" if fmt == "jpeg" else "PNG", quality=95)
     return buf.data()
 
 
 def pick_format(pil_img: Image.Image) -> str:
-    """Choose storage format: png for small/alpha images, jpeg otherwise."""
+    """Choose storage format based on source format and image properties.
+
+    PNG sources stay PNG to avoid lossy re-encoding. JPEG and other
+    formats use JPEG for large non-alpha images, PNG otherwise.
+    """
+    if pil_img.format == "PNG" or pil_img.mode == "RGBA":
+        return "png"
     w, h = pil_img.size
-    if pil_img.mode == "RGBA" or (w < 500 and h < 500):
+    if w < 500 and h < 500:
         return "png"
     return "jpeg"
