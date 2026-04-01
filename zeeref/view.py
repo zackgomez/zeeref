@@ -103,6 +103,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.worker: fileio.ThreadedIO | None = None
         self._drain_dirty: bool = False
         self._has_tile_cache: bool = False
+        self._tiles_dirty: bool = False
         self.previous_transform: dict[str, Any] | None = None
         self.active_mode: int | None = None
         self.event_start: QtCore.QPointF = QtCore.QPointF()
@@ -198,7 +199,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             self.welcome_overlay.hide()
             self.actiongroup_set_enabled("active_when_items_in_scene", True)
         self.recalc_scene_rect()
-        self._check_viewport_and_load()
+        self._mark_tiles_dirty()
 
     def on_can_redo_changed(self, can_redo: bool) -> None:
         self.actiongroup_set_enabled("active_when_can_redo", can_redo)
@@ -211,7 +212,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
     def on_undo_index_changed(self, index: int) -> None:
         self._drain_dirty = True
-        self._check_viewport_and_load()
+        self._mark_tiles_dirty()
 
     def run_async(
         self,
@@ -312,6 +313,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         # It seems to be more reliable when we fit a second time
         # Sometimes a changing scene rect can mess up the fitting
         self.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
+        self._mark_tiles_dirty()
         logger.trace("Fit view done")
 
     def get_confirmation_unsaved_changes(self, msg: str) -> bool:
@@ -514,6 +516,17 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         if self._has_tile_cache:
             set_tile_cache(None)
             self._has_tile_cache = False
+
+    def _mark_tiles_dirty(self) -> None:
+        self._tiles_dirty = True
+
+    def drawForeground(
+        self, painter: QtGui.QPainter | None, rect: QtCore.QRectF
+    ) -> None:
+        if self._tiles_dirty:
+            self._tiles_dirty = False
+            self._check_viewport_and_load()
+        super().drawForeground(painter, rect)
 
     def _check_viewport_and_load(self) -> None:
         """Tell visible items to request their tiles."""
@@ -940,11 +953,11 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         super().scale(*args, **kwargs)
         self.scene.on_view_scale_change()
         self.recalc_scene_rect()
-        self._check_viewport_and_load()
+        self._mark_tiles_dirty()
 
     def scrollContentsBy(self, dx: int, dy: int) -> None:
         super().scrollContentsBy(dx, dy)
-        self._check_viewport_and_load()
+        self._mark_tiles_dirty()
 
     def get_scale(self) -> float:
         return self.transform().m11()
@@ -991,6 +1004,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
         self.pan(self.mapFromScene(ref_point) - anchor_point)
         self.reset_previous_transform()
+        self._mark_tiles_dirty()
 
     def wheelEvent(self, event: QtGui.QWheelEvent | None) -> None:
         assert event is not None
@@ -1112,7 +1126,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         super().resizeEvent(event)
         self.recalc_scene_rect()
         self.welcome_overlay.resize(self.size())
-        self._check_viewport_and_load()
+        self._mark_tiles_dirty()
 
     def keyPressEvent(self, event: QtGui.QKeyEvent | None) -> None:
         assert event is not None
