@@ -76,7 +76,10 @@ def encode_tile(tile: QtGui.QImage, fmt: str) -> bytes:
     buf = QtCore.QByteArray()
     buffer = QtCore.QBuffer(buf)
     buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
-    tile.save(buffer, "JPEG" if fmt == "jpeg" else "PNG", quality=95)
+    if fmt == "jpeg":
+        tile.save(buffer, "JPEG", quality=98)
+    else:
+        tile.save(buffer, "PNG")
     return buf.data()
 
 

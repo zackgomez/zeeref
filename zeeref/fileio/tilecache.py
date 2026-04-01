@@ -217,6 +217,24 @@ class TileCache(QtCore.QObject):
         logger.debug(f"Tile loaded: {key}")
         self._notify_loaded(key, pixmap)
 
+    def compact(self) -> None:
+        """Evict all non-visible tiles. Called after idle timeout."""
+        with self._lock:
+            to_evict = [k for k in self._lru if k not in self._visible]
+            freed = 0
+            for key in to_evict:
+                pixmap = self._lru.pop(key)
+                b = self._pixmap_bytes(pixmap)
+                self._current_bytes -= b
+                freed += b
+                self._notify_unloaded(key)
+            if to_evict:
+                logger.info(
+                    f"Idle compact: evicted {len(to_evict)} tiles, "
+                    f"freed {freed // 1024 // 1024}MB, "
+                    f"remaining={len(self._lru)} visible={len(self._visible)}"
+                )
+
     def _evict(self) -> None:
         """Evict oldest tiles over capacity, skipping visible ones.
 

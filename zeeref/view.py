@@ -128,6 +128,12 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.scene._scratch_file = fileio.create_scratch_file(None)
         self._start_tile_cache()
 
+        # Idle compaction timer — evict non-visible tiles after 5min idle
+        self._idle_timer: QtCore.QTimer = QtCore.QTimer(self)
+        self._idle_timer.setSingleShot(True)
+        self._idle_timer.setInterval(5 * 60 * 1000)
+        self._idle_timer.timeout.connect(self._on_idle_compact)
+
         # Drain timer — periodically write scene state to .swp
         self.drain_timer: QtCore.QTimer = QtCore.QTimer(self)
         self.drain_timer.setInterval(60_000)
@@ -525,6 +531,11 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
     def _mark_tiles_dirty(self) -> None:
         self._tiles_dirty = True
+        self._idle_timer.start()
+
+    def _on_idle_compact(self) -> None:
+        if self._has_tile_cache:
+            get_tile_cache().compact()
 
     def drawForeground(
         self, painter: QtGui.QPainter | None, rect: QtCore.QRectF
