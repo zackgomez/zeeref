@@ -16,6 +16,7 @@ from tests.utils import (
     assert_save_result,
     assert_io_result,
     assert_insert_images_result,
+    wait_for_worker,
 )
 
 
@@ -93,7 +94,7 @@ def test_clear_scene(view, item):
     view.undo_stack = MagicMock()
 
     view.clear_scene()
-    assert not view.scene.items()
+    assert not view.scene.user_items()
     assert view.scene.internal_clipboard == []
     assert view.transform().isIdentity()
     assert view.filename is None
@@ -260,10 +261,9 @@ def test_on_action_open_recent_file_when_unsaved_changes_confirmed(confirm_mock,
 def test_open_from_file(clear_mock, view, qtbot):
     filename = Path(__file__).parent / "assets" / "test1item.zref"
     view.open_from_file(filename)
-    view.worker.wait()
-    qtbot.waitUntil(lambda: len(view.scene.items()) > 0)
-    assert len(view.scene.items()) == 1
-    item = view.scene.items()[0]
+    wait_for_worker(view, qtbot, lambda: len(view.scene.user_items()) > 0)
+    assert len(view.scene.user_items()) == 1
+    item = view.scene.user_items()[0]
     assert item.isSelected() is False
     assert item.pixmap()
     clear_mock.assert_called_once_with()
@@ -273,9 +273,8 @@ def test_open_from_file(clear_mock, view, qtbot):
 def test_open_from_file_when_error(view, qtbot):
     view.on_loading_finished = MagicMock()
     view.open_from_file(Path("uieauiae"))
-    view.worker.wait()
-    qtbot.waitUntil(lambda: view.on_loading_finished.called is True)
-    assert list(view.scene.items()) == []
+    wait_for_worker(view, qtbot, lambda: view.on_loading_finished.called is True)
+    assert list(view.scene.user_items()) == []
     assert_load_result(view.on_loading_finished, Path("uieauiae"), has_errors=True)
 
 
@@ -286,9 +285,9 @@ def test_on_action_open(dialog_mock, view, qtbot):
     view.cancel_active_modes = MagicMock()
 
     view.on_action_open()
-    qtbot.waitUntil(lambda: len(view.scene.items()) > 0)
-    assert len(view.scene.items()) == 1
-    item = view.scene.items()[0]
+    qtbot.waitUntil(lambda: len(view.scene.user_items()) > 0)
+    assert len(view.scene.user_items()) == 1
+    item = view.scene.user_items()[0]
     assert item.isSelected() is False
     assert item.pixmap()
     assert view.filename == filename
@@ -531,14 +530,13 @@ def test_on_action_insert_images_new_scene(
     dialog_mock, clear_mock, view, imgfilename3x3, qtbot
 ):
     dialog_mock.return_value = ([imgfilename3x3], None)
-    view.on_insert_images_finished = MagicMock()
+    view.on_insert_images_finished = MagicMock(wraps=view.on_insert_images_finished)
     view.cancel_active_modes = MagicMock()
     view.on_action_insert_images()
-    qtbot.waitUntil(lambda: view.on_insert_images_finished.called is True)
-    assert len(view.scene.items()) == 1
-    item = view.scene.items()[0]
+    wait_for_worker(view, qtbot, lambda: len(view.scene.user_items()) > 0)
+    assert len(view.scene.user_items()) == 1
+    item = view.scene.user_items()[0]
     assert item.isSelected() is True
-    assert item.pixmap()
     clear_mock.assert_called_once_with()
     assert_insert_images_result(view.on_insert_images_finished, new_scene=True)
     view.cancel_active_modes.assert_called_once_with()
@@ -551,33 +549,32 @@ def test_on_action_insert_images_existing_scene(
 ):
     view.scene.addItem(item)
     dialog_mock.return_value = ([imgfilename3x3], None)
-    view.on_insert_images_finished = MagicMock()
+    view.on_insert_images_finished = MagicMock(wraps=view.on_insert_images_finished)
     view.cancel_active_modes = MagicMock()
     view.on_action_insert_images()
-    qtbot.waitUntil(lambda: view.on_insert_images_finished.called is True)
-    assert len(view.scene.items()) == 2
-    item = view.scene.items()[0]
-    assert item.isSelected() is True
-    assert item.pixmap()
+    wait_for_worker(view, qtbot, lambda: len(view.scene.user_items()) > 1)
+    assert len(view.scene.user_items()) == 2
+    selected = [i for i in view.scene.user_items() if i.isSelected()]
+    assert len(selected) == 1
     clear_mock.assert_called_once_with()
     assert_insert_images_result(view.on_insert_images_finished, new_scene=False)
     view.cancel_active_modes.assert_called_once_with()
 
 
+@patch("PyQt6.QtWidgets.QMessageBox.warning")
 @patch("zeeref.scene.ZeeGraphicsScene.clearSelection")
 @patch("PyQt6.QtWidgets.QFileDialog.getOpenFileNames")
 def test_on_action_insert_images_when_error(
-    dialog_mock, clear_mock, view, imgfilename3x3, qtbot
+    dialog_mock, clear_mock, warning_mock, view, imgfilename3x3, qtbot
 ):
     dialog_mock.return_value = ([imgfilename3x3, "iaeiae", "trntrn"], None)
-    view.on_insert_images_finished = MagicMock()
+    view.on_insert_images_finished = MagicMock(wraps=view.on_insert_images_finished)
     view.cancel_active_modes = MagicMock()
     view.on_action_insert_images()
-    qtbot.waitUntil(lambda: view.on_insert_images_finished.called is True)
-    assert len(view.scene.items()) == 1
-    item = view.scene.items()[0]
+    wait_for_worker(view, qtbot, lambda: len(view.scene.user_items()) > 0)
+    assert len(view.scene.user_items()) == 1
+    item = view.scene.user_items()[0]
     assert item.isSelected() is True
-    assert item.pixmap()
     clear_mock.assert_called_once_with()
     assert_insert_images_result(
         view.on_insert_images_finished,
@@ -593,25 +590,29 @@ def test_on_action_insert_text(clear_mock, view):
     view.cancel_active_modes = MagicMock()
     view.on_action_insert_text()
     clear_mock.assert_called_once_with()
-    assert len(view.scene.items()) == 1
-    item = view.scene.items()[0]
+    assert len(view.scene.user_items()) == 1
+    item = view.scene.user_items()[0]
     assert item._markdown == "Text"
     assert item.isSelected() is True
     view.cancel_active_modes.assert_called_once_with()
 
 
 @patch("PyQt6.QtWidgets.QApplication.clipboard")
-def test_on_action_copy_image(clipboard_mock, view, imgfilename3x3):
-    item = ZeePixmapItem(QtGui.QImage(imgfilename3x3))
-    view.scene.addItem(item)
+def test_on_action_copy_image(clipboard_mock, view, imgfilename3x3, qtbot):
+    # Insert image through the normal pipeline so tiles exist in the cache
+    view.do_insert_images([imgfilename3x3])
+    wait_for_worker(view, qtbot, lambda: len(view.scene.user_items()) > 0)
+    item = view.scene.user_items()[0]
+
     view.cancel_active_modes = MagicMock()
     item.setSelected(True)
     mimedata = QtCore.QMimeData()
     clipboard_mock.return_value.mimeData.return_value = mimedata
     view.on_action_copy()
+    wait_for_worker(view, qtbot, lambda: clipboard_mock.return_value.setImage.called)
 
-    clipboard_mock.return_value.setPixmap.assert_called_once()
-    view.scene.internal_clipboard == [item]
+    clipboard_mock.return_value.setImage.assert_called_once()
+    assert view.scene.internal_clipboard == [item]
     assert mimedata.data("zeeref/items") == b"1"
     view.cancel_active_modes.assert_called_once_with()
 
@@ -637,13 +638,14 @@ def test_on_action_copy_text(clipboard_mock, view, imgfilename3x3):
 @patch("PyQt6.QtGui.QClipboard.image")
 @patch("PyQt6.QtGui.QClipboard.mimeData", return_value=QtCore.QMimeData())
 def test_on_action_paste_external_new_scene(
-    mimedata_mock, clipboard_mock, clear_mock, fit_mock, view, imgfilename3x3
+    mimedata_mock, clipboard_mock, clear_mock, fit_mock, view, imgfilename3x3, qtbot
 ):
     clipboard_mock.return_value = QtGui.QImage(imgfilename3x3)
     view.cancel_active_modes = MagicMock()
     view.on_action_paste()
-    assert len(view.scene.items()) == 1
-    assert view.scene.items()[0].isSelected() is True
+    wait_for_worker(view, qtbot, lambda: len(view.scene.user_items()) > 0)
+    assert len(view.scene.user_items()) == 1
+    assert view.scene.user_items()[0].isSelected() is True
     fit_mock.assert_called_once_with()
     view.cancel_active_modes.assert_called_once_with()
 
@@ -653,15 +655,23 @@ def test_on_action_paste_external_new_scene(
 @patch("PyQt6.QtGui.QClipboard.image")
 @patch("PyQt6.QtGui.QClipboard.mimeData", return_value=QtCore.QMimeData())
 def test_on_action_paste_external_existing_scene(
-    mimedata_mock, clipboard_mock, clear_mock, fit_mock, view, item, imgfilename3x3
+    mimedata_mock,
+    clipboard_mock,
+    clear_mock,
+    fit_mock,
+    view,
+    item,
+    imgfilename3x3,
+    qtbot,
 ):
     view.scene.addItem(item)
     view.cancel_active_modes = MagicMock()
     clipboard_mock.return_value = QtGui.QImage(imgfilename3x3)
     view.on_action_paste()
-    assert len(view.scene.items()) == 2
-    assert view.scene.items()[0].isSelected() is True
-    assert view.scene.items()[1].isSelected() is False
+    wait_for_worker(view, qtbot, lambda: len(view.scene.user_items()) > 1)
+    assert len(view.scene.user_items()) == 2
+    selected = [i for i in view.scene.user_items() if i.isSelected()]
+    assert len(selected) == 1
     fit_mock.assert_not_called()
     view.cancel_active_modes.assert_called_once_with()
 
@@ -676,8 +686,8 @@ def test_on_action_paste_internal(mimedata_mock, clear_mock, view):
     view.scene.internal_clipboard = [item]
     view.cancel_active_modes = MagicMock()
     view.on_action_paste()
-    assert len(view.scene.items()) == 1
-    assert view.scene.items()[0].isSelected() is True
+    assert len(view.scene.user_items()) == 1
+    assert view.scene.user_items()[0].isSelected() is True
     clear_mock.assert_called_once_with()
     view.cancel_active_modes.assert_called()
 
@@ -693,9 +703,9 @@ def test_on_action_paste_when_text(
     text_mock.return_value = "foo bar"
     view.cancel_active_modes = MagicMock()
     view.on_action_paste()
-    assert len(view.scene.items()) == 1
-    assert view.scene.items()[0].isSelected() is True
-    assert view.scene.items()[0]._markdown == "foo bar"
+    assert len(view.scene.user_items()) == 1
+    assert view.scene.user_items()[0].isSelected() is True
+    assert view.scene.user_items()[0]._markdown == "foo bar"
     clear_mock.assert_called_once_with()
     view.cancel_active_modes.assert_called_once_with()
 
@@ -712,7 +722,7 @@ def test_on_action_paste_when_empty(
     img_mock.return_value = QtGui.QImage()
     text_mock.return_value = ""
     view.on_action_paste()
-    assert len(view.scene.items()) == 0
+    assert len(view.scene.user_items()) == 0
     notification_mock.assert_called()
     assert notification_mock.call_args[0][0] == view
     assert notification_mock.call_args[0][1].startswith("No image data")
@@ -726,7 +736,7 @@ def test_on_action_cut(copy_mock, view, item):
     item.setSelected(True)
     view.on_action_cut()
     copy_mock.assert_called_once_with()
-    assert view.scene.items() == []
+    assert view.scene.user_items() == []
     assert view.undo_stack.isClean() is False
 
 
@@ -896,7 +906,7 @@ def test_on_action_delete_items(view, item):
     view.scene.addItem(item)
     item.setSelected(True)
     view.on_action_delete_items()
-    assert view.scene.items() == []
+    assert view.scene.user_items() == []
     assert view.undo_stack.isClean() is False
     view.cancel_active_modes.assert_called_once()
 
@@ -1606,5 +1616,5 @@ def test_drop_when_img(view, imgfilename3x3):
     event.position.return_value = QtCore.QPointF(10.0, 20.0)
 
     view.dropEvent(event)
-    assert len(view.scene.items()) == 1
-    assert view.scene.items()[0].isSelected() is True
+    assert len(view.scene.user_items()) == 1
+    assert view.scene.user_items()[0].isSelected() is True

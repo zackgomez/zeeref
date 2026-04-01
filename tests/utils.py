@@ -1,6 +1,16 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from zeeref.types.snapshot import IOResult, LoadResult, SaveResult
+
+
+def wait_for_worker(view, qtbot, condition: Callable[[], bool] | None = None) -> None:
+    """Wait for view's async worker to finish and Qt events to process."""
+    view.worker.wait()
+    if condition:
+        qtbot.waitUntil(condition)
+    else:
+        qtbot.waitUntil(lambda: True)
 
 
 def queue2list(queue):

@@ -492,20 +492,14 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
             return [i for i in items if isinstance(i, ZeeItemMixin)]
         return items
 
+    def user_items(self) -> list[ZeeItemMixin]:
+        """Return only items added by the user (no tile children, UI overlays, etc.)."""
+        return [i for i in self.items() if isinstance(i, ZeeItemMixin)]
+
     def items_by_type(self, itype: str) -> Iterator[ZeeItemMixin]:
         """Returns all items of the given type."""
 
-        return (
-            i for i in self.items() if isinstance(i, ZeeItemMixin) and i.TYPE == itype
-        )
-
-    def user_items(self) -> list[ZeeItemMixin]:
-        """Returns user-created items (excludes internal Qt items)."""
-        return [
-            i
-            for i in self.items(order=Qt.SortOrder.AscendingOrder)
-            if isinstance(i, ZeeItemMixin)
-        ]
+        return (i for i in self.user_items() if i.TYPE == itype)
 
     def snapshot_for_save(self) -> list[ItemSnapshot]:
         """Snapshot all user items for thread-safe saving."""

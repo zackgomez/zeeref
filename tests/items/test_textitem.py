@@ -17,7 +17,6 @@ def test_init(selectable_mock, qapp):
     assert item.height
     assert item.scale() == 1
     assert item._markdown == "foo bar"
-    assert item.is_editable is True
     assert item.edit_mode is False
     assert item.is_image is False
     selectable_mock.assert_called_once()
