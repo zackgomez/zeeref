@@ -197,6 +197,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self.crop_mode: bool = False
         self._subscribed: bool = False
         self._tile_children: dict[TileKey, QtWidgets.QGraphicsPixmapItem] = {}
+        self._stale_tile_children: dict[TileKey, QtWidgets.QGraphicsPixmapItem] = {}
         self._current_level: int = 0
         pm = self.pixmap()
         self._image_width: int = pm.width()
@@ -438,15 +439,21 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             level = 0
         level = min(level, self._max_level)
 
-        # If level changed, remove old tile children
+        # If level changed, move old tiles to stale set
         if level != self._current_level:
             logger.info(
                 f"Level change {self._current_level} -> {level} for {self.image_id[:8]} "
                 f"(effective_scale={effective_scale:.4f}, view_scale={view_scale:.4f}, "
                 f"item_scale={self.scale():.4f}, max_level={self._max_level})"
             )
-            self._remove_all_tile_children()
+            self._remove_stale_tile_children()
+            self._stale_tile_children = self._tile_children
+            self._tile_children = {}
             self._current_level = level
+
+        # Keep stale tiles alive in cache during transition
+        if self._stale_tile_children:
+            get_tile_cache().request(set(self._stale_tile_children.keys()))
 
         # Convert viewport rect to item-local coords
         local_rect = self.mapRectFromScene(viewport_rect)
@@ -474,8 +481,21 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         for key, pixmap in hits.items():
             self.on_tile_loaded(key, pixmap)
 
+        # All new tiles loaded — stale tiles no longer needed
+        if self._stale_tile_children and len(hits) == len(keys):
+            self._remove_stale_tile_children()
+
+    def _remove_stale_tile_children(self) -> None:
+        """Remove stale (previous-level) tile children from the scene."""
+        for child in self._stale_tile_children.values():
+            scene = child.scene()
+            if scene is not None:
+                scene.removeItem(child)
+        self._stale_tile_children.clear()
+
     def _remove_all_tile_children(self) -> None:
         """Remove all tile child items from the scene."""
+        self._remove_stale_tile_children()
         for child in self._tile_children.values():
             scene = child.scene()
             if scene is not None:
@@ -509,13 +529,15 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         logger.debug(f"Tile child added: {key}")
 
     def on_tile_unloaded(self, key: TileKey) -> None:
-        child = self._tile_children.pop(key, None)
+        child = self._tile_children.pop(key, None) or self._stale_tile_children.pop(
+            key, None
+        )
         if child is not None:
             scene = child.scene()
             if scene is not None:
                 scene.removeItem(child)
             logger.debug(f"Tile child removed: {key}")
-        if not self._tile_children:
+        if not self._tile_children and not self._stale_tile_children:
             self.update()
 
     def create_copy(self) -> ZeePixmapItem:
