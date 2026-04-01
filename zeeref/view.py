@@ -507,7 +507,8 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
     def _start_tile_cache(self) -> None:
         """Start the TileCache for the current scratch file."""
         assert self.scene._scratch_file is not None
-        set_tile_cache(TileCache(self.scene._scratch_file))
+        capacity_mb = self.settings.valueOrDefault("Performance/tile_cache_mb")
+        set_tile_cache(TileCache(self.scene._scratch_file, capacity_mb=capacity_mb))
         self._has_tile_cache = True
         self._check_viewport_and_load()
 

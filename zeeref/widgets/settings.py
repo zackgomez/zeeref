@@ -199,6 +199,14 @@ class AllocationLimitWidget(IntegerGroup):
     MAX = 10000
 
 
+class TileCacheSizeWidget(IntegerGroup):
+    TITLE = "Tile Cache Size (MB):"
+    HELPTEXT = "Maximum memory used for cached image tiles."
+    KEY = "Performance/tile_cache_mb"
+    MIN = 16
+    MAX = 16384
+
+
 class ConfirmCloseUnsavedWidget(SingleCheckboxGroup):
     TITLE = "Confirm when closing an unsaved file:"
     HELPTEXT = (
@@ -274,6 +282,7 @@ class SettingsDialog(QtWidgets.QDialog):
         items_layout.addWidget(AllocationLimitWidget(), 0, 1)
         items_layout.addWidget(ArrangeGapWidget(), 1, 0)
         items_layout.addWidget(ArrangeDefaultWidget(), 1, 1)
+        items_layout.addWidget(TileCacheSizeWidget(), 2, 0)
         tabs.addTab(items, "&Images && Items")
 
         # Keyboard shortcuts

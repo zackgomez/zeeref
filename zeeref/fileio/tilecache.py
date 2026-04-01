@@ -73,13 +73,14 @@ class TileCache(QtCore.QObject):
     request() and request_blocking() are thread-safe.
     """
 
-    def __init__(self, swp_path: Path, capacity: int = 10) -> None:
+    def __init__(self, swp_path: Path, capacity_mb: int = 256) -> None:
         super().__init__()
         self._lock = threading.Lock()
         self._lru: collections.OrderedDict[TileKey, QtGui.QPixmap] = (
             collections.OrderedDict()
         )
-        self._capacity = capacity
+        self._capacity_bytes = capacity_mb * 1024 * 1024
+        self._current_bytes = 0
         self._visible: set[TileKey] = set()
         self._in_frame: bool = False
         self._subscribers: dict[str, list[TileCacheListener]] = {}
@@ -187,6 +188,10 @@ class TileCache(QtCore.QObject):
         for listener in self._subscribers.get(key.image_id, []):
             listener.on_tile_unloaded(key)
 
+    @staticmethod
+    def _pixmap_bytes(pixmap: QtGui.QPixmap) -> int:
+        return pixmap.width() * pixmap.height() * pixmap.depth() // 8
+
     def _on_tile_blob_loaded(
         self,
         image_id: str,
@@ -200,8 +205,11 @@ class TileCache(QtCore.QObject):
         key = TileKey(image_id, level, col, row)
         pixmap = _pil_to_qpixmap(pil_img)
         with self._lock:
+            if key in self._lru:
+                self._current_bytes -= self._pixmap_bytes(self._lru[key])
             self._lru[key] = pixmap
             self._lru.move_to_end(key)
+            self._current_bytes += self._pixmap_bytes(pixmap)
             # Wake any blocking waiters for this key
             waiters = self._blocking_waiters.pop(key, [])
             for event in waiters:
@@ -215,18 +223,21 @@ class TileCache(QtCore.QObject):
         Must be called with self._lock held.
         """
         evicted = 0
-        while len(self._lru) > self._capacity:
+        while self._current_bytes > self._capacity_bytes and self._lru:
             key, pixmap = self._lru.popitem(last=False)
             if key in self._visible or key in self._blocking_keys:
                 self._lru[key] = pixmap
                 self._lru.move_to_end(key)
                 break
+            self._current_bytes -= self._pixmap_bytes(pixmap)
             logger.debug(f"Tile evicted: {key}")
             self._notify_unloaded(key)
             evicted += 1
         if evicted:
             logger.info(
-                f"Evicted {evicted} tiles (lru={len(self._lru)}, cap={self._capacity}, visible={len(self._visible)})"
+                f"Evicted {evicted} tiles (lru={self._current_bytes // 1024 // 1024}MB/"
+                f"{self._capacity_bytes // 1024 // 1024}MB, "
+                f"count={len(self._lru)}, visible={len(self._visible)})"
             )
 
 

@@ -149,6 +149,11 @@ class ZeeSettings(QtCore.QSettings):
         "View/canvas_color": {
             "default": "#3c3c3c",
         },
+        "Performance/tile_cache_mb": {
+            "default": 256,
+            "cast": int,
+            "validate": lambda x: x >= 16,
+        },
     }
 
     def __init__(self):
