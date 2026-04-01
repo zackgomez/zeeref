@@ -214,16 +214,20 @@ class TileCache(QtCore.QObject):
 
         Must be called with self._lock held.
         """
+        evicted = 0
         while len(self._lru) > self._capacity:
             key, pixmap = self._lru.popitem(last=False)
             if key in self._visible or key in self._blocking_keys:
                 self._lru[key] = pixmap
                 self._lru.move_to_end(key)
                 break
-            logger.info(
-                f"Tile evicted: {key} (lru={len(self._lru)}, cap={self._capacity}, visible={len(self._visible)})"
-            )
+            logger.debug(f"Tile evicted: {key}")
             self._notify_unloaded(key)
+            evicted += 1
+        if evicted:
+            logger.info(
+                f"Evicted {evicted} tiles (lru={len(self._lru)}, cap={self._capacity}, visible={len(self._visible)})"
+            )
 
 
 _instance: TileCache | None = None
