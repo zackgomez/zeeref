@@ -184,6 +184,12 @@ def main():
     assert not args.debug_raise_error, args.debug_raise_error
 
     os.environ["QT_DEBUG_PLUGINS"] = "1"
+    fmt = QtGui.QSurfaceFormat()
+    fmt.setRedBufferSize(8)
+    fmt.setGreenBufferSize(8)
+    fmt.setBlueBufferSize(8)
+    fmt.setAlphaBufferSize(8)
+    QtGui.QSurfaceFormat.setDefaultFormat(fmt)
     app = ZeeRefApplication(sys.argv)
     if sys.platform == "win32":
         app.setStyle("Fusion")

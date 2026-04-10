@@ -72,8 +72,11 @@ def load_pil(path: Path) -> Image.Image | None:
     try:
         t0 = time.monotonic()
         pil_img = Image.open(path)
+        original_format = pil_img.format
         t1 = time.monotonic()
         pil_img = ImageOps.exif_transpose(pil_img)
+        if original_format and not pil_img.format:
+            pil_img.format = original_format
         t2 = time.monotonic()
         pil_img = _ensure_srgb(pil_img)
         t3 = time.monotonic()
