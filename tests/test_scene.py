@@ -14,9 +14,9 @@ from zeeref.types.tile import TileKey
 
 def test_add_remove_item(scene, item):
     scene.addItem(item)
-    assert scene.items() == [item]
+    assert scene.user_items() == [item]
     scene.removeItem(item)
-    assert scene.items() == []
+    assert scene.user_items() == []
 
 
 def test_cancel_crop_mode_when_crop(scene, item):

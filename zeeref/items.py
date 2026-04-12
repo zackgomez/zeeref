@@ -202,15 +202,28 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         pm = self.pixmap()
         self._image_width: int = pm.width()
         self._image_height: int = pm.height()
-        self.reset_crop()
         self.image_id: str = uuid.uuid4().hex
         self.title: str | None = None
         self.caption: str | None = None
-        self.init_selectable()
-        self.setFlag(
+        # Invisible clip item parents all tile children so they are
+        # clipped to the image/crop rect without affecting shape().
+        self._clip_item = QtWidgets.QGraphicsRectItem(self)
+        self._clip_item.setFlag(
             QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemClipsChildrenToShape,
             True,
         )
+        self._clip_item.setFlag(
+            QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False
+        )
+        self._clip_item.setFlag(
+            QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False
+        )
+        self._clip_item.setPen(QtGui.QPen(Qt.PenStyle.NoPen))
+        self._clip_item.setFlag(
+            QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemStacksBehindParent, True
+        )
+        self.reset_crop()
+        self.init_selectable()
         self.settings = ZeeSettings()
 
     def snapshot(self) -> PixmapItemSnapshot:
@@ -252,7 +265,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         item = cls(QtGui.QImage())
         item._image_width = snap.width
         item._image_height = snap.height
-        item._crop = QtCore.QRectF(0, 0, snap.width, snap.height)
+        item.crop = QtCore.QRectF(0, 0, snap.width, snap.height)
         item.save_id = snap.save_id
         item.created_at = snap.created_at
         item.image_id = snap.image_id
@@ -282,6 +295,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         logger.debug(f"Setting crop for {self} to {value}")
         self.prepareGeometryChange()
         self._crop = value
+        self._clip_item.setRect(value)
         self.update()
 
     def sample_color_at(self, pos: QtCore.QPointF) -> QtGui.QColor | None:
@@ -300,11 +314,25 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             return None
         return color
 
-    def bounding_rect_unselected(self) -> QtCore.QRectF:
+    def _text_height(self) -> float:
+        """Height of one line of label text in item coordinates."""
+        fm = QtGui.QFontMetricsF(QtGui.QFont())
+        return fm.height() + 4  # small padding
+
+    def _image_rect(self) -> QtCore.QRectF:
+        """The image rect (crop or full) without text expansion."""
         if self.crop_mode:
             return QtCore.QRectF(0, 0, self._image_width, self._image_height)
-        else:
-            return self.crop
+        return self.crop
+
+    def bounding_rect_unselected(self) -> QtCore.QRectF:
+        rect = self._image_rect()
+        h = self._text_height()
+        if self.title:
+            rect = rect.adjusted(0, -h, 0, 0)
+        if self.caption:
+            rect = rect.adjusted(0, 0, 0, h)
+        return rect
 
     def get_extra_save_data(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -518,7 +546,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         # Already have this tile
         if key in self._tile_children:
             return
-        child = QtWidgets.QGraphicsPixmapItem(pixmap, self)
+        child = QtWidgets.QGraphicsPixmapItem(pixmap, self._clip_item)
         child.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
         child.setFlag(QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
         child.setFlag(
@@ -700,6 +728,38 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         else:
             return Qt.CursorShape.SizeVerCursor
 
+    def _paint_labels(self, painter: QtGui.QPainter) -> None:
+        """Draw title above and caption below the image."""
+        img_rect = self._image_rect()
+        h = self._text_height()
+        text_color = QtGui.QColor(*COLORS["Scene:Text"])
+        bg_color = QtGui.QColor(0, 0, 0, 140)
+
+        painter.setFont(QtGui.QFont())
+        painter.setPen(text_color)
+
+        if self.title:
+            title_rect = QtCore.QRectF(
+                img_rect.left(), img_rect.top() - h, img_rect.width(), h
+            )
+            painter.fillRect(title_rect, bg_color)
+            painter.drawText(
+                title_rect,
+                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                f"  {self.title}",
+            )
+
+        if self.caption:
+            caption_rect = QtCore.QRectF(
+                img_rect.left(), img_rect.bottom(), img_rect.width(), h
+            )
+            painter.fillRect(caption_rect, bg_color)
+            painter.drawText(
+                caption_rect,
+                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                f"  {self.caption}",
+            )
+
     def draw_crop_rect(self, painter: QtGui.QPainter, rect: QtCore.QRectF) -> None:
         """Paint a dotted rectangle for the cropping UI."""
         pen = QtGui.QPen(QtGui.QColor(255, 255, 255))
@@ -722,6 +782,9 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
 
         # Tile children paint themselves behind the parent
         # (ItemStacksBehindParent), so everything below here renders on top.
+
+        if self.title or self.caption:
+            self._paint_labels(painter)
 
         if self.crop_mode:
             assert self.crop_temp is not None
