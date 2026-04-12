@@ -774,6 +774,35 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             dialog=DialogOptions(label="Loading images"),
         )
 
+    def do_insert_images_with_callback(
+        self,
+        inserts: list[fileio.ImageInsert],
+        on_done: Callable[[list[str]], None],
+    ) -> None:
+        """Insert images and call *on_done* with error list when finished.
+
+        Used by the session IPC server to get notified on completion.
+        """
+        original_finished = partial(
+            self.on_insert_images_finished, not self.scene.items()
+        )
+
+        def _wrapped(result: fileio.IOResult) -> None:
+            original_finished(result)
+            on_done(result.errors or [])
+
+        pos = self.get_view_center()
+        self.scene.deselect_all_items()
+        self.undo_stack.beginMacro("Insert Images")
+        self.run_async(
+            fileio.insert_image_files,
+            inserts,
+            self.mapToScene(pos),
+            self.scene,
+            on_finished=_wrapped,
+            dialog=DialogOptions(label="Loading images (session)"),
+        )
+
     def on_action_insert_images(self) -> None:
         self.cancel_active_modes()
         formats = self.get_supported_image_formats(QtGui.QImageReader)

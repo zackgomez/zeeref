@@ -29,7 +29,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, QEvent
 
 if TYPE_CHECKING:
-    pass
+    from zeeref.session import SessionServer
 
 from zeeref import constants
 from zeeref.assets import ZeeAssets
@@ -60,6 +60,7 @@ class ZeeRefMainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, app):
         super().__init__()
+        self._session_server: SessionServer | None = None
         app.setOrganizationName(constants.APPNAME)
         app.setApplicationName(constants.APPNAME)
         self.setWindowIcon(ZeeAssets().logo)
@@ -128,6 +129,8 @@ class ZeeRefMainWindow(QtWidgets.QMainWindow):
             event.ignore()
             return
         logger.info("Exiting...")
+        if self._session_server is not None:
+            self._session_server.shutdown()
         try:
             self.view.scene.selectionChanged.disconnect(self.view.on_selection_changed)
         except (TypeError, RuntimeError):
@@ -196,6 +199,21 @@ def main():
     palette = create_palette_from_dict(constants.COLORS)
     app.setPalette(palette)
     bee = ZeeRefMainWindow(app)  # NOQA:F841
+
+    if args.session:
+        from zeeref.session import SessionServer
+
+        session_server = SessionServer(
+            session_name=args.session,
+            insert_fn=bee.view.do_insert_images_with_callback,
+        )
+        if not session_server.start():
+            print(
+                f"Error: session '{args.session}' is already in use",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        bee._session_server = session_server
 
     signal.signal(signal.SIGINT, handle_sigint)
     # Repeatedly run python-noop to give the interpreter time to

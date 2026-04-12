@@ -54,6 +54,9 @@ dev = [
     "yamllint==1.35.1",
 ]
 
+[project.scripts]
+zeeref-add = "zeeref.session_client:main"
+
 [project.gui-scripts]
 zeeref = "zeeref.__main__:main"
 

@@ -26,10 +26,11 @@ import uuid
 from collections.abc import Sequence
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
+
+from dataclasses import dataclass
 
 from PIL import Image
-from dataclasses import dataclass
 
 from PyQt6 import QtCore, QtGui
 
@@ -56,6 +57,15 @@ class ImageResult(IOResult):
     """Result from stitching a full image."""
 
     image: QtGui.QImage | None = None
+
+
+@dataclass(frozen=True)
+class ImageInsert:
+    """Metadata for an image to be inserted via session IPC."""
+
+    path: str
+    title: str | None = None
+    caption: str | None = None
 
 
 logger = logging.getLogger(__name__)
@@ -196,6 +206,9 @@ def _insert_image(
     pos: QtCore.QPointF,
     io: SQLiteIO,
     scene: ZeeGraphicsScene,
+    *,
+    title: str | None = None,
+    caption: str | None = None,
 ) -> PixmapItemSnapshot:
     """Write tiles to .swp and queue a snapshot for the main thread."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -233,6 +246,12 @@ def _insert_image(
     io.connection.commit()
     logger.debug(f"_insert_image: {tile_count} tiles in {time.monotonic() - t0:.3f}s")
 
+    snap_data: dict[str, Any] = {"filename": filename}
+    if title:
+        snap_data["title"] = title
+    if caption:
+        snap_data["caption"] = caption
+
     snap = PixmapItemSnapshot(
         save_id=uuid.uuid4().hex,
         type="pixmap",
@@ -242,7 +261,7 @@ def _insert_image(
         scale=1,
         rotation=0,
         flip=1,
-        data={"filename": filename},
+        data=snap_data,
         created_at=time.time(),
         image_id=image_id,
         width=w,
@@ -253,7 +272,7 @@ def _insert_image(
 
 
 def insert_image_files(
-    filenames: Sequence[str | QtCore.QUrl],
+    filenames: Sequence[str | QtCore.QUrl | ImageInsert],
     pos: QtCore.QPointF,
     scene: ZeeGraphicsScene,
     worker: ThreadedIO,
@@ -268,6 +287,14 @@ def insert_image_files(
 
     for i, raw_filename in enumerate(filenames):
         t_load = time.monotonic()
+        # Extract metadata if present
+        title: str | None = None
+        caption: str | None = None
+        if isinstance(raw_filename, ImageInsert):
+            title = raw_filename.title
+            caption = raw_filename.caption
+            raw_filename = raw_filename.path
+
         logger.info(f"Loading image from file {raw_filename}")
         load_path: Path | QtCore.QUrl = (
             Path(raw_filename) if isinstance(raw_filename, str) else raw_filename
@@ -280,7 +307,7 @@ def insert_image_files(
             errors.append(filename)
             continue
 
-        _insert_image(pil_img, filename, pos, io, scene)
+        _insert_image(pil_img, filename, pos, io, scene, title=title, caption=caption)
         if worker.canceled:
             break
         worker.msleep(10)

@@ -75,6 +75,12 @@ parser.add_argument(
 parser.add_argument(
     "--debug-raise-error", default="", help="immediately exit with given error message"
 )
+parser.add_argument(
+    "--session",
+    default=None,
+    metavar="NAME",
+    help="start in named session mode, listening for IPC commands on a Unix socket",
+)
 
 
 class CommandlineArgs:

@@ -204,6 +204,8 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         self._image_height: int = pm.height()
         self.reset_crop()
         self.image_id: str = uuid.uuid4().hex
+        self.title: str | None = None
+        self.caption: str | None = None
         self.init_selectable()
         self.setFlag(
             QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemClipsChildrenToShape,
@@ -237,6 +239,8 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         if "crop" in data:
             item.crop = QtCore.QRectF(*data["crop"])
         item.setOpacity(data.get("opacity", 1))
+        item.title = data.get("title")
+        item.caption = data.get("caption")
         return item
 
     @classmethod
@@ -253,6 +257,8 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
         item.created_at = snap.created_at
         item.image_id = snap.image_id
         item.filename = snap.data.get("filename")
+        item.title = snap.data.get("title")
+        item.caption = snap.data.get("caption")
         if "crop" in snap.data:
             item.crop = QtCore.QRectF(*snap.data["crop"])
         item.setOpacity(snap.data.get("opacity", 1))
@@ -301,7 +307,7 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
             return self.crop
 
     def get_extra_save_data(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "filename": self.filename,
             "opacity": self.opacity(),
             "crop": [
@@ -311,6 +317,11 @@ class ZeePixmapItem(ZeeItemMixin, QtWidgets.QGraphicsPixmapItem):
                 self.crop.height(),
             ],
         }
+        if self.title:
+            d["title"] = self.title
+        if self.caption:
+            d["caption"] = self.caption
+        return d
 
     def get_filename_for_export(
         self, imgformat: str, save_id_default: str | None = None
