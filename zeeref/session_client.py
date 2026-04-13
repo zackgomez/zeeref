@@ -25,8 +25,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import socket
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -57,12 +60,7 @@ def main() -> None:
     parser.add_argument("--caption", default=None, help="Caption for the image(s)")
     args = parser.parse_args()
 
-    sock_path = socket_path(args.session)
-    if not os.path.exists(sock_path):
-        print(f"Error: no session '{args.session}' found", file=sys.stderr)
-        sys.exit(1)
-
-    # Build payload
+    # Build payload first so we fail fast on bad files
     payload = []
     for f in args.files:
         p = Path(f).resolve()
@@ -80,12 +78,37 @@ def main() -> None:
         print("Error: no valid files to send", file=sys.stderr)
         sys.exit(1)
 
+    # Connect to session, starting one if needed
+    sock_path = socket_path(args.session)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(sock_path)
-    except (ConnectionRefusedError, FileNotFoundError):
-        print(f"Error: could not connect to session '{args.session}'", file=sys.stderr)
-        sys.exit(1)
+    except (ConnectionRefusedError, FileNotFoundError, OSError):
+        # No session running — start one
+        zeeref_bin = shutil.which("zeeref")
+        if not zeeref_bin:
+            print("Error: 'zeeref' not found in PATH", file=sys.stderr)
+            sys.exit(1)
+        print(f"Starting session '{args.session}'...", file=sys.stderr)
+        subprocess.Popen(
+            [zeeref_bin, "--session", args.session],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        for _ in range(50):  # 5 seconds
+            time.sleep(0.1)
+            if os.path.exists(sock_path):
+                try:
+                    sock.connect(sock_path)
+                    break
+                except OSError:
+                    continue
+        else:
+            print(
+                f"Error: timed out waiting for session '{args.session}' to start",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     msg = json.dumps({"type": "add", "payload": payload}) + "\n"
     sock.sendall(msg.encode())
