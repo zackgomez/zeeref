@@ -55,24 +55,41 @@ def main() -> None:
         description="Send images to a running ZeeRef session.",
     )
     parser.add_argument("session", help="Session name to connect to")
-    parser.add_argument("files", nargs="+", help="Image files to add")
+    parser.add_argument("files", nargs="*", help="Image files to add")
     parser.add_argument("--title", default=None, help="Title for the image(s)")
     parser.add_argument("--caption", default=None, help="Caption for the image(s)")
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read JSON payload array from stdin (each entry: {path, title?, caption?})",
+    )
     args = parser.parse_args()
 
-    # Build payload first so we fail fast on bad files
-    payload = []
-    for f in args.files:
-        p = Path(f).resolve()
-        if not p.is_file():
-            print(f"Warning: {f} does not exist, skipping", file=sys.stderr)
-            continue
-        entry: dict[str, str] = {"path": str(p)}
-        if args.title:
-            entry["title"] = args.title
-        if args.caption:
-            entry["caption"] = args.caption
-        payload.append(entry)
+    if args.stdin:
+        try:
+            payload = json.loads(sys.stdin.read())
+        except json.JSONDecodeError as e:
+            print(f"Error: invalid JSON on stdin: {e}", file=sys.stderr)
+            sys.exit(1)
+        if not isinstance(payload, list) or not payload:
+            print("Error: expected non-empty JSON array on stdin", file=sys.stderr)
+            sys.exit(1)
+    else:
+        if not args.files:
+            print("Error: no files provided", file=sys.stderr)
+            sys.exit(1)
+        payload = []
+        for f in args.files:
+            p = Path(f).resolve()
+            if not p.is_file():
+                print(f"Warning: {f} does not exist, skipping", file=sys.stderr)
+                continue
+            entry: dict[str, str] = {"path": str(p)}
+            if args.title:
+                entry["title"] = args.title
+            if args.caption:
+                entry["caption"] = args.caption
+            payload.append(entry)
 
     if not payload:
         print("Error: no valid files to send", file=sys.stderr)
