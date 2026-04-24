@@ -1,6 +1,7 @@
 import json
 import socket
 import threading
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,7 +12,7 @@ from zeeref.session import (
     PingMessage,
     SessionServer,
     parse_message,
-    socket_path,
+    server_name,
 )
 
 
@@ -70,7 +71,7 @@ class AsyncClient:
     def _run(self, session_name: str, message: str):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(5)
-        sock.connect(str(socket_path(session_name)))
+        sock.connect(server_name(session_name))
         sock.sendall(message.encode())
         buf = b""
         try:
@@ -146,14 +147,15 @@ def test_parse_add_invalid_title_type(imgfile):
 
 
 def test_server_starts_and_creates_socket(server, session_name):
-    path = socket_path(session_name)
+    # On Unix server_name() returns the socket file path.
+    path = Path(server_name(session_name))
     assert path.exists()
 
 
 def test_server_shutdown_removes_socket(qtbot, session_name, mock_insert_fn):
     srv = SessionServer(session_name, mock_insert_fn)
     assert srv.start()
-    path = socket_path(session_name)
+    path = Path(server_name(session_name))
     assert path.exists()
     srv.shutdown()
     assert not path.exists()

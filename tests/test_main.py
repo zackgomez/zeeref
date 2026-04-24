@@ -36,6 +36,7 @@ def test_main(startup_mock, args_mock, app_mock, qapp):
     args_mock.return_value.filename = None
     args_mock.return_value.loglevel = "WARN"
     args_mock.return_value.debug_raise_error = ""
+    args_mock.return_value.session = None
 
     with patch.object(qapp, "exec") as exec_mock:
         main()

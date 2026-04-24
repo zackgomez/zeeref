@@ -15,9 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with ZeeRef.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Lightweight CLI client for sending images to a running ZeeRef session.
+"""CLI client for sending images to a running ZeeRef session.
 
-Uses only the Python standard library (no Qt, no Pillow) for fast startup.
+Uses :class:`QLocalSocket` so the same code works on Linux, macOS, and
+Windows (named pipes).  Runs without a :class:`QCoreApplication`; the
+synchronous ``waitFor*`` methods are sufficient for a one-shot CLI.
 """
 
 from __future__ import annotations
@@ -26,27 +28,104 @@ import argparse
 import json
 import os
 import shutil
-import socket
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
+from PyQt6 import QtNetwork
 
-def socket_path(session_name: str) -> str:
-    runtime = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
-    return os.path.join(runtime, f"zeeref-{session_name}")
+from zeeref.session import server_name
 
 
-def recv_json(sock: socket.socket) -> dict:
-    """Read a JSON line from a Unix socket."""
+CONNECT_TIMEOUT_MS = 500
+SPAWN_CONNECT_POLL_MS = 200
+SPAWN_TIMEOUT_S = 10
+WRITE_TIMEOUT_MS = 5000
+REPLY_TIMEOUT_MS = 60000  # image inserts can take a while
+
+
+def _read_reply(sock: QtNetwork.QLocalSocket) -> dict:
+    """Read one \\n-terminated JSON line from the socket."""
     buf = b""
-    while not buf.endswith(b"\n"):
-        chunk = sock.recv(4096)
-        if not chunk:
+    deadline = time.monotonic() + REPLY_TIMEOUT_MS / 1000
+    while b"\n" not in buf:
+        remaining_ms = max(1, int((deadline - time.monotonic()) * 1000))
+        if not sock.waitForReadyRead(remaining_ms):
             break
-        buf += chunk
-    return json.loads(buf.decode())
+        buf += bytes(sock.readAll())
+    if b"\n" not in buf:
+        raise TimeoutError("timed out waiting for server reply")
+    line, _, _ = buf.partition(b"\n")
+    return json.loads(line.decode())
+
+
+def _spawn_and_connect(
+    session: str, sock: QtNetwork.QLocalSocket
+) -> Path | None:
+    """Spawn ``zeeref --session`` and poll until connected.
+
+    Returns the path to a captured stderr log on success, or raises
+    :class:`SystemExit` on failure.
+    """
+    zeeref_bin = shutil.which("zeeref")
+    if not zeeref_bin:
+        sys.exit("Error: 'zeeref' not found in PATH")
+
+    log = tempfile.NamedTemporaryFile(
+        prefix=f"zeeref-{session}-spawn-",
+        suffix=".log",
+        delete=False,
+    )
+    print(f"Starting session '{session}'...", file=sys.stderr)
+    subprocess.Popen(
+        [zeeref_bin, "--session", session],
+        stdout=subprocess.DEVNULL,
+        stderr=log,
+    )
+    log.close()
+
+    name = server_name(session)
+    deadline = time.monotonic() + SPAWN_TIMEOUT_S
+    while time.monotonic() < deadline:
+        sock.connectToServer(name)
+        if sock.waitForConnected(SPAWN_CONNECT_POLL_MS):
+            return Path(log.name)
+        sock.abort()
+
+    stderr_tail = Path(log.name).read_text(errors="replace")[-2000:]
+    msg = f"Error: timed out waiting for session '{session}' to start"
+    if stderr_tail.strip():
+        msg += f"\n--- zeeref stderr ---\n{stderr_tail}"
+    sys.exit(msg)
+
+
+def _build_payload(args: argparse.Namespace) -> list[dict]:
+    if args.stdin:
+        try:
+            payload = json.loads(sys.stdin.read())
+        except json.JSONDecodeError as e:
+            sys.exit(f"Error: invalid JSON on stdin: {e}")
+        if not isinstance(payload, list) or not payload:
+            sys.exit("Error: expected non-empty JSON array on stdin")
+        return payload
+
+    if not args.files:
+        sys.exit("Error: no files provided")
+    payload: list[dict] = []
+    for f in args.files:
+        p = Path(f).resolve()
+        if not p.is_file():
+            print(f"Warning: {f} does not exist, skipping", file=sys.stderr)
+            continue
+        entry: dict[str, str] = {"path": str(p)}
+        if args.title:
+            entry["title"] = args.title
+        if args.caption:
+            entry["caption"] = args.caption
+        payload.append(entry)
+    return payload
 
 
 def main() -> None:
@@ -65,79 +144,38 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.stdin:
-        try:
-            payload = json.loads(sys.stdin.read())
-        except json.JSONDecodeError as e:
-            print(f"Error: invalid JSON on stdin: {e}", file=sys.stderr)
-            sys.exit(1)
-        if not isinstance(payload, list) or not payload:
-            print("Error: expected non-empty JSON array on stdin", file=sys.stderr)
-            sys.exit(1)
-    else:
-        if not args.files:
-            print("Error: no files provided", file=sys.stderr)
-            sys.exit(1)
-        payload = []
-        for f in args.files:
-            p = Path(f).resolve()
-            if not p.is_file():
-                print(f"Warning: {f} does not exist, skipping", file=sys.stderr)
-                continue
-            entry: dict[str, str] = {"path": str(p)}
-            if args.title:
-                entry["title"] = args.title
-            if args.caption:
-                entry["caption"] = args.caption
-            payload.append(entry)
-
+    payload = _build_payload(args)
     if not payload:
-        print("Error: no valid files to send", file=sys.stderr)
-        sys.exit(1)
+        sys.exit("Error: no valid files to send")
 
-    # Connect to session, starting one if needed
-    sock_path = socket_path(args.session)
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock = QtNetwork.QLocalSocket()
+    sock.connectToServer(server_name(args.session))
+    spawn_log: Path | None = None
+    if not sock.waitForConnected(CONNECT_TIMEOUT_MS):
+        sock.abort()
+        spawn_log = _spawn_and_connect(args.session, sock)
+
+    msg = (json.dumps({"type": "add", "payload": payload}) + "\n").encode()
+    sock.write(msg)
+    if not sock.waitForBytesWritten(WRITE_TIMEOUT_MS):
+        sys.exit(f"Error: write timed out: {sock.errorString()}")
+
     try:
-        sock.connect(sock_path)
-    except (ConnectionRefusedError, FileNotFoundError, OSError):
-        # No session running — start one
-        zeeref_bin = shutil.which("zeeref")
-        if not zeeref_bin:
-            print("Error: 'zeeref' not found in PATH", file=sys.stderr)
-            sys.exit(1)
-        print(f"Starting session '{args.session}'...", file=sys.stderr)
-        subprocess.Popen(
-            [zeeref_bin, "--session", args.session],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        for _ in range(50):  # 5 seconds
-            time.sleep(0.1)
-            if os.path.exists(sock_path):
-                try:
-                    sock.connect(sock_path)
-                    break
-                except OSError:
-                    continue
-        else:
-            print(
-                f"Error: timed out waiting for session '{args.session}' to start",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-    msg = json.dumps({"type": "add", "payload": payload}) + "\n"
-    sock.sendall(msg.encode())
-
-    reply = recv_json(sock)
-    sock.close()
+        reply = _read_reply(sock)
+    except (TimeoutError, json.JSONDecodeError) as e:
+        sys.exit(f"Error reading reply: {e}")
+    finally:
+        sock.disconnectFromServer()
 
     if reply.get("type") == "error":
-        print(f"Error: {reply.get('message', 'unknown')}", file=sys.stderr)
-        sys.exit(1)
-    else:
-        print(f"Added {len(payload)} image(s) to session '{args.session}'")
+        sys.exit(f"Error: {reply.get('message', 'unknown')}")
+
+    print(f"Added {len(payload)} image(s) to session '{args.session}'")
+    if spawn_log is not None:
+        try:
+            os.unlink(spawn_log)
+        except OSError:
+            pass
 
 
 if __name__ == "__main__":

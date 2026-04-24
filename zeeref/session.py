@@ -16,10 +16,15 @@
 """Named session IPC server.
 
 When ZeeRef is started with ``--session <name>``, a
-:class:`SessionServer` listens on a Unix domain socket at
-``$XDG_RUNTIME_DIR/zeeref-<name>``.  A lightweight client
-(``zeeref-add``) can connect and send JSON messages to insert
-images into the running scene.
+:class:`SessionServer` listens for local IPC connections via
+:class:`QLocalServer`.  A lightweight client (``zeeref-add``) connects
+with :class:`QLocalSocket` and sends JSON messages to insert images
+into the running scene.
+
+Transport differs by platform (Qt handles the translation):
+  * Linux/macOS: AF_UNIX socket at ``$XDG_RUNTIME_DIR/zeeref-<name>``
+    (falls back to ``$TMPDIR``).
+  * Windows: named pipe at ``\\\\.\\pipe\\zeeref-<name>``.
 
 Wire protocol (one JSON object per line, ``\\n``-terminated)::
 
@@ -36,6 +41,8 @@ import dataclasses
 import json
 import logging
 import os
+import sys
+import tempfile
 from collections import deque
 from collections.abc import Callable
 from pathlib import Path
@@ -102,10 +109,18 @@ class PongMessage(ServerMessage):
 # -- Parsing ----------------------------------------------------------------
 
 
-def socket_path(session_name: str) -> Path:
-    """Return the Unix domain socket path for a session name."""
-    runtime = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
-    return Path(runtime) / f"zeeref-{session_name}"
+def server_name(session_name: str) -> str:
+    """Return the server identifier to pass to :class:`QLocalServer.listen`
+    and :class:`QLocalSocket.connectToServer`.
+
+    On Windows this is a bare name (Qt maps to ``\\\\.\\pipe\\zeeref-<name>``).
+    On Unix it is an absolute path so we can honour ``$XDG_RUNTIME_DIR``
+    for per-user cleanup on logout.
+    """
+    if sys.platform == "win32":
+        return f"zeeref-{session_name}"
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+    return os.path.join(runtime, f"zeeref-{session_name}")
 
 
 def _parse_insert_entry(raw: object, index: int) -> ImageInsert | str:
@@ -198,16 +213,20 @@ class SessionServer(QtCore.QObject):
 
     def start(self) -> bool:
         """Begin listening.  Returns False if the name is taken."""
-        path = str(socket_path(self._session_name))
-        QtNetwork.QLocalServer.removeServer(path)
-        if not self._server.listen(path):
+        name = server_name(self._session_name)
+        QtNetwork.QLocalServer.removeServer(name)
+        if not self._server.listen(name):
             logger.error(
                 "SessionServer: failed to listen on %s: %s",
-                path,
+                name,
                 self._server.errorString(),
             )
             return False
-        logger.info("Session '%s' listening on %s", self._session_name, path)
+        logger.info(
+            "Session '%s' listening on %s",
+            self._session_name,
+            self._server.fullServerName(),
+        )
         return True
 
     def shutdown(self) -> None:
