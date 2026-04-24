@@ -40,53 +40,58 @@ def logfile_name():
     )
 
 
-logging_conf = {
-    "version": 1,
-    "formatters": {
-        "verbose": {
-            "format": ("{asctime} {name} {process:d} {thread:d} {message}"),
-            "style": "{",
-        },
-        "simple": {
-            "format": "{levelname} {name}: {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "simple",
-            "level": CommandlineArgs().loglevel,
-        },
-        "file": {
-            "class": "zeeref.logging.ZeeRotatingFileHandler",
-            "formatter": "verbose",
-            "filename": logfile_name(),
-            "maxBytes": 1024 * 1000,  # 1MB
-            "backupCount": 1,
-            "level": "DEBUG",
-            "delay": True,
-        },
-    },
-    "loggers": {
-        "zeeref": {
-            "handlers": ["console", "file"],
-            "level": "TRACE",
-            "propagate": False,
-        },
-        "Qt": {
-            "handlers": ["console", "file"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-    },
-    "root": {
-        "handlers": ["console", "file"],
-        "level": "DEBUG",
-    },
-}
+def configure_logging(loglevel: str = "WARNING") -> None:
+    """Install ZeeRef's logging + Qt message handler.
 
-logging.config.dictConfig(logging_conf)
-
-# Redirect Qt logging to Python logger:
-QtCore.qInstallMessageHandler(qt_message_handler)
+    Call once from ``main()`` after command-line args are parsed.  Kept
+    out of module import so that consumers of ``zeeref.config`` (such as
+    the ``zeeref-add`` CLI's import chain) don't parse ``sys.argv`` at
+    import time.
+    """
+    logging_conf = {
+        "version": 1,
+        "formatters": {
+            "verbose": {
+                "format": ("{asctime} {name} {process:d} {thread:d} {message}"),
+                "style": "{",
+            },
+            "simple": {
+                "format": "{levelname} {name}: {message}",
+                "style": "{",
+            },
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "simple",
+                "level": loglevel,
+            },
+            "file": {
+                "class": "zeeref.logging.ZeeRotatingFileHandler",
+                "formatter": "verbose",
+                "filename": logfile_name(),
+                "maxBytes": 1024 * 1000,  # 1MB
+                "backupCount": 1,
+                "level": "DEBUG",
+                "delay": True,
+            },
+        },
+        "loggers": {
+            "zeeref": {
+                "handlers": ["console", "file"],
+                "level": "TRACE",
+                "propagate": False,
+            },
+            "Qt": {
+                "handlers": ["console", "file"],
+                "level": "DEBUG",
+                "propagate": False,
+            },
+        },
+        "root": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+        },
+    }
+    logging.config.dictConfig(logging_conf)
+    QtCore.qInstallMessageHandler(qt_message_handler)

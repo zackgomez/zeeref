@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 from zeeref import constants
 from zeeref.assets import ZeeAssets
-from zeeref.config import CommandlineArgs, ZeeSettings, logfile_name
+from zeeref.config import CommandlineArgs, ZeeSettings, configure_logging, logfile_name
 from zeeref.fileio.scratch import delete_scratch_file
 from zeeref.utils import create_palette_from_dict
 from zeeref.view import ZeeGraphicsView
@@ -175,6 +175,8 @@ sys.excepthook = handle_uncaught_exception
 
 
 def main():
+    args = CommandlineArgs(with_check=True)  # Force checking
+    configure_logging(args.loglevel)
     logger.info(f"Starting {constants.APPNAME} version {constants.VERSION}")
     logger.debug("System: %s", " ".join(platform.uname()))
     logger.debug("Python: %s", platform.python_version())
@@ -183,7 +185,6 @@ def main():
     logger.info(f"Using settings: {settings.fileName()}")
     logger.info(f"Logging to: {logfile_name()}")
     settings.on_startup()
-    args = CommandlineArgs(with_check=True)  # Force checking
     assert not args.debug_raise_error, args.debug_raise_error
 
     os.environ["QT_DEBUG_PLUGINS"] = "1"
