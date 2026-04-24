@@ -1,10 +1,9 @@
 import json
-import socket
 import threading
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from PyQt6 import QtNetwork
 
 from zeeref.session import (
     AddMessage,
@@ -69,20 +68,19 @@ class AsyncClient:
         self._thread.start()
 
     def _run(self, session_name: str, message: str):
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.settimeout(5)
-        sock.connect(server_name(session_name))
-        sock.sendall(message.encode())
+        sock = QtNetwork.QLocalSocket()
+        sock.connectToServer(server_name(session_name))
+        if not sock.waitForConnected(5000):
+            self.reply = {}
+            return
+        sock.write(message.encode())
+        sock.waitForBytesWritten(5000)
         buf = b""
-        try:
-            while not buf.endswith(b"\n"):
-                chunk = sock.recv(4096)
-                if not chunk:
-                    break
-                buf += chunk
-        except TimeoutError:
-            pass
-        sock.close()
+        while not buf.endswith(b"\n"):
+            if not sock.waitForReadyRead(5000):
+                break
+            buf += bytes(sock.readAll())
+        sock.disconnectFromServer()
         self.reply = json.loads(buf.decode()) if buf else {}
 
     @property
@@ -146,19 +144,24 @@ def test_parse_add_invalid_title_type(imgfile):
 # -- Server integration tests ------------------------------------------------
 
 
-def test_server_starts_and_creates_socket(server, session_name):
-    # On Unix server_name() returns the socket file path.
-    path = Path(server_name(session_name))
-    assert path.exists()
+def _can_connect(session: str, timeout_ms: int = 500) -> bool:
+    sock = QtNetwork.QLocalSocket()
+    sock.connectToServer(server_name(session))
+    ok = sock.waitForConnected(timeout_ms)
+    sock.abort()
+    return ok
 
 
-def test_server_shutdown_removes_socket(qtbot, session_name, mock_insert_fn):
+def test_server_accepts_connections(server, session_name):
+    assert _can_connect(session_name)
+
+
+def test_server_shutdown_rejects_new_connections(qtbot, session_name, mock_insert_fn):
     srv = SessionServer(session_name, mock_insert_fn)
     assert srv.start()
-    path = Path(server_name(session_name))
-    assert path.exists()
+    assert _can_connect(session_name)
     srv.shutdown()
-    assert not path.exists()
+    assert not _can_connect(session_name)
 
 
 def test_ping(qtbot, server, session_name):
