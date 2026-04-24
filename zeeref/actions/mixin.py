@@ -86,6 +86,9 @@ class ActionsMixin(_ActionsMixinBase):
             shortcuts = action.get_shortcuts()
             if shortcuts:
                 qaction.setShortcuts(shortcuts)
+            # ZeeRef's right-click menu is the primary menu (no menubar);
+            # show shortcuts even on macOS where HIG hides them by default.
+            qaction.setShortcutVisibleInContextMenu(True)
             if action.checkable:
                 self._init_action_checkable(action, qaction)
             else:
@@ -135,6 +138,7 @@ class ActionsMixin(_ActionsMixinBase):
                 filename = files[i]
                 qaction = QtGui.QAction(os.path.basename(filename), self)
                 qaction.setShortcuts(action.get_shortcuts())
+                qaction.setShortcutVisibleInContextMenu(True)
                 qaction.triggered.connect(
                     partial(self.on_action_open_recent_file, filename)
                 )
