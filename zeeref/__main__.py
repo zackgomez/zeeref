@@ -195,6 +195,9 @@ def main():
     fmt.setAlphaBufferSize(8)
     QtGui.QSurfaceFormat.setDefaultFormat(fmt)
     app = ZeeRefApplication(sys.argv)
+    # Set app-level icon so macOS Dock picks it up (window-level setWindowIcon
+    # doesn't reach the Dock for unbundled Python processes).
+    app.setWindowIcon(ZeeAssets().logo)
     if sys.platform == "win32":
         app.setStyle("Fusion")
     palette = create_palette_from_dict(constants.COLORS)
