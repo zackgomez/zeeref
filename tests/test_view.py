@@ -1100,6 +1100,8 @@ def test_delta_zero(pan_mock, reset_mock, view, item):
 @patch("zeeref.view.ZeeGraphicsView.zoom")
 def test_wheel_event_zoom(zoom_mock, view):
     event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.pixelDelta.return_value = QtCore.QPoint(0, 0)
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
     event.position.return_value = QtCore.QPointF(10.0, 20.0)
     event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
@@ -1113,6 +1115,8 @@ def test_wheel_event_zoom_custom_inverted(zoom_mock, view, kbsettings):
     kbsettings.MOUSEWHEEL_ACTIONS["zoom2"].set_modifiers(["Alt"])
     kbsettings.MOUSEWHEEL_ACTIONS["zoom2"].set_inverted(True)
     event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.pixelDelta.return_value = QtCore.QPoint(0, 0)
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
     event.position.return_value = QtCore.QPointF(10.0, 20.0)
     event.modifiers.return_value = Qt.KeyboardModifier.AltModifier
@@ -1124,6 +1128,8 @@ def test_wheel_event_zoom_custom_inverted(zoom_mock, view, kbsettings):
 @patch("zeeref.view.ZeeGraphicsView.pan")
 def test_wheel_event_pan_vertically(pan_mock, view):
     event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.pixelDelta.return_value = QtCore.QPoint(0, 0)
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
     event.position.return_value = QtCore.QPointF(10.0, 20.0)
     event.modifiers.return_value = (
@@ -1139,6 +1145,8 @@ def test_wheel_event_pan_vertically_custom_inverted(pan_mock, view, kbsettings):
     kbsettings.MOUSEWHEEL_ACTIONS["pan_vertical2"].set_modifiers(["Alt"])
     kbsettings.MOUSEWHEEL_ACTIONS["pan_vertical2"].set_inverted(True)
     event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.pixelDelta.return_value = QtCore.QPoint(0, 0)
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
     event.position.return_value = QtCore.QPointF(10.0, 20.0)
     event.modifiers.return_value = Qt.KeyboardModifier.AltModifier
@@ -1150,6 +1158,8 @@ def test_wheel_event_pan_vertically_custom_inverted(pan_mock, view, kbsettings):
 @patch("zeeref.view.ZeeGraphicsView.pan")
 def test_wheel_event_pan_horizontally(pan_mock, view):
     event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.pixelDelta.return_value = QtCore.QPoint(0, 0)
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
     event.position.return_value = QtCore.QPointF(10.0, 20.0)
     event.modifiers.return_value = Qt.KeyboardModifier.ShiftModifier
@@ -1163,12 +1173,87 @@ def test_wheel_event_pan_horizontally_custom_inverted(pan_mock, view, kbsettings
     kbsettings.MOUSEWHEEL_ACTIONS["pan_horizontal2"].set_modifiers(["Alt"])
     kbsettings.MOUSEWHEEL_ACTIONS["pan_horizontal2"].set_inverted(True)
     event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.pixelDelta.return_value = QtCore.QPoint(0, 0)
     event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
     event.position.return_value = QtCore.QPointF(10.0, 20.0)
     event.modifiers.return_value = Qt.KeyboardModifier.AltModifier
     view.wheelEvent(event)
     pan_mock.assert_called_once_with(QtCore.QPointF(0, -20))
     event.accept.assert_called_once_with()
+
+
+@patch("zeeref.view.ZeeGraphicsView.pan")
+def test_wheel_event_trackpad_pan(pan_mock, view):
+    event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.ScrollUpdate
+    event.pixelDelta.return_value = QtCore.QPoint(7, -13)
+    event.angleDelta.return_value = QtCore.QPointF(0.0, 0.0)
+    event.position.return_value = QtCore.QPointF(10.0, 20.0)
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    view.wheelEvent(event)
+    pan_mock.assert_called_once_with(QtCore.QPointF(-7, 13))
+    event.accept.assert_called_once_with()
+
+
+@patch("zeeref.view.ZeeGraphicsView.zoom")
+@patch("zeeref.view.ZeeGraphicsView.pan")
+def test_wheel_event_trackpad_pan_ignores_modifiers(pan_mock, zoom_mock, view):
+    # Trackpad path should pan regardless of modifier state, never zoom.
+    event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.ScrollUpdate
+    event.pixelDelta.return_value = QtCore.QPoint(0, 5)
+    event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
+    event.position.return_value = QtCore.QPointF(10.0, 20.0)
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    view.wheelEvent(event)
+    pan_mock.assert_called_once_with(QtCore.QPointF(0, -5))
+    zoom_mock.assert_not_called()
+    event.accept.assert_called_once_with()
+
+
+@patch("zeeref.view.ZeeGraphicsView.zoom")
+@patch("zeeref.view.ZeeGraphicsView.pan")
+def test_wheel_event_high_res_mouse_still_zooms(pan_mock, zoom_mock, view):
+    # A high-resolution mouse wheel populates pixelDelta but keeps
+    # phase == NoScrollPhase; that should still zoom, not pan.
+    event = MagicMock()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.pixelDelta.return_value = QtCore.QPoint(0, 12)
+    event.angleDelta.return_value = QtCore.QPointF(0.0, 40.0)
+    event.position.return_value = QtCore.QPointF(10.0, 20.0)
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    view.wheelEvent(event)
+    zoom_mock.assert_called_once_with(40, QtCore.QPointF(10.0, 20.0))
+    pan_mock.assert_not_called()
+    event.accept.assert_called_once_with()
+
+
+@patch("zeeref.view.ZeeGraphicsView.zoom")
+def test_native_pinch_zoom(zoom_mock, view):
+    event = MagicMock()
+    event.type.return_value = QtCore.QEvent.Type.NativeGesture
+    event.gestureType.return_value = Qt.NativeGestureType.ZoomNativeGesture
+    event.value.return_value = 0.05
+    event.position.return_value = QtCore.QPointF(10.0, 20.0)
+    handled = view.event(event)
+    assert handled is True
+    zoom_mock.assert_called_once_with(50.0, QtCore.QPointF(10.0, 20.0))
+    event.accept.assert_called_once_with()
+
+
+@patch("PyQt6.QtWidgets.QGraphicsView.event")
+@patch("zeeref.view.ZeeGraphicsView.zoom")
+def test_native_gesture_other_types_ignored(zoom_mock, super_event_mock, view):
+    super_event_mock.return_value = False
+    event = MagicMock()
+    event.type.return_value = QtCore.QEvent.Type.NativeGesture
+    event.gestureType.return_value = Qt.NativeGestureType.RotateNativeGesture
+    event.value.return_value = 0.1
+    event.position.return_value = QtCore.QPointF(10.0, 20.0)
+    view.event(event)
+    zoom_mock.assert_not_called()
+    super_event_mock.assert_called_once_with(event)
 
 
 @patch("PyQt6.QtWidgets.QGraphicsView.mousePressEvent")

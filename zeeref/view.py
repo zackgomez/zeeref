@@ -1054,6 +1054,19 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
 
     def wheelEvent(self, event: QtGui.QWheelEvent | None) -> None:
         assert event is not None
+
+        # Trackpads and other touch surfaces deliver scroll events with
+        # a non-default phase; route those to two-finger pan and skip
+        # the modifier-based wheel routing below. Mouse wheels (even
+        # high-resolution ones with pixelDelta populated) report
+        # NoScrollPhase and fall through.
+        if event.phase() != Qt.ScrollPhase.NoScrollPhase:
+            pixel_delta = event.pixelDelta()
+            if not pixel_delta.isNull():
+                self.pan(QtCore.QPointF(-pixel_delta.x(), -pixel_delta.y()))
+            event.accept()
+            return
+
         action, inverted = self.keyboard_settings.mousewheel_action_for_event(event)
 
         delta = event.angleDelta().y()
@@ -1072,6 +1085,17 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
             self.pan(QtCore.QPointF(0.5 * delta, 0))
             event.accept()
             return
+
+    def event(self, event: QtCore.QEvent | None) -> bool:
+        if event is not None and event.type() == QtCore.QEvent.Type.NativeGesture:
+            ng = cast(QtGui.QNativeGestureEvent, event)
+            if ng.gestureType() == Qt.NativeGestureType.ZoomNativeGesture:
+                # macOS pinch delivers ~0.01 per frame; scale to match
+                # the angle-delta-based units zoom() expects.
+                self.zoom(ng.value() * 1000.0, ng.position())
+                ng.accept()
+                return True
+        return super().event(event)
 
     def mousePressEvent(self, event: QtGui.QMouseEvent | None) -> None:
         assert event is not None
