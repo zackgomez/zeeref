@@ -39,8 +39,14 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class _RightClickState:
+class _DeferredMoveState:
+    """Press captured for a button whose click could mean something other
+    than 'move the window'.  Resolves into either move-window mode (on
+    drag) or the alternate action (on no-drag release, e.g. context menu).
+    """
+
     start_pos: QtCore.QPointF
+    button: Qt.MouseButton
     can_movewin: bool
 
 
@@ -56,7 +62,7 @@ class MainControlsMixin(_MainControlsBase):
     main_window: QtWidgets.QMainWindow
     event_start: QtCore.QPointF
     movewin_active: bool
-    right_click_state: _RightClickState | None
+    deferred_move_state: _DeferredMoveState | None
 
     def init_main_controls(self, main_window: QtWidgets.QMainWindow) -> None:
         self.main_window = main_window
@@ -65,7 +71,7 @@ class MainControlsMixin(_MainControlsBase):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.setAcceptDrops(True)
         self.movewin_active = False
-        self.right_click_state = None
+        self.deferred_move_state = None
 
     def on_action_movewin_mode(self) -> None:
         if self.movewin_active:
@@ -146,17 +152,21 @@ class MainControlsMixin(_MainControlsBase):
         action, inverted = self.control_target.keyboard_settings.mouse_action_for_event(
             event
         )
+        is_right = event.button() == Qt.MouseButton.RightButton
+        is_movewin = action == "movewindow"
 
-        if event.button() == Qt.MouseButton.RightButton:
-            self.right_click_state = _RightClickState(
+        # Defer the press if either the button has another meaning on a
+        # plain click (right → context menu) or the binding is movewindow
+        # on a button whose plain click might mean something to the scene
+        # (e.g. ⌘+left selection toggle).  A drag past the threshold flips
+        # into move-window mode; release without crossing the threshold
+        # falls back to the alternate action.
+        if is_right or is_movewin:
+            self.deferred_move_state = _DeferredMoveState(
                 start_pos=event.position(),
-                can_movewin=(action == "movewindow"),
+                button=event.button(),
+                can_movewin=is_movewin,
             )
-            event.accept()
-            return True
-
-        if action == "movewindow":
-            self.enter_movewin_mode()
             event.accept()
             return True
 
@@ -178,10 +188,10 @@ class MainControlsMixin(_MainControlsBase):
             event.accept()
             return True
 
-        if self.right_click_state and self.right_click_state.can_movewin:
-            delta = event.position() - self.right_click_state.start_pos
+        if self.deferred_move_state and self.deferred_move_state.can_movewin:
+            delta = event.position() - self.deferred_move_state.start_pos
             if delta.manhattanLength() >= 2:
-                self.right_click_state = None
+                self.deferred_move_state = None
                 self.enter_movewin_mode()
                 event.accept()
                 return True
@@ -192,23 +202,31 @@ class MainControlsMixin(_MainControlsBase):
             event.accept()
             return True
 
-        if event.button() == Qt.MouseButton.RightButton:
-            if self.right_click_state:
-                delta = event.position() - self.right_click_state.start_pos
-                if self.right_click_state.can_movewin and delta.manhattanLength() >= 2:
-                    self.right_click_state = None
-                    event.accept()
-                    return True
+        if (
+            self.deferred_move_state
+            and event.button() == self.deferred_move_state.button
+        ):
+            state = self.deferred_move_state
+            self.deferred_move_state = None
 
-                # No drag — open context menu.
+            if state.button == Qt.MouseButton.RightButton:
+                # Plain right-click (no drag) — open context menu.
                 pos = event.position()
-                point = QtCore.QPoint(int(pos.x()), int(pos.y()))
-                self.control_target.on_context_menu(point)
-                self.right_click_state = None
-                event.accept()
-                return True
+                self.control_target.on_context_menu(
+                    QtCore.QPoint(int(pos.x()), int(pos.y()))
+                )
+            elif state.button == Qt.MouseButton.LeftButton:
+                # Plain left+modifier click on an item — toggle its
+                # selection state, mirroring QGraphicsView's default
+                # ⌘/Ctrl+click behaviour that we suppressed by accepting
+                # the press.
+                point = QtCore.QPoint(
+                    int(state.start_pos.x()), int(state.start_pos.y())
+                )
+                item = self.control_target.itemAt(point)
+                if item is not None:
+                    item.setSelected(not item.isSelected())
 
-            self.right_click_state = None
             event.accept()
             return True
 

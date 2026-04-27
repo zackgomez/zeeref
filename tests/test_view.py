@@ -1381,6 +1381,8 @@ def test_mouse_press_sample_color_when_no_color(
 @patch("PyQt6.QtWidgets.QGraphicsView.mousePressEvent")
 @patch("zeeref.view.ZeeGraphicsView.cursor")
 def test_mouse_press_move_window(cursor_mock, mouse_event_mock, view):
+    # Movewindow press defers — only a drag past the threshold flips into
+    # move-window mode.  A bare press alone stays in the deferred state.
     event = MagicMock()
     cursor_mock.return_value = MagicMock(
         pos=MagicMock(return_value=QtCore.QPointF(10.0, 20.0))
@@ -1389,10 +1391,12 @@ def test_mouse_press_move_window(cursor_mock, mouse_event_mock, view):
     event.modifiers.return_value = (
         Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.ControlModifier
     )
+    event.position.return_value = QtCore.QPointF(10.0, 20.0)
     view.mousePressEvent(event)
     assert view.active_mode is None
-    assert view.movewin_active is True
-    assert view.event_start == view.mapToGlobal(QtCore.QPointF(10.0, 20.0))
+    assert view.movewin_active is False
+    assert view.deferred_move_state is not None
+    assert view.deferred_move_state.can_movewin is True
     mouse_event_mock.assert_not_called()
     event.accept.assert_called_once_with()
 
