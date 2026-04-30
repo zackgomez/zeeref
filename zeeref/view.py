@@ -180,6 +180,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         logger.debug("Cancel sample color mode")
         self.active_mode = None
         self.require_viewport().unsetCursor()
+        self.setMouseTracking(False)
         if hasattr(self, "sample_color_widget"):
             self.sample_color_widget.hide()
             del self.sample_color_widget
@@ -483,6 +484,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.cancel_active_modes()
         logger.debug("Entering sample color mode")
         self.require_viewport().setCursor(Qt.CursorShape.CrossCursor)
+        self.setMouseTracking(True)
         self.active_mode = self.SAMPLE_COLOR_MODE
 
         if self.scene.has_multi_selection():
