@@ -9,11 +9,7 @@
 ; The installer exe lands in dist/ZeeRef-Setup.exe
 
 #define AppName "ZeeRef"
-#define AppExeName "ZeeRef-*.exe"
-; Read version from constants.py at compile time
-#define ConstantsFile "zeeref\constants.py"
-#define VersionLine Local[0] = Copy(GetStringFileInfo(AddBackslash(SourcePath) + "dist\" + AppExeName, "ProductVersion"), 1)
-; Fallback: set version manually if the above doesn't work with single-file exe
+; AppVersion is passed in by CI via `iscc /DAppVersion=...`.
 #ifndef AppVersion
   #define AppVersion "dev"
 #endif
