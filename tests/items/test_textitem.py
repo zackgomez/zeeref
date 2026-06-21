@@ -184,6 +184,19 @@ def test_create_from_data(qapp):
     assert item._markdown == "hello world"
 
 
+def test_render_pins_natural_width(qapp):
+    # Each render pins the item to its natural (unwrapped) width so block
+    # elements like <hr> have a width to render into. Re-rendering must reflect
+    # the new content's width, not stay constrained to a previously pinned one.
+    item = ZeeTextItem("short")
+    narrow = item.textWidth()
+    assert narrow > 0
+    item.set_markdown("a much much much much much much longer single line of text")
+    assert item.textWidth() > narrow * 2
+    item.set_markdown("short")
+    assert abs(item.textWidth() - narrow) < 1
+
+
 def test_create_copy(qapp):
     item = ZeeTextItem("foo bar")
     item.setPos(20, 30)

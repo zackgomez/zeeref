@@ -981,10 +981,18 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
 
     STYLESHEET = """
         body { color: %s; }
-        h1, h2, h3, h4, h5, h6 { margin: 4px 0; }
-        code { background: rgba(255,255,255,0.1); padding: 1px 3px; }
-        pre { background: rgba(255,255,255,0.1); padding: 4px; }
+        h1 { margin: 16px 0 6px; }
+        h2 { margin: 14px 0 6px; }
+        h3 { margin: 12px 0 5px; }
+        h4, h5, h6 { margin: 10px 0 4px; }
+        code { background: rgba(0,0,0,0.25); padding: 1px 3px; }
+        pre { background: rgba(0,0,0,0.25); padding: 4px; }
+        pre code { background: none; }
         a { color: #6aeae7; }
+        del { text-decoration: line-through; }
+        hr { background-color: #41464c; }
+        th, td { border: 1px solid #41464c; padding: 5px 10px; vertical-align: top; }
+        th { text-align: left; }
     """
 
     def __init__(self, text: str | None = None, **kwargs: Any) -> None:
@@ -1002,8 +1010,17 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         """Render stored markdown to HTML for display."""
         text_color = "rgb(%d,%d,%d)" % COLORS["Scene:Text"]
         css = self.STYLESHEET % text_color
-        html = mistune.html(self._markdown)
-        self.setHtml(f"<style>{css}</style>{html}")
+        html = cast(str, mistune.html(self._markdown))
+        html = html.replace("<table>", '<table border="1" cellspacing="0">')
+        doc = self.document()
+        assert doc is not None
+        doc.setDefaultStyleSheet(css)
+        # Lay out unbounded first so idealWidth() is the natural (unwrapped) width
+        # and not constrained by any previously pinned width, then pin to it so
+        # block elements (e.g. <hr>) have a width to render into.
+        self.setTextWidth(-1)
+        self.setHtml(html)
+        self.setTextWidth(doc.idealWidth())
 
     def set_markdown(self, text: str) -> None:
         """Set markdown source and re-render."""
@@ -1072,6 +1089,8 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         logger.debug(f"Entering edit mode on {self}")
         self.edit_mode = True
         self.old_text = self._markdown
+        # Drop the rendered-view width pin so raw markdown edits without wrapping.
+        self.setTextWidth(-1)
         self.setPlainText(self._markdown)
         self.setDefaultTextColor(QtGui.QColor(*COLORS["Scene:Text"]))
         self.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
