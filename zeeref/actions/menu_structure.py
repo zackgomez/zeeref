@@ -55,6 +55,7 @@ menu_structure = [
         "menu": "&Transform",
         "items": [
             "crop",
+            "cycle_text_wrap",
             "flip_horizontally",
             "flip_vertically",
             MENU_SEPARATOR,

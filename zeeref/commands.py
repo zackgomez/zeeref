@@ -315,6 +315,24 @@ class ChangeText(QtGui.QUndoCommand):
         self.item.set_markdown(self.old_text)
 
 
+class ChangeWrap(QtGui.QUndoCommand):
+    """Change the soft-wrap width (in columns) on text items."""
+
+    def __init__(self, items, cols):
+        super().__init__("Change Text Wrap")
+        self.items = list(items)
+        self.cols = cols
+        self.old_cols = [item.wrap_cols for item in self.items]
+
+    def redo(self):
+        for item in self.items:
+            item.set_wrap_cols(self.cols)
+
+    def undo(self):
+        for item, cols in zip(self.items, self.old_cols):
+            item.set_wrap_cols(cols)
+
+
 class ChangeOpacity(QtGui.QUndoCommand):
     """Change opacity on images."""
 
@@ -342,7 +360,7 @@ class EditItem(QtGui.QUndoCommand):
     """Apply a partial dict of field updates to a single item.
 
     Supports transforms (x, y, z, scale, rotation, flip), opacity,
-    title/caption (pixmap items), and text (text items).  Captures old
+    title/caption (pixmap items), and text/wrap (text items).  Captures old
     values for clean undo.  Fields not present in *changes* are not
     touched.  ``flip`` of ``None`` is treated as 1.
     """
@@ -367,6 +385,8 @@ class EditItem(QtGui.QUndoCommand):
             self.old["caption"] = getattr(item, "caption", None)
         if "text" in self.new:
             self.old["text"] = getattr(item, "_markdown", None)
+        if "wrap" in self.new:
+            self.old["wrap"] = getattr(item, "wrap_cols", 0)
 
     @staticmethod
     def _read(item, key: str):
@@ -407,6 +427,8 @@ class EditItem(QtGui.QUndoCommand):
         if "text" in values:
             text = values["text"] or ""
             item.set_markdown(text)
+        if "wrap" in values:
+            item.set_wrap_cols(values["wrap"])
 
     def redo(self) -> None:
         self._apply(self.new)

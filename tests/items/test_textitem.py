@@ -4,6 +4,7 @@ from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import Qt
 
 from zeeref.items import ZeeTextItem, item_registry
+from zeeref.types.snapshot import ItemSnapshot
 
 
 def test_in_items_registry():
@@ -61,8 +62,8 @@ def test_set_pos_center_when_rotated(qapp):
 
 
 def test_get_extra_save_data(qapp):
-    item = ZeeTextItem("foo bar")
-    assert item.get_extra_save_data() == {"text": "foo bar"}
+    item = ZeeTextItem("foo bar", wrap=80)
+    assert item.get_extra_save_data() == {"text": "foo bar", "wrap": 80}
 
 
 @patch("zeeref.items.ZeeTextItem.boundingRect")
@@ -188,7 +189,7 @@ def test_render_pins_natural_width(qapp):
     # Each render pins the item to its natural (unwrapped) width so block
     # elements like <hr> have a width to render into. Re-rendering must reflect
     # the new content's width, not stay constrained to a previously pinned one.
-    item = ZeeTextItem("short")
+    item = ZeeTextItem("short", wrap=0)
     narrow = item.textWidth()
     assert narrow > 0
     item.set_markdown("a much much much much much much longer single line of text")
@@ -197,8 +198,102 @@ def test_render_pins_natural_width(qapp):
     assert abs(item.textWidth() - narrow) < 1
 
 
+def test_wrap_limits_wide_text(qapp):
+    unwrapped = ZeeTextItem("word " * 200, wrap=0)
+    wrapped = ZeeTextItem("word " * 200, wrap=80)
+    limit = wrapped.wrap_width()
+    assert limit is not None
+    assert wrapped.textWidth() <= limit
+    assert wrapped.textWidth() < unwrapped.textWidth() / 2
+    # The box hugs the wrapped text rather than padding out to the full limit.
+    assert wrapped.boundingRect().width() == wrapped.textWidth()
+
+
+def test_wrap_leaves_narrow_text_alone(qapp):
+    natural = ZeeTextItem("short", wrap=0).textWidth()
+    assert ZeeTextItem("short", wrap=80).textWidth() == natural
+
+
+def test_wrap_applies_on_rerender(qapp):
+    item = ZeeTextItem("short", wrap=80)
+    limit = item.wrap_width()
+    assert limit is not None
+    item.set_markdown("word " * 200)
+    assert item.textWidth() <= limit
+    item.set_markdown("short")
+    assert item.textWidth() < limit
+
+
+def test_set_wrap_cols_rewraps(qapp):
+    item = ZeeTextItem("word " * 200, wrap=0)
+    unwrapped = item.textWidth()
+    item.set_wrap_cols(80)
+    wrapped = item.textWidth()
+    assert wrapped < unwrapped / 2
+    item.set_wrap_cols(0)
+    assert item.textWidth() == unwrapped
+    # Negative widths are clamped to "no wrapping" rather than inverting.
+    item.set_wrap_cols(-5)
+    assert item.wrap_cols == 0
+
+
+def test_next_wrap_cols_cycles(qapp):
+    item = ZeeTextItem("foo", wrap=0)
+    assert item.next_wrap_cols() == 100
+    item.set_wrap_cols(100)
+    assert item.next_wrap_cols() == 80
+    item.set_wrap_cols(80)
+    assert item.next_wrap_cols() == 0
+    # A width outside the cycle (e.g. set from the CLI) unwraps first.
+    item.set_wrap_cols(72)
+    assert item.next_wrap_cols() == 0
+
+
+def test_edit_mode_keeps_wrap_width(qapp, scene):
+    item = ZeeTextItem("word " * 200, wrap=80)
+    scene.addItem(item)
+    limit = item.wrap_width()
+    assert limit is not None
+    item.enter_edit_mode()
+    assert item.textWidth() == limit
+
+
+def test_edit_mode_unbounded_without_wrap(qapp, scene):
+    item = ZeeTextItem("word " * 200, wrap=0)
+    scene.addItem(item)
+    item.enter_edit_mode()
+    assert item.textWidth() == -1
+
+
+def _snapshot(data):
+    return ItemSnapshot(
+        save_id="abc",
+        type="text",
+        x=0,
+        y=0,
+        z=0,
+        scale=1,
+        rotation=0,
+        flip=1,
+        data=data,
+        created_at=0,
+    )
+
+
+def test_from_snapshot_restores_wrap(qapp):
+    item = ZeeTextItem.from_snapshot(_snapshot({"text": "foo", "wrap": 80}))
+    assert item.wrap_cols == 80
+
+
+def test_from_snapshot_without_wrap_stays_unwrapped(qapp):
+    # Files written before wrapping existed must not re-flow when opened.
+    item = ZeeTextItem.from_snapshot(_snapshot({"text": "word " * 200}))
+    assert item.wrap_cols == 0
+    assert item.wrap_width() is None
+
+
 def test_create_copy(qapp):
-    item = ZeeTextItem("foo bar")
+    item = ZeeTextItem("foo bar", wrap=80)
     item.setPos(20, 30)
     item.setRotation(33)
     item.do_flip()
@@ -212,6 +307,7 @@ def test_create_copy(qapp):
     assert copy.flip() == -1
     assert copy.zValue() == 0.5
     assert copy.scale() == 2.2
+    assert copy.wrap_cols == 80
 
 
 def test_enter_edit_mode(scene):

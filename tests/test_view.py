@@ -597,6 +597,30 @@ def test_on_action_insert_text(clear_mock, view):
     view.cancel_active_modes.assert_called_once_with()
 
 
+def test_on_action_cycle_text_wrap(view):
+    item = ZeeTextItem("word " * 200, wrap=0)
+    view.scene.addItem(item)
+    item.setSelected(True)
+
+    view.on_action_cycle_text_wrap()
+    assert item.wrap_cols == 100
+    view.on_action_cycle_text_wrap()
+    assert item.wrap_cols == 80
+    view.on_action_cycle_text_wrap()
+    assert item.wrap_cols == 0
+    view.undo_stack.undo()
+    assert item.wrap_cols == 80
+
+
+def test_on_action_cycle_text_wrap_ignores_images(view, imgfilename3x3, qtbot):
+    view.do_insert_images([imgfilename3x3])
+    wait_for_worker(view, qtbot, lambda: len(view.scene.user_items()) > 0)
+    view.scene.user_items()[0].setSelected(True)
+
+    view.on_action_cycle_text_wrap()
+    assert view.undo_stack.count() == 1  # only the insert
+
+
 @patch("PyQt6.QtWidgets.QApplication.clipboard")
 def test_on_action_copy_image(clipboard_mock, view, imgfilename3x3, qtbot):
     # Insert image through the normal pipeline so tiles exist in the cache

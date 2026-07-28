@@ -146,6 +146,11 @@ class ZeeSettings(QtCore.QSettings):
             "default": "optimal",
             "validate": lambda x: x in ("optimal", "horizontal", "vertical", "square"),
         },
+        "Items/text_wrap_cols": {
+            "default": 100,
+            "cast": int,
+            "validate": lambda x: 0 <= x <= 500,
+        },
         "Items/image_allocation_limit": {
             "default": 16384,
             "cast": int,

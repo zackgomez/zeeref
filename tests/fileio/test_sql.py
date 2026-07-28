@@ -260,7 +260,7 @@ def test_sqliteio_write_calls_write_meta(tmpfile, scene):
 
 
 def test_sqliteio_write_inserts_new_text_item(tmpfile, scene):
-    item = ZeeTextItem(text="foo bar")
+    item = ZeeTextItem(text="foo bar", wrap=80)
     scene.addItem(item)
     item.setScale(1.3)
     item.setPos(44, 55)
@@ -281,7 +281,7 @@ def test_sqliteio_write_inserts_new_text_item(tmpfile, scene):
     assert result[3] == 1.3
     assert result[4] == 33
     assert result[5] == -1
-    assert json.loads(result[6]) == {"text": "foo bar"}
+    assert json.loads(result[6]) == {"text": "foo bar", "wrap": 80}
     assert result[7] == "text"
     assert result[8] is None
 
@@ -370,7 +370,7 @@ def test_sqliteio_write_inserts_new_pixmap_item_without_filename(tmpfile, scene,
 
 
 def test_sqliteio_write_updates_existing_text_item(tmpfile, scene):
-    item = ZeeTextItem(text="foo bar")
+    item = ZeeTextItem(text="foo bar", wrap=80)
     scene.addItem(item)
     item.setScale(1.3)
     item.setPos(44, 55)
@@ -400,7 +400,7 @@ def test_sqliteio_write_updates_existing_text_item(tmpfile, scene):
     assert result[3] == 0.7
     assert result[4] == 100
     assert result[5] == -1
-    assert json.loads(result[6]) == {"text": "updated"}
+    assert json.loads(result[6]) == {"text": "updated", "wrap": 80}
     assert result[7] is None
 
 

@@ -188,6 +188,17 @@ class ArrangeGapWidget(IntegerGroup):
     MAX = 200
 
 
+class TextWrapColsWidget(IntegerGroup):
+    TITLE = "Text Wrap Width:"
+    HELPTEXT = (
+        "Soft-wrap width for new text items, in columns of prose. "
+        "Narrower text keeps its own width. Set to 0 for no wrapping."
+    )
+    KEY = "Items/text_wrap_cols"
+    MIN = 0
+    MAX = 500
+
+
 class AllocationLimitWidget(IntegerGroup):
     TITLE = "Maximum Image Size:"
     HELPTEXT = (
@@ -283,6 +294,7 @@ class SettingsDialog(QtWidgets.QDialog):
         items_layout.addWidget(ArrangeGapWidget(), 1, 0)
         items_layout.addWidget(ArrangeDefaultWidget(), 1, 1)
         items_layout.addWidget(TileCacheSizeWidget(), 2, 0)
+        items_layout.addWidget(TextWrapColsWidget(), 2, 1)
         tabs.addTab(items, "&Images && Items")
 
         # Keyboard shortcuts

@@ -40,7 +40,7 @@ it before sending::
     Server: {"type": "ok"} | {"type": "error", "message": "..."}
 
     Client: {"type": "add_text", "payload": [{"text": "...", x?, y?, scale?,
-             rotation?, z?, flip?, opacity?}, ...]}
+             rotation?, z?, flip?, opacity?, wrap?}, ...]}
     Server: {"type": "ok"} | {"type": "error", "message": "..."}
 
     Client: {"type": "new", "force": false}
@@ -67,7 +67,8 @@ it before sending::
              "zoom": ..., "window": {x, y, width, height}}
 
     Client: {"type": "edit", "payload": [{"id": "...", x?, y?, scale?,
-             rotation?, z?, flip?, opacity?, title?, caption?, text?}, ...]}
+             rotation?, z?, flip?, opacity?, title?, caption?, text?,
+             wrap?}, ...]}
     Server: {"type": "ok"} | {"type": "error", "message": "..."}
 
     Client: {"type": "delete", "ids": ["...", ...]}
@@ -100,7 +101,7 @@ from zeeref.fileio.io import ImageInsert, TextInsert
 logger = logging.getLogger(__name__)
 
 
-PROTOCOL_VERSION = 7
+PROTOCOL_VERSION = 8
 
 
 # -- Messages --------------------------------------------------------------
@@ -447,6 +448,14 @@ def _parse_edit_entry(raw: object, index: int) -> dict | str:
             else:
                 return f"item {index}: '{field}' must be a string or null"
 
+    if "wrap" in d:
+        val, err = _coerce_number(d["wrap"], "wrap", index, int)
+        if err:
+            return err
+        if val is None or not (0 <= val <= 500):
+            return f"item {index}: 'wrap' must be in [0, 500]"
+        changes["wrap"] = int(val)
+
     return changes
 
 
@@ -488,14 +497,20 @@ def _parse_text_entry(raw: object, index: int) -> TextInsert | str:
     opacity_v, err = _f("opacity")
     if err:
         return err
+    wrap_v, err = _i("wrap")
+    if err:
+        return err
 
     if flip_v is not None and flip_v not in (-1, 1):
         return f"item {index}: 'flip' must be 1 or -1"
     if opacity_v is not None and not (0.0 <= opacity_v <= 1.0):
         return f"item {index}: 'opacity' must be in [0.0, 1.0]"
+    if wrap_v is not None and not (0 <= wrap_v <= 500):
+        return f"item {index}: 'wrap' must be in [0, 500]"
 
     return TextInsert(
         text=text,
+        wrap=wrap_v,
         x=x_v,
         y=y_v,
         scale=scale_v,

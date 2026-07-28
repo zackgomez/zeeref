@@ -386,6 +386,20 @@ class ZeeGraphicsScene(QtWidgets.QGraphicsScene):
             return self.selectedItems(user_only=True)[0].is_image
         return False
 
+    def selected_text_items(self) -> list[ZeeTextItem]:
+        """The text items in the current selection."""
+
+        return [
+            item
+            for item in self.selectedItems(user_only=True)
+            if isinstance(item, ZeeTextItem)
+        ]
+
+    def has_text_selection(self) -> bool:
+        """Checks whether the selection contains at least one text item."""
+
+        return bool(self.selected_text_items())
+
     def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent | None) -> None:
         assert event is not None
         if event.button() == Qt.MouseButton.RightButton:

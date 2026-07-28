@@ -450,6 +450,17 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         )
         widgets.ChangeOpacityDialog(self, images, self.undo_stack)
 
+    def on_action_cycle_text_wrap(self) -> None:
+        self.cancel_active_modes()
+        items = self.scene.selected_text_items()
+        if not items:
+            return
+        cols = items[0].next_wrap_cols()
+        self.undo_stack.push(commands.ChangeWrap(items, cols))
+        widgets.ZeeNotification(
+            self, f"Text wrap: {cols} columns" if cols else "Text wrap: off"
+        )
+
     def on_action_crop(self) -> None:
         self.scene.crop_items()
 
@@ -828,7 +839,7 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         self.scene.deselect_all_items()
         items: list[ZeeTextItem] = []
         for ins in inserts:
-            item = ZeeTextItem(ins.text)
+            item = ZeeTextItem(ins.text, wrap=ins.wrap)
             scale = ins.scale if ins.scale is not None else 1.0
             item.setScale(scale)
             if ins.rotation is not None:
@@ -1192,6 +1203,9 @@ class ZeeGraphicsView(MainControlsMixin, QtWidgets.QGraphicsView, ActionsMixin):
         )
         self.actiongroup_set_enabled(
             "active_when_single_image", self.scene.has_single_image_selection()
+        )
+        self.actiongroup_set_enabled(
+            "active_when_text_selection", self.scene.has_text_selection()
         )
 
         self.require_viewport().repaint()

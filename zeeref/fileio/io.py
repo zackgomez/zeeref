@@ -85,10 +85,13 @@ class ImageInsert:
 class TextInsert:
     """Markdown text item to be inserted via session IPC.
 
-    Transform field semantics match :class:`ImageInsert`.
+    Transform field semantics match :class:`ImageInsert`.  ``wrap`` is the
+    soft-wrap width in columns (0 for none); ``None`` uses the configured
+    default.
     """
 
     text: str
+    wrap: int | None = None
     x: float | None = None
     y: float | None = None
     scale: float | None = None

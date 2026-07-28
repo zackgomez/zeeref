@@ -76,6 +76,33 @@ def create_item_from_snapshot(snap: ItemSnapshot) -> ZeeItemMixin:
         return err
 
 
+# A proportional font has no single character width, so a wrap width given
+# in columns is calibrated against representative prose: 100 columns then
+# holds roughly 100 characters of ordinary text, like a 100-column terminal.
+WRAP_SAMPLE = (
+    "The quick brown fox jumps over the lazy dog while pangrams help "
+    "measure the average width of ordinary prose."
+)
+
+_prose_char_widths: dict[str, float] = {}
+
+
+def prose_char_width(font: QtGui.QFont) -> float:
+    """Mean advance of one character of ordinary prose in *font*."""
+    key = font.toString()
+    width = _prose_char_widths.get(key)
+    if width is None:
+        metrics = QtGui.QFontMetricsF(font)
+        width = metrics.horizontalAdvance(WRAP_SAMPLE) / len(WRAP_SAMPLE)
+        _prose_char_widths[key] = width
+    return width
+
+
+def default_wrap_cols() -> int:
+    """Configured wrap width in columns for newly created text items."""
+    return cast(int, ZeeSettings().valueOrDefault("Items/text_wrap_cols"))
+
+
 def sort_by_filename(items: list[ZeeItemMixin]) -> list[ZeeItemMixin]:
     """Order items by filename.
 
@@ -995,7 +1022,12 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         th { text-align: left; }
     """
 
-    def __init__(self, text: str | None = None, **kwargs: Any) -> None:
+    # Widths the "Cycle Text Wrap" action steps through, 0 being no wrapping.
+    WRAP_CYCLE: tuple[int, ...] = (0, 100, 80)
+
+    def __init__(
+        self, text: str | None = None, wrap: int | None = None, **kwargs: Any
+    ) -> None:
         super().__init__()
         self.save_id: str = uuid.uuid4().hex
         self.created_at: float = time.time()
@@ -1003,8 +1035,42 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         self.init_selectable()
         self.edit_mode: bool = False
         self._markdown: str = text or "Text"
+        self._wrap_cols: int = default_wrap_cols() if wrap is None else max(0, wrap)
         self._render_markdown()
         logger.debug(f"Initialized {self}")
+
+    @property
+    def wrap_cols(self) -> int:
+        """Soft-wrap width in columns of prose; 0 means no wrapping."""
+        return self._wrap_cols
+
+    def wrap_width(self) -> float | None:
+        """Wrap width in pixels, or None when this item doesn't wrap."""
+        if self._wrap_cols <= 0:
+            return None
+        doc = self.document()
+        assert doc is not None
+        return self._wrap_cols * prose_char_width(doc.defaultFont())
+
+    def _pin_text_width(self) -> None:
+        """Pin the item to its natural width, or to the wrap width.
+
+        Wrapping is a maximum, so content narrower than the limit keeps its
+        natural width. Once wrapped, re-pin to the wrapped layout's ideal
+        width so the box hugs the text instead of leaving ragged space.
+        """
+        doc = self.document()
+        assert doc is not None
+        # Measure unbounded so idealWidth() is the natural (unwrapped) width
+        # and not constrained by any previously pinned width.
+        self.setTextWidth(-1)
+        natural = doc.idealWidth()
+        limit = self.wrap_width()
+        if limit is not None and natural > limit:
+            self.setTextWidth(limit)
+            self.setTextWidth(doc.idealWidth())
+        else:
+            self.setTextWidth(natural)
 
     def _render_markdown(self) -> None:
         """Render stored markdown to HTML for display."""
@@ -1015,17 +1081,32 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         doc = self.document()
         assert doc is not None
         doc.setDefaultStyleSheet(css)
-        # Lay out unbounded first so idealWidth() is the natural (unwrapped) width
-        # and not constrained by any previously pinned width, then pin to it so
-        # block elements (e.g. <hr>) have a width to render into.
         self.setTextWidth(-1)
         self.setHtml(html)
-        self.setTextWidth(doc.idealWidth())
+        # Pin a width so block elements (e.g. <hr>) have one to render into.
+        self._pin_text_width()
 
     def set_markdown(self, text: str) -> None:
         """Set markdown source and re-render."""
         self._markdown = text
         self._render_markdown()
+
+    def set_wrap_cols(self, cols: int) -> None:
+        """Set the wrap width in columns (0 disables wrapping) and re-layout."""
+        self._wrap_cols = max(0, cols)
+        if self.edit_mode:
+            self._set_edit_width()
+        else:
+            self._pin_text_width()
+
+    def next_wrap_cols(self) -> int:
+        """The wrap width following the current one in ``WRAP_CYCLE``."""
+        try:
+            index = self.WRAP_CYCLE.index(self._wrap_cols)
+        except ValueError:
+            # A width set from the CLI that isn't in the cycle: unwrap first.
+            return self.WRAP_CYCLE[0]
+        return self.WRAP_CYCLE[(index + 1) % len(self.WRAP_CYCLE)]
 
     @classmethod
     def create_from_data(cls, **kwargs: Any) -> ZeeTextItem:
@@ -1035,8 +1116,12 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
 
     @classmethod
     def from_snapshot(cls, snap: ItemSnapshot) -> ZeeTextItem:
-        """Create a ZeeTextItem from a loaded snapshot."""
-        item = cls(snap.data.get("text"))
+        """Create a ZeeTextItem from a loaded snapshot.
+
+        Items saved before wrapping existed carry no ``wrap`` key and stay
+        unwrapped, so opening an old file doesn't re-flow its text.
+        """
+        item = cls(snap.data.get("text"), wrap=snap.data.get("wrap", 0))
         item.save_id = snap.save_id
         item.created_at = snap.created_at
         item.setPos(snap.x, snap.y)
@@ -1052,7 +1137,7 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         return f'Text "{txt}"'
 
     def get_extra_save_data(self) -> dict[str, Any]:
-        return {"text": self._markdown}
+        return {"text": self._markdown, "wrap": self._wrap_cols}
 
     def contains(self, point: QtCore.QPointF) -> bool:
         return self.boundingRect().contains(point)
@@ -1076,7 +1161,7 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
         self.paint_selectable(painter, option, widget)
 
     def create_copy(self) -> ZeeTextItem:
-        item = ZeeTextItem(self._markdown)
+        item = ZeeTextItem(self._markdown, wrap=self._wrap_cols)
         item.setPos(self.pos())
         item.setZValue(self.zValue())
         item.setScale(self.scale())
@@ -1085,13 +1170,22 @@ class ZeeTextItem(ZeeItemMixin, QtWidgets.QGraphicsTextItem):
             item.do_flip()
         return item
 
+    def _set_edit_width(self) -> None:
+        """Width for raw markdown editing.
+
+        Wrapped items keep their wrap width so the box doesn't jump when
+        entering edit mode; unwrapped items stay unbounded so the box grows
+        with whatever is typed.
+        """
+        limit = self.wrap_width()
+        self.setTextWidth(limit if limit is not None else -1)
+
     def enter_edit_mode(self) -> None:
         logger.debug(f"Entering edit mode on {self}")
         self.edit_mode = True
         self.old_text = self._markdown
-        # Drop the rendered-view width pin so raw markdown edits without wrapping.
-        self.setTextWidth(-1)
         self.setPlainText(self._markdown)
+        self._set_edit_width()
         self.setDefaultTextColor(QtGui.QColor(*COLORS["Scene:Text"]))
         self.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
         self.require_scene().edit_item = self

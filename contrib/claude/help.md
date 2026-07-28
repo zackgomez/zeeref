@@ -10,7 +10,13 @@ zeeref-cli new      SESSION [--force]              # fresh empty scene
 zeeref-cli open     SESSION PATH.zref [--force]    # load a .zref file
 zeeref-cli add      SESSION FILES...               # auto-spawns
 zeeref-cli add-text SESSION "markdown text"        # auto-spawns
+                    [--wrap COLS]
 ```
+
+Text items soft-wrap at a column width so long prose stays readable. The
+default comes from settings (100 columns); `--wrap 0` disables wrapping for
+that item. Wrapping is a *maximum* — text narrower than the limit keeps its
+own width, so tables and short notes are unaffected.
 
 `--force` discards an unsaved dirty scene.
 
@@ -37,14 +43,14 @@ zeeref-cli view  SESSION       # viewport state (center, zoom, geometry)
 zeeref-cli edit   SESSION ID  [--x ...] [--y ...] [--scale ...] \
                               [--rotation ...] [--z ...] [--flip ±1] \
                               [--opacity 0..1] [--title ...] \
-                              [--caption ...] [--text ...]
+                              [--caption ...] [--text ...] [--wrap COLS]
 
 zeeref-cli delete SESSION ID [ID...]
 
 zeeref-cli save   SESSION [PATH.zref] [--force]
 ```
 
-`edit` is additive: only fields you pass are touched. Empty string or `null` on `title`/`caption`/`text` clears that metadata. Use `--stdin` for batch edits (JSON array of `{id, ...fields}`).
+`edit` is additive: only fields you pass are touched. Empty string or `null` on `title`/`caption`/`text` clears that metadata. `wrap` takes an integer 0-500 (`null` is rejected). Use `--stdin` for batch edits (JSON array of `{id, ...fields}`).
 
 `save` writes the live scene to a `.zref`. Omit the path to overwrite the session's current file (`status.loaded_file`); pass a path to save-as, which then becomes the session's file. `--force` is required only to overwrite a *different* existing file.
 
@@ -59,7 +65,7 @@ zeeref-cli save   SESSION [PATH.zref] [--force]
   "z": 0.0, "flip": 1,
   "data": {
     "filename": "...", "title": "...", "caption": "...",
-    "opacity": 1.0, "text": "..."
+    "opacity": 1.0, "text": "...", "wrap": 100
   },
   "image_id": "...", "width": int, "height": int
 }

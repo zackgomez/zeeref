@@ -311,6 +311,8 @@ def _cmd_add(args: argparse.Namespace) -> None:
 
 def _build_add_text_payload(args: argparse.Namespace) -> list[dict]:
     overrides = _shared_transform_overrides(args)
+    if args.wrap is not None:
+        overrides["wrap"] = args.wrap
     if args.stdin:
         try:
             payload = json.loads(sys.stdin.read())
@@ -520,6 +522,9 @@ def _cmd_view(args: argparse.Namespace) -> None:
 
 _EDIT_METADATA_FIELDS: tuple[str, ...] = ("title", "caption", "text")
 
+# Edit flags that aren't transforms and aren't string metadata.
+_EDIT_EXTRA_FIELDS: tuple[str, ...] = ("wrap",)
+
 
 def _build_edit_payload(args: argparse.Namespace) -> list[dict]:
     if args.stdin:
@@ -538,7 +543,7 @@ def _build_edit_payload(args: argparse.Namespace) -> list[dict]:
         v = getattr(args, f, None)
         if v is not None:
             entry[f] = v
-    for f in _EDIT_METADATA_FIELDS:
+    for f in _EDIT_METADATA_FIELDS + _EDIT_EXTRA_FIELDS:
         v = getattr(args, f, None)
         if v is not None:
             entry[f] = v
@@ -709,6 +714,13 @@ def main() -> None:
     )
     add_text_p.add_argument("--opacity", type=float, default=None, help="0.0..1.0")
     add_text_p.add_argument(
+        "--wrap",
+        type=int,
+        default=None,
+        metavar="COLS",
+        help="Soft-wrap width in columns (0 for none; default from settings)",
+    )
+    add_text_p.add_argument(
         "--stdin",
         action="store_true",
         help="Read JSON payload array from stdin (each entry: {text, x?, y?, ...})",
@@ -812,6 +824,13 @@ def main() -> None:
     edit_p.add_argument("--title", default=None, help="Image title ('' to clear)")
     edit_p.add_argument("--caption", default=None, help="Image caption ('' to clear)")
     edit_p.add_argument("--text", default=None, help="Text item markdown ('' to clear)")
+    edit_p.add_argument(
+        "--wrap",
+        type=int,
+        default=None,
+        metavar="COLS",
+        help="Text item soft-wrap width in columns (0 for none)",
+    )
     edit_p.add_argument(
         "--stdin",
         action="store_true",

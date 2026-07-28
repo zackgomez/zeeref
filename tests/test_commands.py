@@ -501,6 +501,18 @@ def test_change_text():
     assert item._markdown == "foo"
 
 
+def test_change_wrap():
+    item1 = ZeeTextItem("foo", wrap=0)
+    item2 = ZeeTextItem("bar", wrap=80)
+    command = commands.ChangeWrap([item1, item2], 100)
+    command.redo()
+    assert item1.wrap_cols == 100
+    assert item2.wrap_cols == 100
+    command.undo()
+    assert item1.wrap_cols == 0
+    assert item2.wrap_cols == 80
+
+
 def test_change_opacity(scene):
     item1 = ZeePixmapItem(QtGui.QImage())
     item1.setOpacity(0.5)

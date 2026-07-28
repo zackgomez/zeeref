@@ -936,6 +936,29 @@ def test_parse_add_text_with_transforms():
     assert t.rotation == 90
 
 
+def test_parse_add_text_with_wrap():
+    result = parse_message(
+        json.dumps({"type": "add_text", "payload": [{"text": "hi", "wrap": 0}]})
+    )
+    assert isinstance(result, AddTextMessage)
+    assert result.texts[0].wrap == 0
+
+
+def test_parse_add_text_defaults_wrap_to_none():
+    result = parse_message(
+        json.dumps({"type": "add_text", "payload": [{"text": "hi"}]})
+    )
+    assert isinstance(result, AddTextMessage)
+    assert result.texts[0].wrap is None
+
+
+def test_parse_add_text_rejects_out_of_range_wrap():
+    result = parse_message(
+        json.dumps({"type": "add_text", "payload": [{"text": "hi", "wrap": -1}]})
+    )
+    assert isinstance(result, ErrorMessage)
+
+
 def test_parse_add_text_requires_text():
     result = parse_message(json.dumps({"type": "add_text", "payload": [{}]}))
     assert isinstance(result, ErrorMessage)
@@ -1085,6 +1108,21 @@ def test_parse_edit_clears_text_on_empty_string():
     )
     assert isinstance(result, EditMessage)
     assert result.edits[0]["text"] is None
+
+
+def test_parse_edit_sets_wrap():
+    result = parse_message(
+        json.dumps({"type": "edit", "payload": [{"id": "abc", "wrap": 0}]})
+    )
+    assert isinstance(result, EditMessage)
+    assert result.edits[0]["wrap"] == 0
+
+
+def test_parse_edit_rejects_null_wrap():
+    result = parse_message(
+        json.dumps({"type": "edit", "payload": [{"id": "abc", "wrap": None}]})
+    )
+    assert isinstance(result, ErrorMessage)
 
 
 def test_parse_edit_requires_id():

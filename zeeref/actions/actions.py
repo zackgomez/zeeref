@@ -294,6 +294,13 @@ actions = ActionList(
             group="active_when_single_image",
         ),
         Action(
+            id="cycle_text_wrap",
+            text="Cycle Text &Wrap",
+            shortcuts=["W"],
+            callback="on_action_cycle_text_wrap",
+            group="active_when_text_selection",
+        ),
+        Action(
             id="flip_horizontally",
             text="Flip &Horizontally",
             shortcuts=["H"],
